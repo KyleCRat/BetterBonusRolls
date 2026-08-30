@@ -27,6 +27,7 @@ local DEFAULTS = {
 local initializers = {}
 local eventCallbacks = {}
 local initialized = false
+local PRINT_PREFIX_COLOR_CODE = "|cff66e5ff"
 
 local function reportError(err)
     local handler = geterrorhandler and geterrorhandler()
@@ -54,7 +55,8 @@ local function dispatchCallbacks(callbacks, ...)
 end
 
 function NS:Print(message)
-    local text = self.displayName .. ": " .. tostring(message)
+    local text = PRINT_PREFIX_COLOR_CODE .. self.displayName .. ":|r "
+        .. tostring(message)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
         DEFAULT_CHAT_FRAME:AddMessage(text)
     else
