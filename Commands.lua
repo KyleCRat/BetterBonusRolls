@@ -12,6 +12,9 @@ local function printHelp()
     NS:Print("  /bbr enable - enable filtering and confirmations")
     NS:Print("  /bbr disable - restore untouched Blizzard behavior")
     NS:Print("  /bbr status - show addon and active-offer status")
+    if NS.Preview:IsEnabled() then
+        NS:Print("  /bbr preview - toggle the developer sidecar preview")
+    end
     NS:Print("  /bbr help - show these commands")
 end
 
@@ -36,6 +39,8 @@ local function handleCommand(message)
         end
     elseif command == "status" then
         NS:Print(NS.RollController:GetStatusText() .. ".")
+    elseif command == "preview" and NS.Preview:IsEnabled() then
+        NS.Preview:Toggle()
     elseif command == "help" then
         printHelp()
     else

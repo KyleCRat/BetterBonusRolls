@@ -70,6 +70,8 @@ git submodule update --init --recursive
 
 The release packager uses `.pkgmeta` externals and omits development tests. See [AGENTS.md](AGENTS.md) for invariants and validation commands.
 
+The sidecar preview is disabled for live use. To enable it while developing, set `ENABLE_DEV_PREVIEW` to `true` near the top of `Preview.lua`, reload the UI, and use `/bbr preview`. The command opens a separate visual-only frame with no Roll or Pass action. Keep the flag `false` in release builds.
+
 ## License
 
 BetterBonusRolls is available under the [MIT License](LICENSE). Embedded libraries retain their own licenses.

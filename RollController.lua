@@ -950,64 +950,64 @@ local function createButtonStateTexture(button, layer, atlas)
     return texture
 end
 
-local function createSwitchPanel()
-    switchPanel = CreateFrame(
+local function createLootSpecPanel(parent, anchor, clickHandler)
+    local panel = CreateFrame(
         "Frame",
         nil,
-        frame.PromptFrame,
+        parent,
         "TooltipBackdropTemplate"
     )
-    switchPanel:SetSize(LOOT_SPEC_PANEL_WIDTH, LOOT_SPEC_PANEL_HEIGHT)
-    switchPanel:SetPoint("LEFT", frame, "RIGHT", 6, 0)
-    switchPanel:SetFrameLevel(frame.PromptFrame:GetFrameLevel() + 10)
+    panel:SetSize(LOOT_SPEC_PANEL_WIDTH, LOOT_SPEC_PANEL_HEIGHT)
+    panel:SetPoint("LEFT", anchor, "RIGHT", 6, 0)
+    panel:SetFrameLevel(parent:GetFrameLevel() + 10)
 
-    local title = switchPanel:CreateFontString(
+    local title = panel:CreateFontString(
         nil,
         "OVERLAY",
         "GameFontNormalSmall"
     )
-    title:SetPoint("TOP", switchPanel, "TOP", 0, -8)
+    title:SetPoint("TOP", panel, "TOP", 0, -8)
     title:SetText("Loot Spec")
-    switchPanel.title = title
+    panel.title = title
 
-    switchButton = CreateFrame(
+    local button = CreateFrame(
         "Button",
         nil,
-        switchPanel
+        panel
     )
-    switchButton:SetSize(LOOT_SPEC_BUTTON_SIZE, LOOT_SPEC_BUTTON_SIZE)
-    switchButton:SetPoint("BOTTOM", switchPanel, "BOTTOM", 0, 7)
+    button:SetSize(LOOT_SPEC_BUTTON_SIZE, LOOT_SPEC_BUTTON_SIZE)
+    button:SetPoint("BOTTOM", panel, "BOTTOM", 0, 7)
 
     local normalTexture = createButtonStateTexture(
-        switchButton,
+        button,
         "BACKGROUND",
         "common-button-tertiary-square-normal"
     )
-    switchButton:SetNormalTexture(normalTexture)
+    button:SetNormalTexture(normalTexture)
 
     local pushedTexture = createButtonStateTexture(
-        switchButton,
+        button,
         "BACKGROUND",
         "common-button-tertiary-square-pressed"
     )
-    switchButton:SetPushedTexture(pushedTexture)
+    button:SetPushedTexture(pushedTexture)
 
     local highlightTexture = createButtonStateTexture(
-        switchButton,
+        button,
         "HIGHLIGHT",
         "common-button-tertiary-square-normal"
     )
     highlightTexture:SetBlendMode("ADD")
-    switchButton:SetHighlightTexture(highlightTexture)
+    button:SetHighlightTexture(highlightTexture)
 
-    local specIcon = switchButton:CreateTexture(nil, "ARTWORK")
+    local specIcon = button:CreateTexture(nil, "OVERLAY")
     specIcon:SetSize(LOOT_SPEC_ICON_SIZE, LOOT_SPEC_ICON_SIZE)
     specIcon:SetPoint("CENTER")
     specIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    switchButton.specIcon = specIcon
+    button.specIcon = specIcon
 
-    switchButton:SetScript("OnClick", handleSwitchButtonClick)
-    switchButton:SetScript("OnEnter", function(self)
+    button:SetScript("OnClick", clickHandler)
+    button:SetScript("OnEnter", function(self)
         local specID = self.configuredSpecID
         if not specID then
             return
@@ -1024,9 +1024,23 @@ local function createSwitchPanel()
         )
         GameTooltip:Show()
     end)
-    switchButton:SetScript("OnLeave", GameTooltip_Hide)
-    switchButton:Hide()
-    switchPanel:Hide()
+    button:SetScript("OnLeave", GameTooltip_Hide)
+    button:Hide()
+    panel:Hide()
+
+    return panel, button
+end
+
+function Controller:CreateLootSpecPanel(parent, anchor, clickHandler)
+    return createLootSpecPanel(parent, anchor, clickHandler)
+end
+
+local function createSwitchPanel()
+    switchPanel, switchButton = createLootSpecPanel(
+        frame.PromptFrame,
+        frame,
+        handleSwitchButtonClick
+    )
 end
 
 local function install()

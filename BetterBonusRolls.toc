@@ -21,6 +21,7 @@ Libs\LibModernSettings\embed.xml
 Core.lua
 Catalog.lua
 RollController.lua
+Preview.lua
 Settings.lua
 Launcher.lua
 Commands.lua
