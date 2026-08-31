@@ -46,13 +46,13 @@ Use the checkbox at the left of a row to enable or disable it. Missing rules den
 
 ## Commands
 
-- `/bbr` or `/bbr config` - open settings.
-- `/bbr show` - restore a hidden active offer.
-- `/bbr hide` - hide the visible offer without declining it.
-- `/bbr enable` - enable the addon for this character.
-- `/bbr disable` - disable the addon and restore native Blizzard button scripts.
-- `/bbr status` - report addon and active-offer status.
-- `/bbr help` - show command help.
+- `/bbr` or `/bbr settings` (`s`, `config`, `c`) - open settings.
+- `/bbr show` (`sh`) - restore a hidden active offer.
+- `/bbr hide` (`h`) - hide the visible offer without declining it.
+- `/bbr enable` (`e`) - enable the addon for this character.
+- `/bbr disable` (`d`) - disable the addon and restore native Blizzard button scripts.
+- `/bbr status` (`st`) - report addon and active-offer status.
+- `/bbr help` (`?`) - show command help.
 
 ## Scope and compatibility
 
@@ -70,7 +70,7 @@ git submodule update --init --recursive
 
 The release packager uses `.pkgmeta` externals and omits development tests. See [AGENTS.md](AGENTS.md) for invariants and validation commands.
 
-The sidecar preview is disabled for live use. To enable it while developing, set `ENABLE_DEV_PREVIEW` to `true` near the top of `Preview.lua`, reload the UI, and use `/bbr preview`. The command opens a separate visual-only frame with no Roll or Pass action. Keep the flag `false` in release builds.
+The sidecar preview is disabled for live use. To enable it while developing, set `ENABLE_DEV_PREVIEW` to `true` near the top of `Preview.lua`, reload the UI, and use `/bbr preview` or `/bbr p`. The command opens a separate visual-only frame with no Roll or Pass action. Keep the flag `false` in release builds.
 
 ## License
 
