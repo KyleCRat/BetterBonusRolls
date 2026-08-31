@@ -8,6 +8,7 @@ local installed = false
 local frame
 local rollButton
 local passButton
+local switchPanel
 local switchButton
 local nativeRollOnClick
 local nativePassOnClick
@@ -21,6 +22,12 @@ local timedOutSpellID
 local unsafeHidden = false
 local confirmationReference = {}
 local challengeState = {}
+
+local LOOT_SPEC_PANEL_WIDTH = 64
+local LOOT_SPEC_PANEL_HEIGHT = 76
+local LOOT_SPEC_BUTTON_SIZE = 34
+local LOOT_SPEC_ICON_SIZE = 22
+local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local delveState = {}
 
 local SNAPSHOT_KEYS = {
@@ -696,14 +703,16 @@ local function disarm(hidePopup, reenableButton)
     end
 end
 
-local function refreshSwitchButton(resolved)
-    if not switchButton then
+local function refreshSwitchPanel(resolved)
+    if not switchPanel then
         return
     end
 
+    switchPanel:Hide()
     switchButton:Hide()
     switchButton.configuredSpecID = nil
     switchButton.configuredLootSpecID = nil
+    switchButton.specIcon:SetTexture(nil)
 
     if not runtimeEnabled
         or not currentOffer
@@ -728,8 +737,11 @@ local function refreshSwitchButton(resolved)
 
     switchButton.configuredSpecID = spec.id
     switchButton.configuredLootSpecID = resolved.desiredLootSpecID
-    switchButton:SetText("Switch to " .. spec.name)
+    local icon = NS:IsPublicPositiveInteger(spec.icon)
+        and spec.icon or UNKNOWN_SPEC_ICON
+    switchButton.specIcon:SetTexture(icon)
     switchButton:Show()
+    switchPanel:Show()
 end
 
 local function hideCurrentOffer(reason, resolved)
@@ -738,7 +750,7 @@ local function hideCurrentOffer(reason, resolved)
     end
 
     disarm(true, false)
-    refreshSwitchButton(nil)
+    refreshSwitchPanel(nil)
 
     resolved = resolved or resolveOffer(currentOffer.raw)
     local sourceName = resolved and resolved.sourceName or "unknown source"
@@ -923,24 +935,77 @@ local function handleSwitchButtonClick(self)
         or self.configuredLootSpecID ~= desiredLootSpecID
         or snapshot.currentSpecID == desiredSpecID
     then
-        refreshSwitchButton(snapshot)
+        refreshSwitchPanel(snapshot)
         return
     end
 
     SetLootSpecialization(desiredLootSpecID)
-    refreshSwitchButton(currentSnapshot())
+    refreshSwitchPanel(currentSnapshot())
 end
 
-local function createSwitchButton()
+local function createButtonStateTexture(button, layer, atlas)
+    local texture = button:CreateTexture(nil, layer)
+    texture:SetAllPoints(button)
+    texture:SetAtlas(atlas, false)
+    return texture
+end
+
+local function createSwitchPanel()
+    switchPanel = CreateFrame(
+        "Frame",
+        nil,
+        frame.PromptFrame,
+        "TooltipBackdropTemplate"
+    )
+    switchPanel:SetSize(LOOT_SPEC_PANEL_WIDTH, LOOT_SPEC_PANEL_HEIGHT)
+    switchPanel:SetPoint("LEFT", frame, "RIGHT", 6, 0)
+    switchPanel:SetFrameLevel(frame.PromptFrame:GetFrameLevel() + 10)
+
+    local title = switchPanel:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontNormalSmall"
+    )
+    title:SetPoint("TOP", switchPanel, "TOP", 0, -8)
+    title:SetText("Loot Spec")
+    switchPanel.title = title
+
     switchButton = CreateFrame(
         "Button",
         nil,
-        frame.PromptFrame,
-        "UIPanelButtonTemplate"
+        switchPanel
     )
-    switchButton:SetSize(160, 24)
-    switchButton:SetPoint("LEFT", frame, "RIGHT", 6, 0)
-    switchButton:SetFrameLevel(frame.PromptFrame:GetFrameLevel() + 10)
+    switchButton:SetSize(LOOT_SPEC_BUTTON_SIZE, LOOT_SPEC_BUTTON_SIZE)
+    switchButton:SetPoint("BOTTOM", switchPanel, "BOTTOM", 0, 7)
+
+    local normalTexture = createButtonStateTexture(
+        switchButton,
+        "BACKGROUND",
+        "common-button-tertiary-square-normal"
+    )
+    switchButton:SetNormalTexture(normalTexture)
+
+    local pushedTexture = createButtonStateTexture(
+        switchButton,
+        "BACKGROUND",
+        "common-button-tertiary-square-pressed"
+    )
+    switchButton:SetPushedTexture(pushedTexture)
+
+    local highlightTexture = createButtonStateTexture(
+        switchButton,
+        "HIGHLIGHT",
+        "common-button-tertiary-square-normal"
+    )
+    highlightTexture:SetBlendMode("ADD")
+    switchButton:SetHighlightTexture(highlightTexture)
+
+    local specIcon = switchButton:CreateTexture(nil, "ARTWORK")
+    specIcon:SetSize(LOOT_SPEC_ICON_SIZE, LOOT_SPEC_ICON_SIZE)
+    specIcon:SetPoint("CENTER")
+    specIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    switchButton.specIcon = specIcon
+
     switchButton:SetScript("OnClick", handleSwitchButtonClick)
     switchButton:SetScript("OnEnter", function(self)
         local specID = self.configuredSpecID
@@ -948,13 +1013,20 @@ local function createSwitchButton()
             return
         end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Set Loot Specialization to "
+        GameTooltip:SetText("Change Loot Specialization to "
             .. NS.Catalog:GetSpecName(specID) .. ".")
-        GameTooltip:AddLine("This does not spend the bonus roll.", 1, 1, 1, true)
+        GameTooltip:AddLine(
+            "This button only changes your loot specialization. It does not use the bonus roll.",
+            1,
+            1,
+            1,
+            true
+        )
         GameTooltip:Show()
     end)
     switchButton:SetScript("OnLeave", GameTooltip_Hide)
     switchButton:Hide()
+    switchPanel:Hide()
 end
 
 local function install()
@@ -988,11 +1060,11 @@ local function install()
         return false
     end
 
-    createSwitchButton()
+    createSwitchPanel()
     frame:HookScript("OnHide", function()
         if runtimeEnabled then
             disarm(true, false)
-            refreshSwitchButton(nil)
+            refreshSwitchPanel(nil)
         end
     end)
     hooksecurefunc("BonusRollFrame_StartBonusRoll", function()
@@ -1104,7 +1176,7 @@ function Controller:OnOfferStarted()
     end
 
     currentOffer.hidden = false
-    refreshSwitchButton(resolved)
+    refreshSwitchPanel(resolved)
 end
 
 function Controller:SetEnabled(enabled)
@@ -1131,7 +1203,7 @@ function Controller:SetEnabled(enabled)
 
     runtimeEnabled = false
     disarm(true, false)
-    refreshSwitchButton(nil)
+    refreshSwitchPanel(nil)
     restoreScripts()
 
     if shouldRestore and frame and not frame:IsShown() then
@@ -1165,7 +1237,7 @@ function Controller:OnConfigurationChanged()
             resolved
         )
     else
-        refreshSwitchButton(resolved)
+        refreshSwitchPanel(resolved)
     end
 end
 
@@ -1188,7 +1260,7 @@ function Controller:ShowCurrent()
     if not bonusRollActivated then
         rollButton:Disable()
     end
-    refreshSwitchButton(resolveOffer(currentOffer.raw))
+    refreshSwitchPanel(resolveOffer(currentOffer.raw))
     return true
 end
 
@@ -1229,7 +1301,7 @@ local function handleLootSpecUpdate(event, unit)
     end
 
     disarm(true, true)
-    refreshSwitchButton(currentSnapshot())
+    refreshSwitchPanel(currentSnapshot())
 end
 
 local function handleTimeout(_, spellID, confirmationType)
@@ -1256,14 +1328,14 @@ local function handleTimeout(_, spellID, confirmationType)
     end
 
     disarm(true, false)
-    refreshSwitchButton(nil)
+    refreshSwitchPanel(nil)
     currentOffer.hidden = false
     NS:Print("Bonus roll expired without being used and can no longer be restored.")
 end
 
 local function handleBonusRollStarted()
     disarm(true, false)
-    refreshSwitchButton(nil)
+    refreshSwitchPanel(nil)
     if currentOffer then
         currentOffer.hidden = false
     end

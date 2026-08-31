@@ -20,6 +20,40 @@ local function assertContains(text, expected, message)
     end
 end
 
+local function makeRegion()
+    local region = {}
+
+    function region:SetAllPoints()
+    end
+
+    function region:SetAtlas(atlas)
+        self.atlas = atlas
+    end
+
+    function region:SetBlendMode(blendMode)
+        self.blendMode = blendMode
+    end
+
+    function region:SetPoint()
+    end
+
+    function region:SetSize()
+    end
+
+    function region:SetTexCoord()
+    end
+
+    function region:SetText(text)
+        self.text = text
+    end
+
+    function region:SetTexture(texture)
+        self.texture = texture
+    end
+
+    return region
+end
+
 local function makeButton()
     local button = {
         scripts = {},
@@ -54,6 +88,28 @@ local function makeButton()
     end
 
     function button:SetFrameLevel()
+    end
+
+    function button:CreateFontString()
+        local region = makeRegion()
+        self.fontString = region
+        return region
+    end
+
+    function button:CreateTexture()
+        return makeRegion()
+    end
+
+    function button:SetHighlightTexture(texture)
+        self.highlightTexture = texture
+    end
+
+    function button:SetNormalTexture(texture)
+        self.normalTexture = texture
+    end
+
+    function button:SetPushedTexture(texture)
+        self.pushedTexture = texture
     end
 
     function button:SetText(text)
@@ -155,9 +211,21 @@ local function buildHarness(options)
     hooksecurefunc = function(_, callback)
         harness.startHook = callback
     end
-    CreateFrame = function(frameType, _, _, template)
-        assertEqual(frameType, "Button", "switch frame type")
-        assertEqual(template, "UIPanelButtonTemplate", "switch template")
+    CreateFrame = function(frameType, _, parent, template)
+        if frameType == "Frame" then
+            assertEqual(parent, prompt, "switch panel parent")
+            assertEqual(
+                template,
+                "TooltipBackdropTemplate",
+                "switch panel template"
+            )
+            harness.switchPanel = makeButton()
+            return harness.switchPanel
+        end
+
+        assertEqual(frameType, "Button", "switch button frame type")
+        assertEqual(parent, harness.switchPanel, "switch button parent")
+        assertEqual(template, nil, "switch button template")
         harness.switchButton = makeButton()
         return harness.switchButton
     end
@@ -236,8 +304,8 @@ local function buildHarness(options)
                 DELVE = 208,
             },
             specByID = {
-                [1] = { id = 1, name = "Restoration" },
-                [2] = { id = 2, name = "Elemental" },
+                [1] = { id = 1, name = "Restoration", icon = 136052 },
+                [2] = { id = 2, name = "Elemental", icon = 136048 },
             },
             raidByInstance = {
                 [100] = {
@@ -575,15 +643,20 @@ test("disable disarms and restores native scripts", function()
     assertEqual(harness.nativeRolls, 1, "disabled mode restores native Roll")
 end)
 
-test("wrong-spec switch changes only loot specialization", function()
+test("wrong-spec sidecar changes only loot specialization", function()
     local harness = buildHarness({ currentSpecID = 2, raidRule = 1 })
-    assertEqual(harness.switchButton.shown, true, "switch button is visible")
-    assertEqual(harness.switchButton.text, "Switch to Restoration", "switch label")
+    assertEqual(harness.switchPanel.shown, true, "loot-spec sidecar is visible")
+    assertEqual(
+        harness.switchButton.specIcon.texture,
+        136052,
+        "configured loot-spec icon"
+    )
 
     harness.switchButton:GetScript("OnClick")(harness.switchButton)
     assertEqual(harness.lootSpecChanges, 1, "switch changes loot spec")
     assertEqual(harness.nativeRolls, 0, "switch never rolls")
     assertEqual(harness.nativePasses, 0, "switch never passes")
+    assertEqual(harness.switchPanel.shown, false, "correct-spec sidecar is hidden")
 end)
 
 test("Current Spec rules use Blizzard's default loot-spec selection", function()
@@ -593,7 +666,7 @@ test("Current Spec rules use Blizzard's default loot-spec selection", function()
         raidRule = 0,
     })
 
-    assertEqual(harness.switchButton.shown, true, "current-spec switch is visible")
+    assertEqual(harness.switchPanel.shown, true, "current-spec sidecar is visible")
     harness.switchButton:GetScript("OnClick")(harness.switchButton)
 
     assertEqual(harness.lastLootSpecSelection, 0, "switch selects Current Spec")
@@ -629,4 +702,3 @@ test("unconfigured offer hides but can be manually confirmed", function()
 end)
 
 io.write("\n", testsRun, " critical bonus-roll tests passed\n")
-

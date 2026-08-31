@@ -7,7 +7,7 @@ The addon is disabled by default. Enable it per character in **Options > AddOns 
 ## Features
 
 - Every click on Blizzard's Roll button opens a second confirmation, even when the configured loot specialization is already active.
-- A configured offer in the wrong loot specialization remains visible and gains a **Switch to <Spec>** button. The button changes loot specialization only; it never spends a roll.
+- A configured offer in the wrong loot specialization remains visible and gains a compact **Loot Spec** sidecar showing the configured specialization icon. The sidecar disappears when the correct specialization is active; clicking its icon changes loot specialization only and never spends a roll.
 - Clicking Blizzard's No button hides the offer without declining it. `/bbr show` restores it while the server offer remains active.
 - Unconfigured offers are hidden by default while the addon is enabled.
 - Every raid, Lair, dungeon, and outdoor-content rule has its own enable checkbox. Enabling a row selects `Current Spec (<name>)`; the dropdown then offers that dynamic choice followed by every direct class specialization. Disabling the row greys it and shows `Bonus roll disabled` in the locked dropdown.
