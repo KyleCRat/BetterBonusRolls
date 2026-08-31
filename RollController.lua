@@ -967,7 +967,8 @@ local function createLootSpecPanel(parent, anchor, clickHandler)
         "GameFontNormalSmall"
     )
     title:SetPoint("TOP", panel, "TOP", 0, -8)
-    title:SetText("Loot Spec")
+    title:SetJustifyH("CENTER")
+    title:SetText("Change\nLoot Spec")
     panel.title = title
 
     local button = CreateFrame(

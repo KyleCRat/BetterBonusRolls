@@ -37,6 +37,10 @@ local function makeRegion()
     function region:SetPoint()
     end
 
+    function region:SetJustifyH(justification)
+        self.justification = justification
+    end
+
     function region:SetSize()
     end
 
