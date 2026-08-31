@@ -17,6 +17,7 @@ The addon is disabled by default. Enable it per character in **Options > AddOns 
 - Current-season World Bosses are configured individually by encounter. Nightmare Prey has its own fallback rule even though Blizzard reports both through the World Boss bonus-roll difficulty bucket.
 - Raid, Lair, World Boss, encounter, difficulty, and dungeon lists are discovered from the current client instead of hard-coding a season. This includes raid-like Lair instances such as Tidebound Grotto when the Encounter Journal exposes their World/Normal/Heroic/Mythic variants.
 - Settings are stored per character through LibSimpleDB.
+- A draggable minimap button and the native AddOn Compartment entry use the addon icon and open settings only. Minimap visibility and position are stored per character, and `/bbr` remains available if the button is hidden.
 
 ## Safety contract
 
@@ -35,7 +36,7 @@ BetterBonusRolls intentionally has no roll command, decline command, test-spend 
 
 ## Configuration
 
-The main settings page contains the character-specific master switch and safety summary. Subcategories include:
+The main settings page contains the character-specific master switch, minimap-button visibility, and safety summary. Subcategories include:
 
 - **Current Season Dungeons** - enable, minimum difficulty, and desired loot specialization per challenge map.
 - **Outdoor Content** - one global Bountiful Delves row, one row per current-season World Boss, and a separate Nightmare Prey row.
@@ -61,7 +62,7 @@ BonusRollConfirm and BonusRollGate modify the same Blizzard controls. If either 
 
 ## Development
 
-LibModernSettings `1.5.0` and LibSimpleDB `2.0.0` are pinned git submodules. Clone with submodules initialized, or run:
+LibModernSettings `1.5.0` and LibSimpleDB `2.0.0` are pinned git submodules. LibDBIcon `12.0.3`, LibDataBroker, and CallbackHandler are vendored for the minimap launcher. Clone with submodules initialized, or run:
 
 ```text
 git submodule update --init --recursive

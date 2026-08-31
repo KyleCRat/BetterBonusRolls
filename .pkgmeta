@@ -19,6 +19,7 @@ ignore:
   - .git
   - AGENTS.md
   - PLAN.md
+  - ICON.png
   - tests
   - "Libs/LibModernSettings/tests"
   - "Libs/LibSimpleDB/benchmarks"

@@ -169,6 +169,15 @@ local function buildGeneralPage(page)
     })
     SettingsUI.enabledControl = enabledControl
 
+    SettingsUI.minimapControl = root:AddControl("checkbox", {
+        label = "Show minimap button",
+        value = NS.Launcher:IsMinimapShown(),
+        tooltip = "Show the draggable BetterBonusRolls minimap button. It only opens settings; the AddOn Compartment entry and /bbr remain available when hidden.",
+        onChanged = function(value)
+            NS.Launcher:SetMinimapShown(value)
+        end,
+    })
+
     root:AddSection("Safety behavior")
     root:AddText({
         text = "Clicking Blizzard's No button hides the active offer without declining it. Use /bbr show while the server offer is still active. Clicking Blizzard's Roll button always opens a confirmation; no slash command can roll or decline.",
@@ -757,6 +766,9 @@ end
 function SettingsUI:RefreshGeneralControls()
     if self.enabledControl then
         self.enabledControl:SetValue(NS.DB:Get("enabled"))
+    end
+    if self.minimapControl then
+        self.minimapControl:SetValue(NS.Launcher:IsMinimapShown())
     end
 end
 

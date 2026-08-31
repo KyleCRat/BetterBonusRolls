@@ -19,6 +19,10 @@ NS.RuleLimits = {
 local DEFAULTS = {
     schema = CURRENT_SCHEMA,
     enabled = false,
+    minimap = {
+        hide = false,
+        minimapPos = 225,
+    },
     raidRules = {},
     dungeonRules = {},
     contentRules = {},
@@ -264,6 +268,32 @@ local function normalizeWorldBossRules(contentRules)
     end
 end
 
+local function normalizeMinimapSettings(data)
+    if data.minimap == nil then
+        return
+    end
+    if type(data.minimap) ~= "table" then
+        data.minimap = nil
+        return
+    end
+
+    if data.minimap.hide ~= nil
+        and type(data.minimap.hide) ~= "boolean"
+    then
+        data.minimap.hide = nil
+    end
+
+    local minimapPos = data.minimap.minimapPos
+    if minimapPos ~= nil
+        and (type(minimapPos) ~= "number"
+            or minimapPos ~= minimapPos
+            or minimapPos < 0
+            or minimapPos >= 360)
+    then
+        data.minimap.minimapPos = nil
+    end
+end
+
 local function normalizeDatabase(data)
     if type(data.schema) ~= "number"
         or data.schema % 1 ~= 0
@@ -285,6 +315,7 @@ local function normalizeDatabase(data)
     if data.enabled ~= nil and type(data.enabled) ~= "boolean" then
         data.enabled = nil
     end
+    normalizeMinimapSettings(data)
     if type(data.raidRules) ~= "table" then
         data.raidRules = {}
     end

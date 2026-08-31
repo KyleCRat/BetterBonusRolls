@@ -1,6 +1,8 @@
 ## Interface: 120100
 ## Title: BetterBonusRolls
 ## Notes: Safely filters bonus-roll offers and confirms every roll.
+## IconTexture: Interface\AddOns\BetterBonusRolls\ICON.tga
+## AddonCompartmentFunc: BetterBonusRolls_OnAddonCompartmentClick
 ## Author: Yvairel
 ## Version: 12.1.0-1
 ## SavedVariablesPerCharacter: BetterBonusRollsDB
@@ -10,6 +12,9 @@
 ## X-License: MIT
 
 Libs\LibStub\LibStub.lua
+Libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua
 Libs\LibSimpleDB\embed.xml
 Libs\LibModernSettings\embed.xml
 
@@ -17,4 +22,5 @@ Core.lua
 Catalog.lua
 RollController.lua
 Settings.lua
+Launcher.lua
 Commands.lua
