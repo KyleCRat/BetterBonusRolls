@@ -183,6 +183,47 @@ local function isIntegerInRange(value, limits)
         and value <= limits.maximum
 end
 
+local function isOptionalPositiveInteger(value)
+    return value == nil or isPositiveInteger(value)
+end
+
+local function isOptionalNonNegativeInteger(value)
+    return value == nil
+        or (type(value) == "number" and value >= 0 and value % 1 == 0)
+end
+
+local function normalizeChallengeRun(data)
+    local run = data.challengeRun
+    if run == nil then
+        return
+    end
+    if type(run) ~= "table"
+        or not isPositiveInteger(run.mapID)
+        or not isPositiveInteger(run.level)
+        or not isPositiveInteger(run.recordedAt)
+        or not isOptionalPositiveInteger(run.gameMapID)
+        or not isOptionalPositiveInteger(run.journalInstanceID)
+    then
+        data.challengeRun = nil
+        return
+    end
+
+    local offer = run.offer
+    if offer == nil then
+        return
+    end
+    if type(offer) ~= "table"
+        or not isPositiveInteger(offer.spellID)
+        or type(offer.endTime) ~= "number"
+        or offer.endTime <= 0
+        or not isOptionalNonNegativeInteger(offer.instanceID)
+        or not isOptionalNonNegativeInteger(offer.encounterID)
+        or not isPositiveInteger(offer.difficultyID)
+    then
+        run.offer = nil
+    end
+end
+
 local function getLegacyDungeonMinimum(data)
     local mythicPlus = data.mythicPlus
     if type(mythicPlus) == "table"
@@ -332,6 +373,7 @@ local function normalizeDatabase(data)
         false
     )
     normalizeWorldBossRules(data.contentRules)
+    normalizeChallengeRun(data)
 end
 
 local function initializeDatabase()

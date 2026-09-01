@@ -20,6 +20,18 @@ local function assertContains(text, expected, message)
     end
 end
 
+local function copyValue(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local copy = {}
+    for key, child in pairs(value) do
+        copy[copyValue(key)] = copyValue(child)
+    end
+    return copy
+end
+
 local function makeRegion()
     local region = {}
 
@@ -152,7 +164,10 @@ local function buildHarness(options)
         worldRule = options.worldRule,
         delveTier = options.delveTier,
         challengeMapID = options.challengeMapID or 300,
+        activeChallengeMapID = options.activeChallengeMapID,
+        completionChallengeMapID = options.completionChallengeMapID,
         challengeLevel = options.challengeLevel or 10,
+        challengeRun = copyValue(options.challengeRun),
         messages = {},
         events = {},
         initializers = {},
@@ -160,6 +175,12 @@ local function buildHarness(options)
     }
     if options.raidRule == nil and not options.unconfigured then
         harness.raidRule = 1
+    end
+    if harness.activeChallengeMapID == nil then
+        harness.activeChallengeMapID = harness.challengeMapID
+    end
+    if harness.completionChallengeMapID == nil then
+        harness.completionChallengeMapID = harness.challengeMapID
     end
 
     local roll = makeButton()
@@ -175,7 +196,7 @@ local function buildHarness(options)
     local bonusFrame = {
         state = "prompt",
         spellID = 500,
-        endTime = 1100,
+        endTime = options.endTime or 1100,
         instanceID = options.instanceID == nil and 100 or options.instanceID,
         encounterID = options.encounterID == nil and 200
             or options.encounterID,
@@ -241,12 +262,12 @@ local function buildHarness(options)
     C_ChallengeMode = {
         GetChallengeCompletionInfo = function()
             return {
-                mapChallengeModeID = harness.challengeMapID,
+                mapChallengeModeID = harness.completionChallengeMapID,
                 level = harness.challengeLevel,
             }
         end,
         GetActiveChallengeMapID = function()
-            return harness.challengeMapID
+            return harness.activeChallengeMapID
         end,
         GetActiveKeystoneInfo = function()
             return harness.challengeLevel, {}
@@ -335,6 +356,7 @@ local function buildHarness(options)
                 [300] = {
                     id = 300,
                     name = "Test Dungeon",
+                    gameMapID = 900,
                     journalInstanceID = 100,
                 },
             },
@@ -343,6 +365,7 @@ local function buildHarness(options)
                     {
                         id = 300,
                         name = "Test Dungeon",
+                        gameMapID = 900,
                         journalInstanceID = 100,
                     },
                 },
@@ -446,12 +469,19 @@ local function buildHarness(options)
             return harness.worldRule and harness.worldRule[third]
         elseif first == "enabled" then
             return harness.databaseEnabled
+        elseif first == "challengeRun" then
+            return harness.challengeRun
         end
         return nil
+    end
+    function NS.DB:GetCopy(first)
+        return copyValue(self:Get(first))
     end
     function NS.DB:Set(first, value)
         if first == "enabled" then
             harness.databaseEnabled = value
+        elseif first == "challengeRun" then
+            harness.challengeRun = copyValue(value)
         end
     end
 
@@ -612,7 +642,14 @@ test("No hides without invoking native Pass", function()
 end)
 
 test("timeout disarms and prevents restoration", function()
-    local harness = buildHarness()
+    local harness = buildHarness({
+        completionChallengeMapID = 0,
+        difficultyID = 8,
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
     clickRoll(harness)
     local staleCallback = harness.popup.callback
     harness.events.SPELL_CONFIRMATION_TIMEOUT(
@@ -623,6 +660,7 @@ test("timeout disarms and prevents restoration", function()
     staleCallback()
 
     assertEqual(harness.nativeRolls, 0, "timeout invalidates token")
+    assertEqual(harness.challengeRun, nil, "timeout clears persisted run")
     assertEqual(
         harness.NS.RollController:ShowCurrent(),
         false,
@@ -691,6 +729,118 @@ test("wrong-spec confirmation requires Roll Anyway", function()
     )
     acceptPopup(harness)
     assertEqual(harness.nativeRolls, 1, "explicit Roll Anyway can roll")
+end)
+
+test("challenge start replaces and persists one atomic run", function()
+    local harness = buildHarness({
+        challengeRun = {
+            mapID = 999,
+            level = 4,
+            recordedAt = 900,
+            offer = {
+                spellID = 499,
+                endTime = 1050,
+                instanceID = 999,
+                encounterID = 0,
+                difficultyID = 8,
+            },
+        },
+    })
+
+    harness.activeChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+
+    assertEqual(harness.challengeRun.mapID, 300, "start stores challenge map")
+    assertEqual(harness.challengeRun.level, 10, "start stores key level")
+    assertEqual(harness.challengeRun.gameMapID, 900, "start stores game map")
+    assertEqual(
+        harness.challengeRun.journalInstanceID,
+        100,
+        "start stores journal instance"
+    )
+    assertEqual(harness.challengeRun.offer, nil, "new start removes old offer")
+    assertEqual(harness.nativeRolls, 0, "challenge start never rolls")
+
+    harness.activeChallengeMapID = 301
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    assertEqual(harness.challengeRun, nil, "conflicting start maps fail closed")
+end)
+
+test("Mythic+ offer survives reload using its persisted run", function()
+    local first = buildHarness({
+        completionChallengeMapID = 0,
+        challengeLevel = 10,
+        difficultyID = 8,
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+
+    assertEqual(first.frame.shown, true, "initial +10 offer is shown")
+    assertEqual(first.challengeRun.mapID, 300, "run map persisted")
+    assertEqual(first.challengeRun.level, 10, "run level persisted")
+    assertEqual(
+        first.challengeRun.offer.spellID,
+        first.frame.spellID,
+        "run is bound to the active offer"
+    )
+
+    local reloaded = buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+        challengeLevel = 10,
+        difficultyID = 8,
+        endTime = 1103,
+        challengeRun = first.challengeRun,
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+
+    assertEqual(reloaded.frame.shown, true, "reloaded +10 offer remains shown")
+    assertContains(
+        reloaded.NS.RollController:GetStatusText(),
+        "+10 Test Dungeon is shown",
+        "persisted run restores map and level"
+    )
+    assertEqual(
+        reloaded.challengeRun.offer.endTime,
+        reloaded.frame.endTime,
+        "reload refreshes the reconstructed expiration"
+    )
+    assertEqual(reloaded.nativeRolls, 0, "reload never rolls automatically")
+
+    clickRoll(reloaded)
+    assertEqual(reloaded.nativeRolls, 0, "reload still requires confirmation")
+    acceptPopup(reloaded)
+    assertEqual(reloaded.nativeRolls, 1, "confirmed reload can invoke native Roll")
+
+    reloaded.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
+    assertEqual(reloaded.challengeRun, nil, "used offer clears persisted run")
+end)
+
+test("Mythic+ resolver never combines partial challenge data", function()
+    local harness = buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+        challengeLevel = 10,
+        difficultyID = 8,
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+
+    assertEqual(harness.frame.shown, false, "unverified key level hides offer")
+    assertContains(
+        harness.messages[#harness.messages],
+        "completed key level could not be verified",
+        "partial data fails closed"
+    )
+    assertEqual(harness.nativeRolls, 0, "partial data never rolls")
 end)
 
 test("unconfigured offer hides but can be manually confirmed", function()
