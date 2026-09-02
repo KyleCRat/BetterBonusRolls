@@ -1,6 +1,6 @@
 # BetterBonusRolls
 
-BetterBonusRolls helps you save bonus rolls for the content and loot specializations you care about. Configure each character separately; matching offers stay visible and everything else is hidden without being declined.
+BetterBonusRolls only shows you bonus rolls for the content and loot specializations you care about. Configure each character separately; matching offers stay visible and everything else is hidden without being declined.
 
 The addon is disabled by default.
 
