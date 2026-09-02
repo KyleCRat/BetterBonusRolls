@@ -1,76 +1,50 @@
 # BetterBonusRolls
 
-BetterBonusRolls is a safety-focused World of Warcraft addon for Mainline `12.1.0` (`120100`). It filters bonus-roll offers by encounter, difficulty, dungeon, key level, Delve tier, content type, and character-specific loot specialization.
+BetterBonusRolls helps you save bonus rolls for the content and loot specializations you care about. Configure each character separately; matching offers stay visible and everything else is hidden without being declined.
 
-The addon is disabled by default. Enable it per character in **Options > AddOns > BetterBonusRolls** or with `/bbr enable`.
+The addon is disabled by default.
 
-## Features
+## Getting Started
 
-- Every click on Blizzard's Roll button opens a second confirmation, even when the configured loot specialization is already active.
-- A configured offer in the wrong loot specialization remains visible and gains a compact **Loot Spec** sidecar showing the configured specialization icon. The sidecar disappears when the correct specialization is active; clicking its icon changes loot specialization only and never spends a roll.
-- Clicking Blizzard's No button hides the offer without declining it. `/bbr show` restores it while the server offer remains active.
-- Unconfigured offers are hidden by default while the addon is enabled.
-- Every raid, Lair, dungeon, and outdoor-content rule has its own enable checkbox. Enabling a row selects `Current Spec (<name>)`; the dropdown then offers that dynamic choice followed by every direct class specialization. Disabling the row greys it and shows `Bonus roll disabled` in the locked dropdown.
-- Raid and Lair rules are configured per boss, difficulty, and loot specialization. Flexible Mythic uses the Mythic rule; World remains distinct from Raid Finder.
-- Current-season dungeon rules are configured per challenge map. Each has an inclusive minimum of Normal, Heroic, Mythic (M0), or `+2` through `+10`; new rules default to `+10`, and keys above `+10` use that same cap.
-- Bountiful Delves use one character-wide rule, an inclusive Tier 1-11 minimum, and one loot specialization. New Delve rules default to Tier 1.
-- Current-season World Bosses are configured individually by encounter. Nightmare Prey has its own fallback rule even though Blizzard reports both through the World Boss bonus-roll difficulty bucket.
-- Raid, Lair, World Boss, encounter, difficulty, and dungeon lists are discovered from the current client instead of hard-coding a season. This includes raid-like Lair instances such as Tidebound Grotto when the Encounter Journal exposes their World/Normal/Heroic/Mythic variants.
-- Settings are stored per character through LibSimpleDB.
-- A draggable minimap button and the native AddOn Compartment entry use the addon icon and open settings only. Minimap visibility and position are stored per character, and `/bbr` remains available if the button is hidden.
+1. Open the settings with `/bbr`, the minimap button, or the AddOn Compartment.
+2. Enable **BetterBonusRolls** for your character.
+3. Open a content page and enable the bosses, dungeons, or outdoor content where you want to bonus roll.
+4. Choose **Current Spec** or a specific loot specialization for each enabled rule.
 
-## Safety contract
+Unchecked rows are treated as content you do not want to bonus roll and their offers are hidden while the addon is enabled.
 
-BetterBonusRolls never spends or permanently declines a bonus roll automatically.
+## What Happens When a Roll Appears
 
-A roll can reach Blizzard's native Roll handler only after both of these direct user actions:
+- Clicking Blizzard's **Roll** button always opens a confirmation. The roll is not used until you accept it.
+- If the configured loot specialization is not active, a **Change Loot Spec** button appears beside the roll. It changes only your loot specialization and never uses the roll.
+- If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
+- Clicking Blizzard's **No** button hides the offer without declining it. BetterBonusRolls prints a reminder that `/bbr show` can restore it while the offer remains active.
+- Once the server offer expires, it can no longer be restored.
 
-1. Click Blizzard's Roll button on the active offer.
-2. Accept BetterBonusRolls' confirmation for that exact, unchanged offer state.
+BetterBonusRolls never automatically spends or permanently declines a bonus roll.
 
-The one-shot authorization is discarded if the popup is canceled, escaped, hidden, or times out; if a new offer appears; if loot specialization or a rule changes; if the frame closes; if the addon is disabled; or if any captured state no longer matches. A changed state requires a fresh click on Blizzard's Roll button. The Roll button is disabled while confirmation is pending, and authorization is consumed before Blizzard's native handler is invoked.
+## Supported Content
 
-While enabled, Blizzard's No button only removes the frame from the group-loot container. It does not invoke Blizzard's native decline handler. A server timeout simply expires the offer and prints that it can no longer be restored.
-
-BetterBonusRolls intentionally has no roll command, decline command, test-spend control, automatic retry, or queued roll action.
-
-## Configuration
-
-The main settings page contains the character-specific master switch, minimap-button visibility, and safety summary. Subcategories include:
-
-- **Current Season Dungeons** - enable, minimum difficulty, and desired loot specialization per challenge map.
-- **Outdoor Content** - one global Bountiful Delves row, one row per current-season World Boss, and a separate Nightmare Prey row.
-- **One page per current-season raid or Lair** - enable and desired loot specialization per boss and supported difficulty.
-
-Use the checkbox at the left of a row to enable or disable it. Missing rules deny automatic display while the addon is enabled. Existing schema-1 dungeon rules are migrated to the former global Mythic+ minimum, capped at `+10`. Stale SavedVariables do not apply unless their IDs occur in the current client catalog.
+| Content | Available rules |
+| --- | --- |
+| Raids and Lairs | Choose each boss, difficulty, and loot specialization independently. |
+| Current Season Dungeons | Choose each dungeon, its minimum difficulty, and loot specialization. Minimums range from Normal through `+10`; `+10` also covers higher keys. |
+| Bountiful Delves | Use one rule for all Bountiful Delves with a minimum Tier 1-11 and loot specialization. |
+| Outdoor Content | Configure current-season World Bosses individually and Nightmare Prey separately. |
 
 ## Commands
 
-- `/bbr` or `/bbr settings` (`s`, `config`, `c`) - open settings.
-- `/bbr show` (`sh`) - restore a hidden active offer.
-- `/bbr hide` (`h`) - hide the visible offer without declining it.
-- `/bbr enable` (`e`) - enable the addon for this character.
-- `/bbr disable` (`d`) - disable the addon and restore native Blizzard button scripts.
-- `/bbr status` (`st`) - report addon and active-offer status.
-- `/bbr help` (`?`) - show command help.
+| Command | Aliases | Action |
+| --- | --- | --- |
+| `/bbr` or `/bbr settings` | `s`, `config`, `c` | Open settings. |
+| `/bbr show` | `sh` | Restore a hidden offer while it is active. |
+| `/bbr hide` | `h` | Hide the visible offer without declining it. |
+| `/bbr enable` | `e` | Enable BetterBonusRolls for this character. |
+| `/bbr disable` | `d` | Disable BetterBonusRolls and restore Blizzard's normal behavior. |
+| `/bbr status` | `st` | Show addon and active-offer status. |
+| `/bbr help` | `?` | Show command help. |
 
-## Scope and compatibility
-
-Version 1 configures current-season raids, raid-like Lairs, current-season dungeons, Bountiful Delves, individual current-season World Bosses, and Nightmare Prey. An unverified Delve tier, an ambiguous standard-dungeon instance shared by differently configured challenge-map rows, an unknown or inconsistent World Boss encounter, or an unknown future difficulty fails closed and can still be restored manually with `/bbr show` while active.
-
-BonusRollConfirm and BonusRollGate modify the same Blizzard controls. If either is loaded, BetterBonusRolls refuses to enable until the conflicting addon is disabled and the UI is reloaded.
-
-## Development
-
-LibModernSettings `1.5.0` and LibSimpleDB `2.0.0` are pinned git submodules. LibDBIcon `12.0.3`, LibDataBroker, and CallbackHandler are vendored for the minimap launcher. Clone with submodules initialized, or run:
-
-```text
-git submodule update --init --recursive
-```
-
-The release packager uses `.pkgmeta` externals and omits development tests. See [AGENTS.md](AGENTS.md) for invariants and validation commands.
-
-The sidecar preview is disabled for live use. To enable it while developing, set `ENABLE_DEV_PREVIEW` to `true` near the top of `Preview.lua`, reload the UI, and use `/bbr preview` or `/bbr p`. The command opens a separate visual-only frame with no Roll or Pass action. Keep the flag `false` in release builds.
+`/betterbonusrolls` can be used in place of `/bbr`.
 
 ## License
 
