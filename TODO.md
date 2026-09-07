@@ -1,0 +1,1 @@
+- rolling a bonus roll shows the prompt "Bonus roll expired ... no longer be restored", which is the incorrect prompt if we use a bonus roll. It should say that we've used the bonus roll on x boss with y loot spec.

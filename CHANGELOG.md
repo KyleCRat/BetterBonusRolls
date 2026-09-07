@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Updated raid difficulty sections to use modern charcoal and silver
+  expandable headers.
+
+### Fixed
+
+- Restored larger Blizzard difficulty icons beside raid section names and a
+  brighter, optically centered borderless arrow that points down when
+  collapsed and up when open.
+
 ## [12.1.0-1] - 2026-09-02
 
 ### Features

@@ -13,9 +13,9 @@ local DISABLED_SPEC_CHOICE = {
     value = DISABLED_SPEC_VALUE,
     label = "Bonus roll disabled",
 }
-local RAID_GROUP_HEADER_HEIGHT = 26
+local RAID_GROUP_HEADER_HEIGHT = 34
 local RAID_GROUP_GAP = 8
-local RAID_DIFFICULTY_ICON_SIZE = 20
+local RAID_DIFFICULTY_ICON_SIZE = 28
 local RAID_DIFFICULTY_ICON_ATLAS = {
     [NS.Catalog.Difficulty.MYTHIC] = "GM-icon-difficulty-mythic",
     [NS.Catalog.Difficulty.HEROIC] = "GM-icon-difficulty-heroic",
@@ -618,22 +618,6 @@ local function createRaidDifficultyTable(parent, width, instance, difficulty)
     return tableView
 end
 
-local function addRaidDifficultyIcon(header, difficultyID)
-    local icon = header:CreateTexture(nil, "ARTWORK")
-
-    icon:SetSize(RAID_DIFFICULTY_ICON_SIZE, RAID_DIFFICULTY_ICON_SIZE)
-    icon:SetPoint("LEFT", header, "LEFT", 8, 0)
-    icon:SetAtlas(RAID_DIFFICULTY_ICON_ATLAS[difficultyID], false)
-    icon:SetDesaturated(difficultyID == NS.Catalog.Difficulty.STORY)
-
-    local title = header:GetTitleRegion()
-    title:ClearAllPoints()
-    title:SetPoint("LEFT", icon, "RIGHT", 4, 1)
-    title:SetPoint("RIGHT", header:GetCollapseButton(), "LEFT", -4, 1)
-
-    header.difficultyIcon = icon
-end
-
 local function layoutRaidDifficultyGroups(groupsFrame, groups)
     local cursor = 0
 
@@ -699,20 +683,17 @@ local function buildRaidPage(page, instance)
         local group = {
             collapsed = difficultyIndex ~= 1,
         }
-        local header = CreateFrame(
-            "Button",
-            nil,
-            groupsFrame,
-            "ListHeaderVisualTemplate,ListHeaderCodeTemplate"
-        )
+        local header = ModernSettings:CreateExpandableHeader(groupsFrame, {
+            width = root:GetWidth(),
+            height = RAID_GROUP_HEADER_HEIGHT,
+            text = difficulty.label,
+            expanded = not group.collapsed,
+            iconAtlas = RAID_DIFFICULTY_ICON_ATLAS[difficulty.id],
+            iconSize = RAID_DIFFICULTY_ICON_SIZE,
+            iconDesaturated = difficulty.id
+                == NS.Catalog.Difficulty.STORY,
+        })
 
-        header:SetSize(root:GetWidth(), RAID_GROUP_HEADER_HEIGHT)
-        header:RegisterForClicks("LeftButtonUp")
-        header:SetTitleColor(false, NORMAL_FONT_COLOR)
-        header:SetTitleColor(true, HIGHLIGHT_FONT_COLOR)
-        addRaidDifficultyIcon(header, difficulty.id)
-        header:SetHeaderText(difficulty.label)
-        header:UpdateCollapsedState(group.collapsed)
         group.header = header
 
         group.tableView = createRaidDifficultyTable(
@@ -749,13 +730,8 @@ local function buildRaidPage(page, instance)
     for index = 1, #groups do
         local group = groups[index]
 
-        group.header:SetClickHandler(function(_header, button)
-            if button ~= "LeftButton" then
-                return
-            end
-
-            group.collapsed = not group.collapsed
-            group.header:UpdateCollapsedState(group.collapsed)
+        group.header:SetOnExpandedChanged(function(_header, expanded)
+            group.collapsed = not expanded
             refreshGroupLayout()
         end)
     end
