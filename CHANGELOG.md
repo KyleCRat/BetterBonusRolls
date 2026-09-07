@@ -53,8 +53,9 @@
   settings changes no longer collapse them to a single Loading row.
 - The Loading message is deferred until the first immediate Journal read finds
   incomplete data, eliminating the one-tick flicker for warm loot pools.
-- Expanded item panels now keep a crisp one-physical-pixel border across UI
-  scale and display-size changes.
+- Expanded item panels, the bonus-roll preview, and the wrong-loot-specialization
+  sidecar now share a crisp one-physical-pixel border across UI-scale and
+  display-size changes instead of using pixelated tooltip chrome.
 - Accepted Blizzard's documented encounter-less loot rows and now refresh
   dungeon encounter indexes within each serialized query attempt, so a cold
   legacy-dungeon catalog cannot make a valid combination immediately

@@ -1187,15 +1187,11 @@ local function createButtonStateTexture(button, layer, atlas)
 end
 
 local function createLootSpecPanel(parent, anchor, clickHandler)
-    local panel = CreateFrame(
-        "Frame",
-        nil,
-        parent,
-        "TooltipBackdropTemplate"
-    )
+    local panel = CreateFrame("Frame", nil, parent)
     panel:SetSize(LOOT_SPEC_PANEL_WIDTH, LOOT_SPEC_PANEL_HEIGHT)
     panel:SetPoint("LEFT", anchor, "RIGHT", 6, 0)
     panel:SetFrameLevel(parent:GetFrameLevel() + 10)
+    panel.background = NS.PixelPerfect.CreateSurface(panel)
 
     local title = panel:CreateFontString(
         nil,

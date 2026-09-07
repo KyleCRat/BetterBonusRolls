@@ -248,11 +248,6 @@ local function buildHarness(options)
     CreateFrame = function(frameType, _, parent, template)
         if frameType == "Frame" then
             assertEqual(parent, prompt, "switch panel parent")
-            assertEqual(
-                template,
-                "TooltipBackdropTemplate",
-                "switch panel template"
-            )
             harness.switchPanel = makeButton()
             return harness.switchPanel
         end
@@ -407,6 +402,11 @@ local function buildHarness(options)
     function NS:RegisterEvent(event, callback)
         harness.events[event] = callback
     end
+
+    NS.PixelPerfect = {
+        CreateSurface = function()
+        end,
+    }
 
     function NS.Catalog:CanonicalDifficultyID(difficultyID)
         return difficultyID == 233 and 16 or difficultyID

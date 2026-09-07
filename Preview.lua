@@ -113,7 +113,7 @@ local function handleButtonClick(self)
 end
 
 local function createPreviewFrame()
-    frame = CreateFrame("Frame", nil, UIParent, "TooltipBackdropTemplate")
+    frame = CreateFrame("Frame", nil, UIParent)
     frame:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
     frame:SetPoint("CENTER", UIParent, "CENTER", -35, 0)
     frame:SetFrameStrata("DIALOG")
@@ -124,6 +124,7 @@ local function createPreviewFrame()
     frame:SetUserPlaced(false)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
+    frame.background = NS.PixelPerfect.CreateSurface(frame)
     frame:SetScript("OnDragStart", function(self)
         if not isPlayerInCombat() then
             self:StartMoving()

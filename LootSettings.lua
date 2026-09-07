@@ -8,10 +8,9 @@ local LootSettings = {
 NS.LootSettings = LootSettings
 
 local SETTINGS_ICON_ATLAS = "GM-icon-settings"
-local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
 local DETAILS_INSET = 8
 local DETAILS_HEADER_HEIGHT = 30
-local DETAILS_BORDER_PIXELS = 1
+local DETAILS_BACKGROUND_COLOR = { r = 0.015, g = 0.018, b = 0.022, a = 0.82 }
 local DETAILS_BORDER_COLOR = { r = 0.38, g = 0.41, b = 0.45, a = 0.7 }
 local ITEM_ROW_HEIGHT = 38
 local ITEM_CHECKBOX_SIZE = 34
@@ -31,8 +30,6 @@ local ITEM_ROW_STRIPE_ALPHA = 0.06
 local RETRY_BUTTON_WIDTH = 65
 local STATUS_RETRY_GAP = 8
 local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
-local detailsBorders = setmetatable({}, { __mode = "k" })
-local borderRefreshPending = false
 
 local function hideTooltip()
     GameTooltip:Hide()
@@ -43,103 +40,6 @@ local function clearOwnedTooltip(button)
         GameTooltip:Hide()
     end
 end
-
-local function createDetailsBorderEdge(container)
-    local edge = container:CreateTexture(nil, "OVERLAY", nil, 7)
-
-    edge:SetTexture(WHITE_TEXTURE)
-    if edge.SetSnapToPixelGrid then
-        edge:SetSnapToPixelGrid(false)
-        edge:SetTexelSnappingBias(0)
-    end
-    edge:SetVertexColor(
-        DETAILS_BORDER_COLOR.r,
-        DETAILS_BORDER_COLOR.g,
-        DETAILS_BORDER_COLOR.b,
-        DETAILS_BORDER_COLOR.a
-    )
-
-    return edge
-end
-
-local function refreshDetailsBorder(panel)
-    local border = detailsBorders[panel]
-    if not border then
-        return
-    end
-
-    local container = border.container
-    local edgeSize = DETAILS_BORDER_PIXELS
-        * PixelUtil.GetPixelToUIUnitFactor()
-        / container:GetEffectiveScale()
-
-    container:SetFrameLevel(panel:GetFrameLevel() + 2)
-
-    border.top:ClearAllPoints()
-    border.top:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
-    border.top:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, 0)
-    border.top:SetHeight(edgeSize)
-
-    border.bottom:ClearAllPoints()
-    border.bottom:SetPoint("BOTTOMLEFT", container, "BOTTOMLEFT", 0, 0)
-    border.bottom:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", 0, 0)
-    border.bottom:SetHeight(edgeSize)
-
-    border.left:ClearAllPoints()
-    border.left:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -edgeSize)
-    border.left:SetPoint("BOTTOMLEFT", container, "BOTTOMLEFT", 0, edgeSize)
-    border.left:SetWidth(edgeSize)
-
-    border.right:ClearAllPoints()
-    border.right:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, -edgeSize)
-    border.right:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", 0, edgeSize)
-    border.right:SetWidth(edgeSize)
-end
-
-local function refreshAllDetailsBorders()
-    for panel in pairs(detailsBorders) do
-        refreshDetailsBorder(panel)
-    end
-end
-
-local function requestDetailsBorderRefresh()
-    if borderRefreshPending then
-        return
-    end
-
-    borderRefreshPending = true
-    C_Timer.After(0, function()
-        borderRefreshPending = false
-        refreshAllDetailsBorders()
-    end)
-end
-
-local function createDetailsBorder(panel)
-    local container = CreateFrame("Frame", nil, panel)
-
-    container:SetAllPoints(panel)
-    container:EnableMouse(false)
-
-    detailsBorders[panel] = {
-        container = container,
-        top = createDetailsBorderEdge(container),
-        bottom = createDetailsBorderEdge(container),
-        left = createDetailsBorderEdge(container),
-        right = createDetailsBorderEdge(container),
-    }
-
-    refreshDetailsBorder(panel)
-    panel:HookScript("OnShow", requestDetailsBorderRefresh)
-
-    return container
-end
-
-local borderEventFrame = CreateFrame("Frame")
-
-borderEventFrame:RegisterEvent("UI_SCALE_CHANGED")
-borderEventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
-borderEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-borderEventFrame:SetScript("OnEvent", requestDetailsBorderRefresh)
 
 local function createItemRow(panel, index)
     local itemRow = CreateFrame("Frame", nil, panel)
@@ -497,12 +397,12 @@ function LootSettings:Attach(row, tableView, tracked)
     )
     panel:SetHeight(1)
 
-    local background = panel:CreateTexture(nil, "BACKGROUND")
-
-    background:SetAllPoints(panel)
-    background:SetColorTexture(0.015, 0.018, 0.022, 0.82)
-
-    panel.detailsBorder = createDetailsBorder(panel)
+    panel.background = NS.PixelPerfect.CreateSurface(
+        panel,
+        DETAILS_BACKGROUND_COLOR,
+        DETAILS_BORDER_COLOR,
+        1
+    )
 
     local summaryText = panel:CreateFontString(
         nil,
