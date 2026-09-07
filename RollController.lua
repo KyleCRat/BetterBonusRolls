@@ -934,6 +934,8 @@ local function disarm(hidePopup, reenableButton)
 end
 
 local function refreshSwitchPanel(resolved)
+    NS.LootSidecar:Hide()
+
     if not switchPanel then
         return
     end
@@ -956,22 +958,23 @@ local function refreshSwitchPanel(resolved)
     if not resolved or not resolved.desiredSpecID then
         return
     end
-    if resolved.currentSpecID == resolved.desiredSpecID then
-        return
+
+    local lootAnchor = frame
+    if resolved.currentSpecID ~= resolved.desiredSpecID then
+        local spec = getCurrentClassSpec(resolved.desiredSpecID)
+        if spec then
+            switchButton.configuredSpecID = spec.id
+            switchButton.configuredLootSpecID = resolved.desiredLootSpecID
+            local icon = NS:IsPublicPositiveInteger(spec.icon)
+                and spec.icon or UNKNOWN_SPEC_ICON
+            switchButton.specIcon:SetTexture(icon)
+            switchButton:Show()
+            switchPanel:Show()
+            lootAnchor = switchPanel
+        end
     end
 
-    local spec = getCurrentClassSpec(resolved.desiredSpecID)
-    if not spec then
-        return
-    end
-
-    switchButton.configuredSpecID = spec.id
-    switchButton.configuredLootSpecID = resolved.desiredLootSpecID
-    local icon = NS:IsPublicPositiveInteger(spec.icon)
-        and spec.icon or UNKNOWN_SPEC_ICON
-    switchButton.specIcon:SetTexture(icon)
-    switchButton:Show()
-    switchPanel:Show()
+    NS.LootSidecar:Refresh(resolved, lootAnchor)
 end
 
 local function hideCurrentOffer(reason, resolved)
@@ -1274,6 +1277,7 @@ local function createSwitchPanel()
         frame,
         handleSwitchButtonClick
     )
+    NS.LootSidecar:Attach(frame.PromptFrame)
 end
 
 local function install()

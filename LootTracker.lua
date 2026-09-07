@@ -259,6 +259,9 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
 
     local sourceName = isPublicString(dungeon.name)
         and dungeon.name or "Dungeon " .. mapID
+    local difficultyName = isPublicString(threshold.label)
+        and threshold.label
+        or NS.Catalog:GetDungeonThresholdLabel(minimumDifficulty)
 
     return {
         kind = "dungeon",
@@ -268,7 +271,7 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
         encounterIDs = encounterIDs,
         specID = specID,
         classID = classID,
-        sourceName = sourceName,
+        sourceName = difficultyName .. " " .. sourceName,
         trackingKey = trackingKey,
         queryKey = queryKey,
     }
@@ -304,6 +307,9 @@ function Tracker:CreateWorldBossRequest(boss, selection)
 
     local sourceName = isPublicString(boss.name)
         and boss.name or "World Boss " .. encounterID
+    local difficultyID = NS:IsPublicPositiveInteger(boss.difficultyID)
+        and boss.difficultyID or journalDifficultyID
+    local difficultyName = NS.Catalog:GetDifficultyName(difficultyID)
 
     return {
         kind = "worldBoss",
@@ -312,10 +318,67 @@ function Tracker:CreateWorldBossRequest(boss, selection)
         journalDifficultyID = journalDifficultyID,
         specID = specID,
         classID = classID,
-        sourceName = sourceName,
+        sourceName = difficultyName .. " " .. sourceName,
         trackingKey = trackingKey,
         queryKey = queryKey,
     }
+end
+
+function Tracker:CreateOfferRequest(snapshot)
+    if NS:IsSecret(snapshot)
+        or type(snapshot) ~= "table"
+        or not NS:IsPublicPositiveInteger(snapshot.desiredSpecID)
+    then
+        return nil
+    end
+
+    local kind = snapshot.kind
+    if NS:IsSecret(kind) or type(kind) ~= "string" then
+        return nil
+    end
+
+    if kind == "raid" then
+        if not NS:IsPublicPositiveInteger(snapshot.difficultyID) then
+            return nil
+        end
+
+        local instance = NS:IsPublicPositiveInteger(snapshot.instanceID)
+            and NS.Catalog.raidByInstance[snapshot.instanceID] or nil
+        local encounter = instance
+            and NS:IsPublicPositiveInteger(snapshot.encounterID)
+            and instance.encounterByID[snapshot.encounterID] or nil
+        local difficultyID = NS.Catalog:CanonicalDifficultyID(
+            snapshot.difficultyID
+        )
+        local difficulty = instance
+            and instance.difficultyByID[difficultyID] or nil
+
+        return self:CreateRaidRequest(
+            instance,
+            encounter,
+            difficulty,
+            snapshot.desiredSpecID
+        )
+    elseif kind == "dungeon" then
+        local dungeon = NS:IsPublicPositiveInteger(snapshot.dungeonMapID)
+            and NS.Catalog.dungeonByMap[snapshot.dungeonMapID] or nil
+
+        return self:CreateDungeonRequest(
+            dungeon,
+            snapshot.completionRank,
+            snapshot.desiredSpecID
+        )
+    elseif kind == "worldBoss" then
+        local boss = NS:IsPublicPositiveInteger(snapshot.encounterID)
+            and NS.Catalog.worldBossByEncounter[snapshot.encounterID] or nil
+
+        return self:CreateWorldBossRequest(
+            boss,
+            snapshot.desiredSpecID
+        )
+    end
+
+    return nil
 end
 
 local function ensureEncounterJournal()
@@ -545,6 +608,20 @@ local function getItemIcon(itemID, journalIcon)
     return UNKNOWN_ITEM_ICON
 end
 
+local function getItemName(itemID, journalName)
+    if isPublicString(journalName) and journalName ~= "" then
+        return journalName
+    end
+
+    local itemName = C_Item
+        and safeCall(C_Item.GetItemInfo, itemID)
+    if isPublicString(itemName) and itemName ~= "" then
+        return itemName
+    end
+
+    return "Item " .. itemID
+end
+
 local function hasExplicitSpecialization(itemID, specID)
     local specs = safeCall(C_Item.GetItemSpecInfo, itemID)
     if NS:IsSecret(specs) or type(specs) ~= "table" then
@@ -649,6 +726,7 @@ local function collectJournalItem(info, request, items, seen)
 
     items[#items + 1] = {
         itemID = itemID,
+        name = getItemName(itemID, info.name),
         link = link,
         icon = getItemIcon(itemID, info.icon),
     }

@@ -38,7 +38,10 @@ end
 local function clearOwnedTooltip(button)
     if GameTooltip.GetOwner and GameTooltip:GetOwner() == button then
         GameTooltip:Hide()
+        return true
     end
+
+    return false
 end
 
 local function createItemRow(panel, index)
@@ -83,8 +86,6 @@ local function createItemRow(panel, index)
 
     local checkbox = ModernSettings:CreateCheckbox(itemRow, {
         value = false,
-        tooltipTitle = "Obtained",
-        tooltip = "Mark this item as obtained for this source, difficulty, and loot specialization.",
         onChanged = function(value)
             if itemRow.request and itemRow.itemID then
                 NS.LootTracker:SetObtained(
@@ -167,6 +168,7 @@ local function acquireItemRow(panel, index)
 end
 
 local function resetItemRow(itemRow)
+    clearOwnedTooltip(itemRow.checkbox)
     clearOwnedTooltip(itemRow.linkButton)
     itemRow.request = nil
     itemRow.itemID = nil
@@ -235,6 +237,7 @@ end
 
 local function renderItems(tracked, request, items)
     local panel = tracked.lootPanel
+    local specName = NS.Catalog:GetSpecName(request.specID)
     local remaining = 0
 
     panel.statusText:Hide()
@@ -247,7 +250,14 @@ local function renderItems(tracked, request, items)
             request,
             item.itemID
         )
+        local itemName = not NS:IsSecret(item.name)
+            and type(item.name) == "string"
+            and item.name ~= ""
+            and item.name
+            or "Item " .. item.itemID
+        local obtainedAction = obtained and "not obtained" or "obtained"
 
+        local refreshCheckboxTooltip = clearOwnedTooltip(itemRow.checkbox)
         clearOwnedTooltip(itemRow.linkButton)
 
         if not obtained then
@@ -263,14 +273,22 @@ local function renderItems(tracked, request, items)
         itemRow.linkButton.icon:SetDesaturated(obtained)
         itemRow.linkButton.linkText:SetText(item.link)
         itemRow.linkButton.linkText:SetAlpha(obtained and 0.55 or 1)
+        ModernSettings:SetTooltip(itemRow.checkbox, {
+            title = "Obtained",
+            text = "Mark " .. itemName .. " from "
+                .. request.sourceName .. " " .. obtainedAction .. " for "
+                .. specName .. " loot specialization.",
+        })
         itemRow.checkbox:SetValue(obtained)
+        if refreshCheckboxTooltip then
+            ModernSettings:_ShowTooltip(itemRow.checkbox, itemRow.checkbox)
+        end
         itemRow:Show()
     end
 
     hideUnusedItemRows(panel, #items + 1)
     panel.summaryText:SetText(
-        NS.Catalog:GetSpecName(request.specID)
-        .. " loot specialization - "
+        specName .. " loot specialization - "
         .. remaining .. " remaining / " .. #items .. " total"
     )
 

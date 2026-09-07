@@ -9,6 +9,8 @@ NS.Preview = Preview
 local frame
 local panel
 local button
+local lootSidecar
+local previewRequest
 
 local FRAME_WIDTH = 286
 local FRAME_HEIGHT = 76
@@ -49,6 +51,8 @@ local function closePreview()
 
     frame:Hide()
     hidePanel(true)
+    lootSidecar:Hide()
+    previewRequest = nil
     NS:Print("Bonus-roll preview hidden.")
 end
 
@@ -72,18 +76,28 @@ local function refreshPanel()
     local desiredSpecID = button.configuredSpecID
     local desiredLootSpecID = button.configuredLootSpecID
     local spec = getCurrentClassSpec(desiredSpecID)
-    if not spec
-        or desiredLootSpecID ~= desiredSpecID
+    local validLootSpecID = not NS:IsSecret(desiredLootSpecID)
+        and (desiredLootSpecID == 0
+            or desiredLootSpecID == desiredSpecID)
+    local lootAnchor = frame
+
+    if not spec or not validLootSpecID
         or NS.Catalog:GetEffectiveLootSpecID() == desiredSpecID
     then
         hidePanel(false)
-        return
+    else
+        button.specIcon:SetTexture(getSpecIcon(spec))
+        button.specIcon:Show()
+        button:Show()
+        panel:Show()
+        lootAnchor = panel
     end
 
-    button.specIcon:SetTexture(getSpecIcon(spec))
-    button.specIcon:Show()
-    button:Show()
-    panel:Show()
+    if previewRequest then
+        lootSidecar:ShowRequest(previewRequest, lootAnchor)
+    else
+        lootSidecar:Hide()
+    end
 end
 
 local function handleButtonClick(self)
@@ -100,8 +114,11 @@ local function handleButtonClick(self)
     local desiredLootSpecID = self.configuredLootSpecID
     local spec = getCurrentClassSpec(desiredSpecID)
     if not spec
-        or desiredLootSpecID ~= desiredSpecID
-        or not NS:IsPublicPositiveInteger(desiredLootSpecID)
+        or NS:IsSecret(desiredLootSpecID)
+        or (desiredLootSpecID ~= 0
+            and desiredLootSpecID ~= desiredSpecID)
+        or (desiredLootSpecID ~= 0
+            and not NS:IsPublicPositiveInteger(desiredLootSpecID))
     then
         return
     end
@@ -170,6 +187,7 @@ local function createPreviewFrame()
         frame,
         handleButtonClick
     )
+    lootSidecar = NS.LootSidecar:Create(frame)
     frame:Hide()
 end
 
@@ -183,6 +201,174 @@ end
 
 function Preview:IsEnabled()
     return ENABLE_DEV_PREVIEW
+end
+
+local function addLootCandidate(candidates, request, lootSpecID)
+    if not request then
+        return
+    end
+
+    candidates[#candidates + 1] = {
+        request = request,
+        lootSpecID = lootSpecID,
+    }
+end
+
+local function collectEnabledLootCandidates()
+    local candidates = {}
+
+    for instanceIndex = 1, #NS.Catalog.raids do
+        local instance = NS.Catalog.raids[instanceIndex]
+
+        for difficultyIndex = 1, #instance.difficulties do
+            local difficulty = instance.difficulties[difficultyIndex]
+
+            for encounterIndex = 1, #instance.encounters do
+                local encounter = instance.encounters[encounterIndex]
+                local selection = NS.DB:Get(
+                    "raidRules",
+                    instance.id,
+                    encounter.id,
+                    difficulty.id
+                )
+
+                addLootCandidate(
+                    candidates,
+                    NS.LootTracker:CreateRaidRequest(
+                        instance,
+                        encounter,
+                        difficulty,
+                        selection
+                    ),
+                    selection
+                )
+            end
+        end
+    end
+
+    for dungeonIndex = 1, #NS.Catalog.dungeons do
+        local dungeon = NS.Catalog.dungeons[dungeonIndex]
+        local selection = NS.DB:Get(
+            "dungeonRules",
+            dungeon.id,
+            "specializationID"
+        )
+        local minimumDifficulty = NS.DB:Get(
+            "dungeonRules",
+            dungeon.id,
+            "minimumDifficulty"
+        )
+
+        addLootCandidate(
+            candidates,
+            NS.LootTracker:CreateDungeonRequest(
+                dungeon,
+                minimumDifficulty,
+                selection
+            ),
+            selection
+        )
+    end
+
+    for bossIndex = 1, #NS.Catalog.worldBosses do
+        local boss = NS.Catalog.worldBosses[bossIndex]
+        local selection = NS.DB:Get(
+            "contentRules",
+            "worldBosses",
+            boss.id,
+            "specializationID"
+        )
+
+        addLootCandidate(
+            candidates,
+            NS.LootTracker:CreateWorldBossRequest(boss, selection),
+            selection
+        )
+    end
+
+    return candidates
+end
+
+local function getFallbackSpecID()
+    if #NS.Catalog.specs == 0 then
+        return nil
+    end
+
+    return NS.Catalog.specs[math.random(#NS.Catalog.specs)].id
+end
+
+local function collectFallbackLootCandidates()
+    local candidates = {}
+    local specID = getFallbackSpecID()
+
+    if not specID then
+        return candidates
+    end
+
+    for instanceIndex = 1, #NS.Catalog.raids do
+        local instance = NS.Catalog.raids[instanceIndex]
+
+        for difficultyIndex = 1, #instance.difficulties do
+            local difficulty = instance.difficulties[difficultyIndex]
+
+            for encounterIndex = 1, #instance.encounters do
+                addLootCandidate(
+                    candidates,
+                    NS.LootTracker:CreateRaidRequest(
+                        instance,
+                        instance.encounters[encounterIndex],
+                        difficulty,
+                        specID
+                    ),
+                    specID
+                )
+            end
+        end
+    end
+
+    for dungeonIndex = 1, #NS.Catalog.dungeons do
+        local dungeon = NS.Catalog.dungeons[dungeonIndex]
+
+        addLootCandidate(
+            candidates,
+            NS.LootTracker:CreateDungeonRequest(
+                dungeon,
+                NS.Catalog:GetDungeonDefaultThreshold(dungeon),
+                specID
+            ),
+            specID
+        )
+    end
+
+    for bossIndex = 1, #NS.Catalog.worldBosses do
+        local boss = NS.Catalog.worldBosses[bossIndex]
+
+        addLootCandidate(
+            candidates,
+            NS.LootTracker:CreateWorldBossRequest(boss, specID),
+            specID
+        )
+    end
+
+    return candidates
+end
+
+local function chooseLootCandidate(candidates)
+    if #candidates == 0 then
+        return nil
+    end
+
+    return candidates[math.random(#candidates)]
+end
+
+local function getPreviewLootCandidate()
+    local enabledCandidates = collectEnabledLootCandidates()
+
+    if #enabledCandidates > 0 then
+        return chooseLootCandidate(enabledCandidates)
+    end
+
+    return chooseLootCandidate(collectFallbackLootCandidates())
 end
 
 function Preview:Toggle()
@@ -200,31 +386,25 @@ function Preview:Toggle()
         return false
     end
 
-    local currentSpecID = NS.Catalog:GetEffectiveLootSpecID()
-    local candidates = {}
-    for index = 1, #NS.Catalog.specs do
-        local spec = NS.Catalog.specs[index]
-        if spec.id ~= currentSpecID then
-            candidates[#candidates + 1] = spec
-        end
-    end
-
-    if #candidates == 0 then
-        NS:Print("No alternate loot specialization is available for the preview.")
+    local candidate = getPreviewLootCandidate()
+    if not candidate then
+        NS:Print("No bonus-rollable loot list is available for the preview.")
         return false
     end
 
-    local previewSpec = candidates[math.random(#candidates)]
     if not frame then
         createPreviewFrame()
     end
 
-    button.configuredSpecID = previewSpec.id
-    button.configuredLootSpecID = previewSpec.id
+    previewRequest = candidate.request
+    button.configuredSpecID = candidate.request.specID
+    button.configuredLootSpecID = candidate.lootSpecID
     frame:Show()
     refreshPanel()
-    NS:Print("Bonus-roll preview shown for " .. previewSpec.name
-        .. ". This fake view cannot use or decline a bonus roll.")
+    NS:Print("Bonus-roll preview shown for "
+        .. candidate.request.sourceName .. " in "
+        .. NS.Catalog:GetSpecName(candidate.request.specID)
+        .. " loot specialization. This fake view cannot use or decline a bonus roll.")
     return true
 end
 

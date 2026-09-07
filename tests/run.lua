@@ -482,6 +482,15 @@ local function buildHarness(options)
         return 12345
     end
 
+    NS.LootSidecar = {
+        Attach = function()
+        end,
+        Hide = function()
+        end,
+        Refresh = function()
+        end,
+    }
+
     NS.DB = {}
     function NS.DB:Get(first, second, third, fourth)
         if first == "raidRules" then

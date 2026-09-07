@@ -4,6 +4,13 @@
 
 ### Added
 
+- Added an Obtained-item checklist beside visible bonus-roll offers. Its header
+  identifies the exact difficulty and source, each checkbox describes whether
+  it will mark the item obtained or not obtained for that source and loot
+  specialization, and the panel sits to the right of the loot-specialization
+  switcher when a change is needed.
+- The developer preview now includes the item checklist, preferring a randomly
+  selected enabled loot rule and falling back to known current-season loot.
 - Added expandable bonus-rollable item lists for enabled raid, Lair, dungeon,
   and World Boss rules, including specialization-specific tier tokens, exact
   item tooltips, and character-specific Obtained checkboxes.
@@ -28,6 +35,8 @@
 
 ### Fixed
 
+- Obtained checkbox tooltips now refresh immediately after toggling instead of
+  disappearing until the pointer leaves and re-enters the checkbox.
 - Corrected loot-list item requests to listen for Blizzard's
   `ITEM_DATA_LOAD_RESULT` event and defer cache refreshes safely when that
   event fires synchronously, preventing rows from remaining stuck on Loading.

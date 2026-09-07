@@ -22,6 +22,7 @@ Core.lua
 PixelPerfect.lua
 Catalog.lua
 LootTracker.lua
+LootSidecar.lua
 RollController.lua
 Preview.lua
 LootSettings.lua
