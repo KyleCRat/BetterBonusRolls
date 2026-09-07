@@ -26,6 +26,7 @@ LootSidecar.lua
 RollController.lua
 Preview.lua
 LootSettings.lua
+LootTrackerSettings.lua
 Settings.lua
 Launcher.lua
 Commands.lua

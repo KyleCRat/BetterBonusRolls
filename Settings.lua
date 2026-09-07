@@ -170,7 +170,45 @@ local function addDynamicTable(layout, root, tableView, marginBottom)
     refreshLayout()
 end
 
-local function buildGeneralPage(page)
+local function openSettingsDestination(button)
+    NS:OpenSettings(button.settingsCategoryID)
+end
+
+local function addSettingsDestinations(root, destinations)
+    root:AddSection("Settings pages")
+
+    for firstIndex = 1, #destinations, 2 do
+        local columns = root:BeginColumns()
+
+        for columnIndex = 1, 2 do
+            local destination = destinations[firstIndex + columnIndex - 1]
+
+            if destination then
+                local column = columns[columnIndex]
+                local button = column:AddControl("button", {
+                    text = destination.label,
+                    height = 34,
+                    onClick = openSettingsDestination,
+                }, {
+                    marginBottom = 8,
+                })
+
+                button.settingsCategoryID = destination.category:GetID()
+                column:AddText({
+                    text = destination.description,
+                    fontObject = GameFontHighlight,
+                }, {
+                    indent = 1,
+                    marginBottom = 18,
+                })
+            end
+        end
+
+        columns:Finish()
+    end
+end
+
+local function buildGeneralPage(page, destinations)
     if page.built then
         SettingsUI:RefreshGeneralControls()
         return
@@ -209,6 +247,8 @@ local function buildGeneralPage(page)
             NS.Launcher:SetMinimapShown(value)
         end,
     })
+
+    addSettingsDestinations(root, destinations)
 
     root:AddSection("Safety behavior")
     root:AddText({
@@ -856,6 +896,8 @@ function SettingsUI:RefreshRuleControls()
     for index = 1, #self.ruleControls do
         refreshTrackedRow(self.ruleControls[index])
     end
+
+    NS.LootTrackerSettings:RefreshIfVisible()
 end
 
 function SettingsUI:Register()
@@ -872,29 +914,55 @@ function SettingsUI:Register()
         generalPage,
         NS.displayName
     )
-    buildGeneralPage(generalPage)
+    local destinations = {}
+
+    local trackerPage = CreateFrame("Frame")
+    trackerPage.OnRefresh = function()
+        NS.LootTrackerSettings:Refresh()
+    end
+    local trackerCategory = Settings.RegisterCanvasLayoutSubcategory(
+        category,
+        trackerPage,
+        "Loot Tracker"
+    )
+    NS.LootTrackerSettings:Build(trackerPage, measurementFrame())
+    destinations[#destinations + 1] = {
+        label = "Loot Tracker",
+        description = "Review items from enabled bonus-roll sources and mark them Obtained.",
+        category = trackerCategory,
+    }
 
     local dungeonPage = CreateFrame("Frame")
     dungeonPage.OnRefresh = function()
         SettingsUI:RefreshRuleControls()
     end
-    Settings.RegisterCanvasLayoutSubcategory(
+    local dungeonCategory = Settings.RegisterCanvasLayoutSubcategory(
         category,
         dungeonPage,
         "Current Season Dungeons"
     )
     buildDungeonPage(dungeonPage)
+    destinations[#destinations + 1] = {
+        label = "Current Season Dungeons",
+        description = "Choose each dungeon's minimum difficulty and required loot specialization.",
+        category = dungeonCategory,
+    }
 
     local outdoorContentPage = CreateFrame("Frame")
     outdoorContentPage.OnRefresh = function()
         SettingsUI:RefreshRuleControls()
     end
-    Settings.RegisterCanvasLayoutSubcategory(
+    local outdoorCategory = Settings.RegisterCanvasLayoutSubcategory(
         category,
         outdoorContentPage,
         "Outdoor Content"
     )
     buildOutdoorContentPage(outdoorContentPage)
+    destinations[#destinations + 1] = {
+        label = "Outdoor Content",
+        description = "Configure World Boss, Bountiful Delve, and Nightmare Prey bonus rolls.",
+        category = outdoorCategory,
+    }
 
     for index = 1, #NS.Catalog.raids do
         local instance = NS.Catalog.raids[index]
@@ -902,14 +970,20 @@ function SettingsUI:Register()
         raidPage.OnRefresh = function()
             SettingsUI:RefreshRuleControls()
         end
-        Settings.RegisterCanvasLayoutSubcategory(
+        local raidCategory = Settings.RegisterCanvasLayoutSubcategory(
             category,
             raidPage,
             instance.name
         )
         buildRaidPage(raidPage, instance)
+        destinations[#destinations + 1] = {
+            label = instance.name,
+            description = "Choose the difficulties, bosses, and loot specializations to bonus roll in this instance.",
+            category = raidCategory,
+        }
     end
 
+    buildGeneralPage(generalPage, destinations)
     Settings.RegisterAddOnCategory(category)
     self.category = category
 end

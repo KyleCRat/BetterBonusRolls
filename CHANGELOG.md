@@ -11,6 +11,9 @@
   switcher when a change is needed.
 - The developer preview now includes the item checklist, preferring a randomly
   selected enabled loot rule and falling back to known current-season loot.
+- Added an Enabled Bonus Roll Loot Tracker settings page that combines items
+  from every enabled raid boss, dungeon, and World Boss, with an overall
+  remaining count and direct Obtained controls.
 - Added expandable bonus-rollable item lists for enabled raid, Lair, dungeon,
   and World Boss rules, including specialization-specific tier tokens, exact
   item tooltips, and character-specific Obtained checkboxes.
@@ -19,6 +22,8 @@
 
 ### Changed
 
+- The main settings page now provides direct buttons and descriptions for
+  every BetterBonusRolls subpage.
 - Updated raid difficulty sections to use modern charcoal and silver
   expandable headers.
 - Loot lists now retry transient Encounter Journal and item-data misses with

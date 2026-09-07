@@ -324,6 +324,95 @@ function Tracker:CreateWorldBossRequest(boss, selection)
     }
 end
 
+local function addEnabledLootRequest(requests, request, selection)
+    if not request then
+        return
+    end
+
+    requests[#requests + 1] = {
+        request = request,
+        configuredLootSpecID = selection,
+    }
+end
+
+function Tracker:CollectEnabledLootRequests()
+    local requests = {}
+
+    for instanceIndex = 1, #NS.Catalog.raids do
+        local instance = NS.Catalog.raids[instanceIndex]
+        local difficulties = NS.Catalog:GetRaidDifficultiesHardestFirst(
+            instance
+        )
+
+        for difficultyIndex = 1, #difficulties do
+            local difficulty = difficulties[difficultyIndex]
+
+            for encounterIndex = 1, #instance.encounters do
+                local encounter = instance.encounters[encounterIndex]
+                local selection = NS.DB:Get(
+                    "raidRules",
+                    instance.id,
+                    encounter.id,
+                    difficulty.id
+                )
+
+                addEnabledLootRequest(
+                    requests,
+                    self:CreateRaidRequest(
+                        instance,
+                        encounter,
+                        difficulty,
+                        selection
+                    ),
+                    selection
+                )
+            end
+        end
+    end
+
+    for dungeonIndex = 1, #NS.Catalog.dungeons do
+        local dungeon = NS.Catalog.dungeons[dungeonIndex]
+        local selection = NS.DB:Get(
+            "dungeonRules",
+            dungeon.id,
+            "specializationID"
+        )
+        local minimumDifficulty = NS.DB:Get(
+            "dungeonRules",
+            dungeon.id,
+            "minimumDifficulty"
+        )
+
+        addEnabledLootRequest(
+            requests,
+            self:CreateDungeonRequest(
+                dungeon,
+                minimumDifficulty,
+                selection
+            ),
+            selection
+        )
+    end
+
+    for bossIndex = 1, #NS.Catalog.worldBosses do
+        local boss = NS.Catalog.worldBosses[bossIndex]
+        local selection = NS.DB:Get(
+            "contentRules",
+            "worldBosses",
+            boss.id,
+            "specializationID"
+        )
+
+        addEnabledLootRequest(
+            requests,
+            self:CreateWorldBossRequest(boss, selection),
+            selection
+        )
+    end
+
+    return requests
+end
+
 function Tracker:CreateOfferRequest(snapshot)
     if NS:IsSecret(snapshot)
         or type(snapshot) ~= "table"

@@ -158,13 +158,15 @@ function NS:NotifyConfigurationChanged()
     end
 end
 
-function NS:OpenSettings()
+function NS:OpenSettings(categoryID)
     if self.SettingsUI and self.SettingsUI.category then
         if InCombatLockdown and InCombatLockdown() then
             self:Print("Settings cannot be opened in combat.")
             return true
         end
-        Settings.OpenToCategory(self.SettingsUI.category:GetID())
+        Settings.OpenToCategory(
+            categoryID or self.SettingsUI.category:GetID()
+        )
         return true
     end
 

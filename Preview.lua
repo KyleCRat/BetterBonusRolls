@@ -216,73 +216,14 @@ end
 
 local function collectEnabledLootCandidates()
     local candidates = {}
+    local requests = NS.LootTracker:CollectEnabledLootRequests()
 
-    for instanceIndex = 1, #NS.Catalog.raids do
-        local instance = NS.Catalog.raids[instanceIndex]
-
-        for difficultyIndex = 1, #instance.difficulties do
-            local difficulty = instance.difficulties[difficultyIndex]
-
-            for encounterIndex = 1, #instance.encounters do
-                local encounter = instance.encounters[encounterIndex]
-                local selection = NS.DB:Get(
-                    "raidRules",
-                    instance.id,
-                    encounter.id,
-                    difficulty.id
-                )
-
-                addLootCandidate(
-                    candidates,
-                    NS.LootTracker:CreateRaidRequest(
-                        instance,
-                        encounter,
-                        difficulty,
-                        selection
-                    ),
-                    selection
-                )
-            end
-        end
-    end
-
-    for dungeonIndex = 1, #NS.Catalog.dungeons do
-        local dungeon = NS.Catalog.dungeons[dungeonIndex]
-        local selection = NS.DB:Get(
-            "dungeonRules",
-            dungeon.id,
-            "specializationID"
-        )
-        local minimumDifficulty = NS.DB:Get(
-            "dungeonRules",
-            dungeon.id,
-            "minimumDifficulty"
-        )
-
+    for index = 1, #requests do
+        local enabled = requests[index]
         addLootCandidate(
             candidates,
-            NS.LootTracker:CreateDungeonRequest(
-                dungeon,
-                minimumDifficulty,
-                selection
-            ),
-            selection
-        )
-    end
-
-    for bossIndex = 1, #NS.Catalog.worldBosses do
-        local boss = NS.Catalog.worldBosses[bossIndex]
-        local selection = NS.DB:Get(
-            "contentRules",
-            "worldBosses",
-            boss.id,
-            "specializationID"
-        )
-
-        addLootCandidate(
-            candidates,
-            NS.LootTracker:CreateWorldBossRequest(boss, selection),
-            selection
+            enabled.request,
+            enabled.configuredLootSpecID
         )
     end
 
