@@ -20,6 +20,7 @@ Catalog.Difficulty = {
     DUNGEON_NORMAL = CLIENT_DIFFICULTY.DungeonNormal or 1,
     DUNGEON_HEROIC = CLIENT_DIFFICULTY.DungeonHeroic or 2,
     MYTHIC_PLUS = CLIENT_DIFFICULTY.DungeonChallenge or 8,
+    DUNGEON_TIMEWALKING = CLIENT_DIFFICULTY.DungeonTimewalker or 24,
     NORMAL = CLIENT_DIFFICULTY.PrimaryRaidNormal or 14,
     HEROIC = CLIENT_DIFFICULTY.PrimaryRaidHeroic or 15,
     MYTHIC = CLIENT_DIFFICULTY.PrimaryRaidMythic or 16,
@@ -32,10 +33,22 @@ Catalog.Difficulty = {
     WORLD = CLIENT_DIFFICULTY.RaidWorld or 250,
 }
 
-local DUNGEON_THRESHOLD_CHOICES = {
-    { value = 1, label = "Normal" },
-    { value = 2, label = "Heroic" },
-    { value = 3, label = "Mythic (M0)" },
+local DUNGEON_BASE_THRESHOLD_DEFINITIONS = {
+    {
+        value = 1,
+        label = "Normal",
+        journalDifficultyID = Catalog.Difficulty.DUNGEON_NORMAL,
+    },
+    {
+        value = 2,
+        label = "Heroic",
+        journalDifficultyID = Catalog.Difficulty.DUNGEON_HEROIC,
+    },
+    {
+        value = 3,
+        label = "Mythic (M0)",
+        journalDifficultyID = Catalog.Difficulty.DUNGEON_MYTHIC,
+    },
 }
 
 local DUNGEON_THRESHOLD_LABELS = {
@@ -45,13 +58,7 @@ local DUNGEON_THRESHOLD_LABELS = {
 }
 
 for level = 2, 10 do
-    local rank = level + 2
-    local label = "+" .. level
-    DUNGEON_THRESHOLD_CHOICES[#DUNGEON_THRESHOLD_CHOICES + 1] = {
-        value = rank,
-        label = label,
-    }
-    DUNGEON_THRESHOLD_LABELS[rank] = label
+    DUNGEON_THRESHOLD_LABELS[level + 2] = "+" .. level
 end
 
 local DIFFICULTY_LABELS = {
@@ -125,6 +132,15 @@ local function hasSelectedInstanceDifficulty(difficultyID)
     return not NS:IsSecret(result) and result == true
 end
 
+local function isSelectedInstanceDifficultyValid(difficultyID)
+    local result = safeCall(EJ_IsValidInstanceDifficulty, difficultyID)
+    if result ~= nil and not NS:IsSecret(result) then
+        return result == true
+    end
+
+    return hasSelectedInstanceDifficulty(difficultyID)
+end
+
 local function collectDifficulties()
     local difficulties = {}
     local hasWorld = hasSelectedInstanceDifficulty(
@@ -160,6 +176,69 @@ local function collectDifficulties()
     end
 
     return difficulties
+end
+
+local function collectDungeonThresholds(includeBaseDifficulties)
+    local choices = {}
+    local byValue = {}
+
+    if includeBaseDifficulties then
+        local timewalkingBaseDifficultyID
+        if isSelectedInstanceDifficultyValid(
+                Catalog.Difficulty.DUNGEON_TIMEWALKING
+            )
+            and hasSelectedInstanceDifficulty(
+                Catalog.Difficulty.DUNGEON_TIMEWALKING
+            )
+        then
+            timewalkingBaseDifficultyID = safeCall(
+                C_EncounterJournal.GetBaseDifficultyID,
+                Catalog.Difficulty.DUNGEON_TIMEWALKING
+            )
+            if NS:IsSecret(timewalkingBaseDifficultyID)
+                or not NS:IsPublicPositiveInteger(
+                    timewalkingBaseDifficultyID
+                )
+            then
+                timewalkingBaseDifficultyID = nil
+            end
+        end
+
+        for index = 1, #DUNGEON_BASE_THRESHOLD_DEFINITIONS do
+            local definition = DUNGEON_BASE_THRESHOLD_DEFINITIONS[index]
+
+            if definition.journalDifficultyID
+                ~= timewalkingBaseDifficultyID
+                and isSelectedInstanceDifficultyValid(
+                    definition.journalDifficultyID
+                )
+            then
+                local choice = {
+                    value = definition.value,
+                    label = definition.label,
+                    journalDifficultyID = definition.journalDifficultyID,
+                }
+                choices[#choices + 1] = choice
+                byValue[choice.value] = choice
+            end
+        end
+    end
+
+    -- Every entry came from the active Challenge Mode map table, so +2
+    -- through +10 are valid completion thresholds. Blizzard exposes their
+    -- shared item pool through the base Mythic Journal difficulty.
+    for level = 2, 10 do
+        local value = level + 2
+        local choice = {
+            value = value,
+            label = DUNGEON_THRESHOLD_LABELS[value],
+            journalDifficultyID = Catalog.Difficulty.DUNGEON_MYTHIC,
+        }
+        choices[#choices + 1] = choice
+        byValue[value] = choice
+    end
+
+    return choices, byValue
 end
 
 local function collectEncounters(instanceID)
@@ -220,8 +299,9 @@ local function isWorldBossInstance(instanceName, dungeonAreaMapID, tierName)
         and instanceName == tierName
 end
 
-local function collectWorldBosses(instanceID, instanceName)
+local function collectWorldBosses(instanceID, instanceName, difficulties)
     local encounters = collectEncounters(instanceID)
+    local difficulty = difficulties[1]
 
     for index = 1, #encounters do
         local encounter = encounters[index]
@@ -232,6 +312,9 @@ local function collectWorldBosses(instanceID, instanceName)
                 order = #Catalog.worldBosses + 1,
                 instanceID = instanceID,
                 instanceName = instanceName,
+                difficultyID = difficulty and difficulty.id or nil,
+                journalDifficultyID = difficulty
+                    and difficulty.journalDifficultyID or nil,
             }
             Catalog.worldBosses[#Catalog.worldBosses + 1] = boss
             Catalog.worldBossByEncounter[boss.id] = boss
@@ -259,15 +342,19 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
         if NS:IsPublicPositiveInteger(instanceID) then
             safeCall(EJ_SelectInstance, instanceID)
             local instanceName = getPublicInstanceName(name, instanceID)
+            local difficulties = collectDifficulties()
 
             if isRaidList
                 and isWorldBossInstance(name, dungeonAreaMapID, tierName)
                 and not seen[instanceID]
             then
-                collectWorldBosses(instanceID, instanceName)
+                collectWorldBosses(
+                    instanceID,
+                    instanceName,
+                    difficulties
+                )
                 seen[instanceID] = true
             else
-                local difficulties = collectDifficulties()
                 if #difficulties > 0 and not seen[instanceID] then
                     local encounters, encounterByID = collectEncounters(instanceID)
                     if #encounters > 0 then
@@ -359,11 +446,16 @@ function Catalog:BuildDungeons()
     end
 
     local journalOrder = {}
-    if ensureEncounterJournal() then
+    local journalAvailable = ensureEncounterJournal()
+    local savedTier
+    local savedInstance
+    local savedDifficulty
+
+    if journalAvailable then
         local tierCount = safeCall(EJ_GetNumTiers) or 0
-        local savedTier = safeCall(EJ_GetCurrentTier)
-        local savedInstance = safeCall(EJ_GetCurrentInstance)
-        local savedDifficulty = safeCall(EJ_GetDifficulty)
+        savedTier = safeCall(EJ_GetCurrentTier)
+        savedInstance = safeCall(EJ_GetCurrentInstance)
+        savedDifficulty = safeCall(EJ_GetDifficulty)
 
         if not NS:IsSecret(tierCount)
             and type(tierCount) == "number"
@@ -389,8 +481,6 @@ function Catalog:BuildDungeons()
                 journalIndex = journalIndex + 1
             end
         end
-
-        restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
     end
 
     for index = 1, #mapTable do
@@ -445,6 +535,30 @@ function Catalog:BuildDungeons()
     for index = 1, #self.dungeons do
         local dungeon = self.dungeons[index]
         dungeon.order = index
+        local hasJournalInstance = NS:IsPublicPositiveInteger(
+            dungeon.journalInstanceID
+        )
+        local selected = journalAvailable
+            and hasJournalInstance
+            and pcall(EJ_SelectInstance, dungeon.journalInstanceID)
+
+        if hasJournalInstance then
+            dungeon.encounters, dungeon.encounterByID = collectEncounters(
+                dungeon.journalInstanceID
+            )
+        else
+            dungeon.encounters = {}
+            dungeon.encounterByID = {}
+        end
+
+        dungeon.thresholdChoices, dungeon.thresholdByValue =
+            collectDungeonThresholds(selected == true)
+        dungeon.defaultMinimumDifficulty =
+            dungeon.thresholdByValue[
+                NS.RuleDefaults.dungeonMinimumDifficulty
+            ]
+            and NS.RuleDefaults.dungeonMinimumDifficulty
+            or dungeon.thresholdChoices[#dungeon.thresholdChoices].value
 
         if dungeon.journalInstanceID then
             local matches = self.dungeonByInstance[dungeon.journalInstanceID]
@@ -454,6 +568,10 @@ function Catalog:BuildDungeons()
             end
             matches[#matches + 1] = dungeon
         end
+    end
+
+    if journalAvailable then
+        restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
     end
 end
 
@@ -532,8 +650,62 @@ function Catalog:GetRaidDifficultiesHardestFirst(instance)
     return ordered
 end
 
-function Catalog:GetDungeonThresholdChoices()
-    return DUNGEON_THRESHOLD_CHOICES
+function Catalog:GetDungeonThresholdChoices(dungeon)
+    if NS:IsSecret(dungeon)
+        or type(dungeon) ~= "table"
+        or type(dungeon.thresholdChoices) ~= "table"
+    then
+        return {}
+    end
+
+    return dungeon.thresholdChoices
+end
+
+function Catalog:GetDungeonThreshold(dungeon, rank)
+    if NS:IsSecret(dungeon)
+        or type(dungeon) ~= "table"
+        or type(dungeon.thresholdByValue) ~= "table"
+        or not NS:IsPublicPositiveInteger(rank)
+    then
+        return nil
+    end
+
+    return dungeon.thresholdByValue[rank]
+end
+
+function Catalog:IsDungeonThresholdAvailable(dungeon, rank)
+    return self:GetDungeonThreshold(dungeon, rank) ~= nil
+end
+
+function Catalog:GetDungeonDefaultThreshold(dungeon)
+    if NS:IsSecret(dungeon)
+        or type(dungeon) ~= "table"
+        or not NS:IsPublicPositiveInteger(
+            dungeon.defaultMinimumDifficulty
+        )
+    then
+        return NS.RuleDefaults.dungeonMinimumDifficulty
+    end
+
+    return dungeon.defaultMinimumDifficulty
+end
+
+function Catalog:NormalizeDungeonThreshold(dungeon, rank)
+    local choices = self:GetDungeonThresholdChoices(dungeon)
+    if #choices == 0 then
+        return nil
+    end
+    if not NS:IsPublicPositiveInteger(rank) then
+        return self:GetDungeonDefaultThreshold(dungeon)
+    end
+
+    for index = 1, #choices do
+        if choices[index].value >= rank then
+            return choices[index].value
+        end
+    end
+
+    return choices[#choices].value
 end
 
 function Catalog:GetDungeonThresholdLabel(rank)

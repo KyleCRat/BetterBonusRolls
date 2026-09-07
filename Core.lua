@@ -4,7 +4,7 @@ NS.addonName = addonName
 NS.displayName = "BetterBonusRolls"
 NS.version = "12.1.0-1"
 
-local CURRENT_SCHEMA = 2
+local CURRENT_SCHEMA = 3
 
 NS.RuleDefaults = {
     dungeonMinimumDifficulty = 12,
@@ -26,6 +26,11 @@ local DEFAULTS = {
     raidRules = {},
     dungeonRules = {},
     contentRules = {},
+    obtainedItems = {
+        raid = {},
+        dungeon = {},
+        worldBoss = {},
+    },
 }
 
 local initializers = {}
@@ -167,7 +172,8 @@ function NS:OpenSettings()
 end
 
 local function isPositiveInteger(value)
-    return type(value) == "number"
+    return not NS:IsSecret(value)
+        and type(value) == "number"
         and value > 0
         and value % 1 == 0
 end
@@ -335,6 +341,53 @@ local function normalizeMinimapSettings(data)
     end
 end
 
+local function normalizeObtainedBranch(branch, depth)
+    if NS:IsSecret(branch) or type(branch) ~= "table" then
+        return {}
+    end
+
+    for key, value in pairs(branch) do
+        if not isPositiveInteger(key) then
+            branch[key] = nil
+        elseif depth == 1 then
+            if NS:IsSecret(value) or value ~= true then
+                branch[key] = nil
+            end
+        else
+            local normalized = normalizeObtainedBranch(value, depth - 1)
+
+            if next(normalized) == nil then
+                branch[key] = nil
+            else
+                branch[key] = normalized
+            end
+        end
+    end
+
+    return branch
+end
+
+local function normalizeObtainedItems(data)
+    local obtainedItems = data.obtainedItems
+    if NS:IsSecret(obtainedItems) or type(obtainedItems) ~= "table" then
+        obtainedItems = {}
+        data.obtainedItems = obtainedItems
+    end
+
+    obtainedItems.raid = normalizeObtainedBranch(
+        obtainedItems.raid,
+        5
+    )
+    obtainedItems.dungeon = normalizeObtainedBranch(
+        obtainedItems.dungeon,
+        3
+    )
+    obtainedItems.worldBoss = normalizeObtainedBranch(
+        obtainedItems.worldBoss,
+        3
+    )
+end
+
 local function normalizeDatabase(data)
     if type(data.schema) ~= "number"
         or data.schema % 1 ~= 0
@@ -374,6 +427,7 @@ local function normalizeDatabase(data)
     )
     normalizeWorldBossRules(data.contentRules)
     normalizeChallengeRun(data)
+    normalizeObtainedItems(data)
 end
 
 local function initializeDatabase()

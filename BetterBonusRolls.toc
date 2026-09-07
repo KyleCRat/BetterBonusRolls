@@ -20,8 +20,10 @@ Libs\LibModernSettings\embed.xml
 
 Core.lua
 Catalog.lua
+LootTracker.lua
 RollController.lua
 Preview.lua
+LootSettings.lua
 Settings.lua
 Launcher.lua
 Commands.lua

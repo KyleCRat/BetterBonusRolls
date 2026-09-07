@@ -10,6 +10,7 @@ The addon is disabled by default.
 2. Enable **BetterBonusRolls** for your character.
 3. Open a content page and enable the bosses, dungeons, or outdoor content where you want to bonus roll.
 4. Choose **Current Spec** or a specific loot specialization for each enabled rule.
+5. Use the cog on a supported row to review its bonus-rollable items and manually mark anything you have already obtained.
 
 Unchecked rows are treated as content you do not want to bonus roll and their offers are hidden while the addon is enabled.
 
@@ -19,6 +20,7 @@ Unchecked rows are treated as content you do not want to bonus roll and their of
 - If the configured loot specialization is not active, a **Change Loot Spec** button appears beside the roll. It changes only your loot specialization and never uses the roll.
 - If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
 - Clicking Blizzard's **No** button hides the offer without declining it. BetterBonusRolls prints a reminder that `/bbr show` can restore it while the offer remains active.
+- When a bonus roll awards a tracked item, its matching entry is automatically marked **Obtained** for that source, difficulty, and loot specialization.
 - Once the server offer expires, it can no longer be restored.
 
 BetterBonusRolls never automatically spends or permanently declines a bonus roll.
@@ -28,9 +30,11 @@ BetterBonusRolls never automatically spends or permanently declines a bonus roll
 | Content | Available rules |
 | --- | --- |
 | Raids and Lairs | Choose each boss, difficulty, and loot specialization independently. |
-| Current Season Dungeons | Choose each dungeon, its minimum difficulty, and loot specialization. Minimums range from Normal through `+10`; `+10` also covers higher keys. |
+| Current Season Dungeons | Choose each dungeon, its minimum difficulty, and loot specialization. Available Normal, Heroic, and Mythic choices come from that dungeon's Adventure Guide entry; Timewalking is omitted. Mythic and `+2` through `+10` show the Mythic loot pool, and `+10` also covers higher keys. |
 | Bountiful Delves | Use one rule for all Bountiful Delves with a minimum Tier 1-11 and loot specialization. |
 | Outdoor Content | Configure current-season World Bosses individually and Nightmare Prey separately. |
+
+Bonus-rollable item lists are available for raids, Lairs, current-season dungeons, and individual World Bosses. These include equipment and specialization-specific tier tokens. Blizzard does not currently expose a complete equivalent loot pool for Bountiful Delves or Nightmare Prey.
 
 ## Commands
 

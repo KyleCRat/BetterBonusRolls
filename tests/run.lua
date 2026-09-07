@@ -20,6 +20,14 @@ local function assertContains(text, expected, message)
     end
 end
 
+local function assertNotContains(text, unexpected, message)
+    if text and text:find(unexpected, 1, true) then
+        fail((message or "text unexpectedly matched")
+            .. ": did not expect to find " .. unexpected
+            .. " in " .. tostring(text))
+    end
+end
+
 local function copyValue(value)
     if type(value) ~= "table" then
         return value
@@ -172,6 +180,7 @@ local function buildHarness(options)
         events = {},
         initializers = {},
         popupShown = false,
+        recordedItems = {},
     }
     if options.raidRule == nil and not options.unconfigured then
         harness.raidRule = 1
@@ -442,6 +451,14 @@ local function buildHarness(options)
         return labels[rank] or "+" .. tostring(rank - 2)
     end
 
+    function NS.Catalog:IsDungeonThresholdAvailable(dungeon, rank)
+        return type(dungeon) == "table"
+            and type(rank) == "number"
+            and rank % 1 == 0
+            and rank >= 1
+            and rank <= 12
+    end
+
     function NS.Catalog:GetEffectiveLootSpecID()
         return harness.currentSpecID
     end
@@ -453,6 +470,16 @@ local function buildHarness(options)
     function NS.Catalog:GetSpecName(specID)
         local spec = self.specByID[specID]
         return spec and spec.name or "Unknown"
+    end
+
+    NS.LootTracker = {}
+    function NS.LootTracker:RecordBonusRollItem(snapshot, itemLink, specID)
+        harness.recordedItems[#harness.recordedItems + 1] = {
+            snapshot = copyValue(snapshot),
+            itemLink = itemLink,
+            specID = specID,
+        }
+        return 12345
     end
 
     NS.DB = {}
@@ -671,6 +698,124 @@ test("timeout disarms and prevents restoration", function()
         "expired without being used",
         "timeout is explicit"
     )
+end)
+
+test("started roll suppresses expiration and records its result", function()
+    local harness = buildHarness()
+
+    clickRoll(harness)
+    acceptPopup(harness)
+    harness.events.SPELL_CONFIRMATION_TIMEOUT(
+        "SPELL_CONFIRMATION_TIMEOUT",
+        harness.frame.spellID,
+        Enum.ConfirmationPromptUIType.BonusRoll
+    )
+
+    assertEqual(harness.nativeRolls, 1, "native Roll remains one shot")
+    assertEqual(#harness.messages, 0, "submitted roll does not report expiration")
+
+    harness.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
+
+    harness.events.BONUS_ROLL_RESULT(
+        "BONUS_ROLL_RESULT",
+        "item",
+        "|cff0070dd|Hitem:12345::::::::|h[Test Item]|h|r",
+        1,
+        2,
+        2,
+        true,
+        nil,
+        false,
+        false
+    )
+
+    assertEqual(#harness.recordedItems, 1, "item result is recorded")
+    assertEqual(
+        harness.recordedItems[1].specID,
+        2,
+        "result uses the actual loot specialization"
+    )
+    assertEqual(
+        harness.recordedItems[1].snapshot.encounterID,
+        200,
+        "result retains the validated encounter"
+    )
+    assertContains(
+        harness.messages[1],
+        "Bonus roll used on Normal Ula'tek with Elemental loot specialization",
+        "result message identifies source and actual spec"
+    )
+    assertNotContains(
+        harness.messages[1],
+        "expired",
+        "successful result is not described as expired"
+    )
+
+    harness.events.BONUS_ROLL_RESULT(
+        "BONUS_ROLL_RESULT",
+        "item",
+        "|cff0070dd|Hitem:12346::::::::|h[Secondary Item]|h|r",
+        1,
+        2,
+        2,
+        true,
+        nil,
+        true,
+        false
+    )
+    assertEqual(#harness.recordedItems, 2, "secondary item can be recorded")
+    assertEqual(#harness.messages, 1, "secondary result adds no message")
+end)
+
+test("unassociated result cannot record an item", function()
+    local harness = buildHarness()
+
+    harness.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
+    harness.events.BONUS_ROLL_RESULT(
+        "BONUS_ROLL_RESULT",
+        "item",
+        "|cff0070dd|Hitem:12345::::::::|h[Test Item]|h|r",
+        1,
+        1,
+        2,
+        true,
+        nil,
+        false,
+        false
+    )
+
+    assertEqual(#harness.recordedItems, 0, "unassociated result is ignored")
+    assertEqual(harness.nativeRolls, 0, "result event never invokes Roll")
+    assertEqual(harness.nativePasses, 0, "result event never invokes Pass")
+end)
+
+test("failed roll cannot mark an item or become an expiration", function()
+    local harness = buildHarness()
+
+    clickRoll(harness)
+    acceptPopup(harness)
+    harness.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
+    harness.events.BONUS_ROLL_FAILED("BONUS_ROLL_FAILED")
+    harness.events.BONUS_ROLL_RESULT(
+        "BONUS_ROLL_RESULT",
+        "item",
+        "|cff0070dd|Hitem:12345::::::::|h[Test Item]|h|r",
+        1,
+        1,
+        2,
+        true,
+        nil,
+        false,
+        false
+    )
+    harness.events.SPELL_CONFIRMATION_TIMEOUT(
+        "SPELL_CONFIRMATION_TIMEOUT",
+        harness.frame.spellID,
+        Enum.ConfirmationPromptUIType.BonusRoll
+    )
+
+    assertEqual(#harness.recordedItems, 0, "failed roll records no item")
+    assertEqual(#harness.messages, 0, "failed roll is not called expired")
 end)
 
 test("disable disarms and restores native scripts", function()

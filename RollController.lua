@@ -16,6 +16,7 @@ local rollButtonOnClick
 local passButtonOnClick
 local armedToken
 local currentOffer
+local resultCandidate
 local generation = 0
 local bonusRollActivated = true
 local timedOutSpellID
@@ -87,6 +88,18 @@ local function snapshotsMatch(left, right)
     end
 
     return true
+end
+
+local function copySnapshot(snapshot)
+    local copy = {}
+
+    for index = 1, #SNAPSHOT_KEYS do
+        local key = SNAPSHOT_KEYS[index]
+
+        copy[key] = snapshot[key]
+    end
+
+    return copy
 end
 
 local function rawOffersMatch(left, right)
@@ -473,6 +486,11 @@ local function getDungeonRule(mapID)
         return nil
     end
 
+    local dungeon = NS.Catalog.dungeonByMap[mapID]
+    if not dungeon then
+        return nil
+    end
+
     local specSelection = NS.DB:Get(
         "dungeonRules",
         mapID,
@@ -492,6 +510,10 @@ local function getDungeonRule(mapID)
         or not NS:IsPublicPositiveInteger(minimumDifficulty)
         or minimumDifficulty < limits.minimum
         or minimumDifficulty > limits.maximum
+        or not NS.Catalog:IsDungeonThresholdAvailable(
+            dungeon,
+            minimumDifficulty
+        )
     then
         return nil
     end
@@ -1048,6 +1070,12 @@ local function confirmArmedToken(token)
         return
     end
 
+    resultCandidate = {
+        snapshot = copySnapshot(snapshot),
+        started = false,
+        primaryResultSeen = false,
+    }
+    currentOffer.rollState = "submitted"
     callback(button, mouseButton, down)
 end
 
@@ -1350,6 +1378,7 @@ function Controller:OnOfferStarted()
 
     if not currentOffer or not rawOffersMatch(currentOffer.raw, raw) then
         disarm(true, false)
+        resultCandidate = nil
         generation = generation + 1
         local delveTier
         if raw.difficultyID == NS.Catalog.Difficulty.DELVE then
@@ -1425,6 +1454,7 @@ function Controller:SetEnabled(enabled)
             and isRawOfferActive(currentOffer.raw))
 
     runtimeEnabled = false
+    resultCandidate = nil
     disarm(true, false)
     refreshSwitchPanel(nil)
     restoreScripts()
@@ -1547,6 +1577,13 @@ local function handleTimeout(_, spellID, confirmationType)
     clearChallengeRunForOffer(currentOffer.raw)
     currentOffer.expired = true
 
+    if currentOffer.rollState then
+        disarm(true, false)
+        refreshSwitchPanel(nil)
+        currentOffer.hidden = false
+        return
+    end
+
     if not runtimeEnabled then
         return
     end
@@ -1558,6 +1595,16 @@ local function handleTimeout(_, spellID, confirmationType)
 end
 
 local function handleBonusRollStarted()
+    if resultCandidate
+        and currentOffer
+        and resultCandidate.snapshot.generation == currentOffer.generation
+    then
+        resultCandidate.started = true
+        currentOffer.rollState = "started"
+    else
+        resultCandidate = nil
+    end
+
     if currentOffer then
         clearChallengeRunForOffer(currentOffer.raw)
     end
@@ -1566,6 +1613,84 @@ local function handleBonusRollStarted()
     if currentOffer then
         currentOffer.hidden = false
     end
+end
+
+local function handleBonusRollFailed()
+    resultCandidate = nil
+    if currentOffer then
+        currentOffer.rollState = "failed"
+        clearChallengeRunForOffer(currentOffer.raw)
+        currentOffer.hidden = false
+    end
+
+    disarm(true, false)
+    refreshSwitchPanel(nil)
+end
+
+local function handleBonusRollResult(_, typeIdentifier, itemLink,
+    _quantity, specID, _sex, _personalLootToast, _currencyID,
+    isSecondaryResult)
+    if not resultCandidate
+        or not resultCandidate.started
+        or not currentOffer
+        or resultCandidate.snapshot.generation ~= currentOffer.generation
+    then
+        return
+    end
+    if NS:IsSecret(typeIdentifier)
+        or NS:IsSecret(itemLink)
+        or NS:IsSecret(specID)
+        or NS:IsSecret(isSecondaryResult)
+        or type(typeIdentifier) ~= "string"
+        or type(isSecondaryResult) ~= "boolean"
+    then
+        resultCandidate = nil
+        currentOffer.rollState = "result"
+        return
+    end
+
+    local snapshot = resultCandidate.snapshot
+    local actualSpecID = specID
+    if actualSpecID == 0 then
+        actualSpecID = snapshot.currentSpecID
+    end
+
+    if typeIdentifier == "item"
+        and type(itemLink) == "string"
+        and NS:IsPublicPositiveInteger(actualSpecID)
+    then
+        NS.LootTracker:RecordBonusRollItem(
+            snapshot,
+            itemLink,
+            actualSpecID
+        )
+    end
+
+    currentOffer.rollState = "result"
+    if isSecondaryResult or resultCandidate.primaryResultSeen then
+        return
+    end
+
+    resultCandidate.primaryResultSeen = true
+
+    local sourceName = not NS:IsSecret(snapshot.sourceName)
+        and type(snapshot.sourceName) == "string"
+        and snapshot.sourceName or "the selected source"
+    local specName = NS:IsPublicPositiveInteger(actualSpecID)
+        and NS.Catalog:GetSpecName(actualSpecID) or "Unknown"
+    local resultText = "Bonus roll used on " .. sourceName
+        .. " with " .. specName .. " loot specialization"
+
+    if typeIdentifier == "item"
+        and type(itemLink) == "string"
+        and itemLink ~= ""
+    then
+        resultText = resultText .. ": " .. itemLink
+    else
+        resultText = resultText .. "."
+    end
+
+    NS:Print(resultText)
 end
 
 local function handleBonusRollActivation(event)
@@ -1633,6 +1758,8 @@ NS:RegisterInitializer(function()
     NS:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", handleLootSpecUpdate)
     NS:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT", handleTimeout)
     NS:RegisterEvent("BONUS_ROLL_STARTED", handleBonusRollStarted)
+    NS:RegisterEvent("BONUS_ROLL_FAILED", handleBonusRollFailed)
+    NS:RegisterEvent("BONUS_ROLL_RESULT", handleBonusRollResult)
     NS:RegisterEvent("BONUS_ROLL_DEACTIVATE", handleBonusRollActivation)
     NS:RegisterEvent("BONUS_ROLL_ACTIVATE", handleBonusRollActivation)
     NS:RegisterEvent("CHALLENGE_MODE_START", handleChallengeStart)

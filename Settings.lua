@@ -24,6 +24,8 @@ local RAID_DIFFICULTY_ICON_ATLAS = {
     [NS.Catalog.Difficulty.STORY] = "questlog-storylineicon",
     [NS.Catalog.Difficulty.WORLD] = "RaidFrame-Icon-LFR",
 }
+local ITEMS_COLUMN_WIDTH = 34
+local ITEMS_GAP_WIDTH = 8
 local DELVE_TIER_CHOICES = {}
 for tier = NS.RuleLimits.delveMinimumTier.minimum,
     NS.RuleLimits.delveMinimumTier.maximum
@@ -83,6 +85,8 @@ local function refreshTrackedRow(tracked)
             DISABLED_RULE_TOOLTIP
         )
     end
+
+    NS.LootSettings:Refresh(tracked)
 end
 
 local function trackRuleRow(tracked)
@@ -99,6 +103,10 @@ local function addRuleControls(row, tableView, tracked, thresholdChoices)
             tracked.setEnabled(value)
             refreshTrackedRow(tracked)
         end,
+    }, {
+        point = "LEFT",
+        relativePoint = "LEFT",
+        offsetX = 4,
     })
 
     if thresholdChoices then
@@ -135,7 +143,31 @@ local function addRuleControls(row, tableView, tracked, thresholdChoices)
         end,
     })
 
+    if tracked.getLootRequest then
+        NS.LootSettings:Attach(row, tableView, tracked)
+    end
+
     trackRuleRow(tracked)
+end
+
+local function addDynamicTable(layout, root, tableView, marginBottom)
+    marginBottom = marginBottom or 0
+
+    local tableTop = root:GetCursor()
+
+    root:AddFrame(tableView:GetFrame(), { marginBottom = marginBottom })
+
+    local function refreshLayout()
+        layout:Finalize({
+            contentHeight = tableTop
+                + tableView:GetHeight()
+                + marginBottom
+                + layout:GetStyleValue("paddingBottom"),
+        })
+    end
+
+    tableView:SetOnHeightChanged(refreshLayout)
+    refreshLayout()
 end
 
 local function buildGeneralPage(page)
@@ -202,7 +234,7 @@ local function buildDungeonPage(page)
 
     layout:AddHeader(
         "Current Season Dungeons",
-        "Enable each dungeon independently, then choose its minimum difficulty and required loot specialization. Minimums run from Normal through +10; keys above +10 use the same Myth 1/6 bonus-roll reward."
+        "Enable each dungeon independently, then choose its minimum difficulty and required loot specialization. Available base difficulties come from the Adventure Guide; Timewalking is excluded, and Mythic through +10 use the Mythic loot table."
     )
 
     if #NS.Catalog.dungeons == 0 then
@@ -220,6 +252,8 @@ local function buildDungeonPage(page)
             width = root:GetWidth(),
             columns = {
                 { key = "enable", width = 46 },
+                { key = "items", width = ITEMS_COLUMN_WIDTH },
+                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
                 { key = "dungeon", weight = 1, justifyH = "LEFT" },
                 { key = "minimum", width = 130 },
                 { key = "gap", width = 8 },
@@ -228,12 +262,47 @@ local function buildDungeonPage(page)
         }
     )
     tableView:AddHeaderText("enable", "Enable")
+    tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("dungeon", "Dungeon", { justifyH = "LEFT" })
     tableView:AddHeaderText("minimum", "Minimum")
     tableView:AddHeaderText("spec", "Loot specialization")
 
     for index = 1, #NS.Catalog.dungeons do
         local dungeon = NS.Catalog.dungeons[index]
+        local thresholdChoices =
+            NS.Catalog:GetDungeonThresholdChoices(dungeon)
+        local defaultThreshold =
+            NS.Catalog:GetDungeonDefaultThreshold(dungeon)
+        local storedSpec = NS.DB:Get(
+            "dungeonRules",
+            dungeon.id,
+            "specializationID"
+        )
+
+        if isValidSpecSelection(storedSpec) then
+            local storedThreshold = NS.DB:Get(
+                "dungeonRules",
+                dungeon.id,
+                "minimumDifficulty"
+            )
+            local normalizedThreshold =
+                NS.Catalog:NormalizeDungeonThreshold(
+                    dungeon,
+                    storedThreshold
+                )
+
+            if normalizedThreshold
+                and normalizedThreshold ~= storedThreshold
+            then
+                NS.DB:Set(
+                    "dungeonRules",
+                    dungeon.id,
+                    "minimumDifficulty",
+                    normalizedThreshold
+                )
+            end
+        end
+
         local row = tableView:AddRow()
         local dungeonText = row:AddText(
             "dungeon",
@@ -242,13 +311,24 @@ local function buildDungeonPage(page)
         )
         local tracked = {
             texts = { dungeonText },
-            defaultThreshold = NS.RuleDefaults.dungeonMinimumDifficulty,
+            defaultThreshold = defaultThreshold,
             isEnabled = function()
-                return isValidSpecSelection(NS.DB:Get(
+                local specSelection = NS.DB:Get(
                     "dungeonRules",
                     dungeon.id,
                     "specializationID"
-                ))
+                )
+                local threshold = NS.DB:Get(
+                    "dungeonRules",
+                    dungeon.id,
+                    "minimumDifficulty"
+                )
+
+                return isValidSpecSelection(specSelection)
+                    and NS.Catalog:IsDungeonThresholdAvailable(
+                        dungeon,
+                        threshold
+                    )
             end,
             getSpec = function()
                 return NS.DB:Get(
@@ -268,7 +348,7 @@ local function buildDungeonPage(page)
                 if value then
                     NS.DB:Set("dungeonRules", dungeon.id, {
                         specializationID = 0,
-                        minimumDifficulty = NS.RuleDefaults.dungeonMinimumDifficulty,
+                        minimumDifficulty = defaultThreshold,
                     })
                 else
                     NS.DB:ResetPath("dungeonRules", dungeon.id)
@@ -286,12 +366,10 @@ local function buildDungeonPage(page)
                 NS:NotifyConfigurationChanged()
             end,
             setThreshold = function(value)
-                local limits = NS.RuleLimits.dungeonMinimumDifficulty
-                if type(value) ~= "number"
-                    or value % 1 ~= 0
-                    or value < limits.minimum
-                    or value > limits.maximum
-                then
+                if not NS.Catalog:IsDungeonThresholdAvailable(
+                    dungeon,
+                    value
+                ) then
                     return
                 end
                 NS.DB:Set(
@@ -303,17 +381,23 @@ local function buildDungeonPage(page)
                 NS:NotifyConfigurationChanged()
             end,
         }
+        tracked.getLootRequest = function()
+            return NS.LootTracker:CreateDungeonRequest(
+                dungeon,
+                tracked.getThreshold(),
+                tracked.getSpec()
+            )
+        end
 
         addRuleControls(
             row,
             tableView,
             tracked,
-            NS.Catalog:GetDungeonThresholdChoices()
+            thresholdChoices
         )
     end
 
-    root:AddFrame(tableView:GetFrame(), { marginBottom = 8 })
-    layout:Finalize()
+    addDynamicTable(layout, root, tableView, 8)
 end
 
 local function buildOutdoorContentPage(page)
@@ -340,6 +424,8 @@ local function buildOutdoorContentPage(page)
             width = root:GetWidth(),
             columns = {
                 { key = "enable", width = 46 },
+                { key = "items", width = ITEMS_COLUMN_WIDTH },
+                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
                 { key = "content", weight = 1, justifyH = "LEFT" },
                 { key = "minimum", width = 130 },
                 { key = "gap", width = 8 },
@@ -348,6 +434,7 @@ local function buildOutdoorContentPage(page)
         }
     )
     tableView:AddHeaderText("enable", "Enable")
+    tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("content", "Content", { justifyH = "LEFT" })
     tableView:AddHeaderText("minimum", "Minimum")
     tableView:AddHeaderText("spec", "Loot specialization")
@@ -483,6 +570,12 @@ local function buildOutdoorContentPage(page)
                 NS:NotifyConfigurationChanged()
             end,
         }
+        tracked.getLootRequest = function()
+            return NS.LootTracker:CreateWorldBossRequest(
+                boss,
+                tracked.getSpec()
+            )
+        end
         addRuleControls(row, tableView, tracked)
     end
 
@@ -534,8 +627,7 @@ local function buildOutdoorContentPage(page)
         addRuleControls(row, tableView, tracked)
     end
 
-    root:AddFrame(tableView:GetFrame(), { marginBottom = 8 })
-    layout:Finalize()
+    addDynamicTable(layout, root, tableView, 8)
 end
 
 local function createRaidDifficultyTable(parent, width, instance, difficulty)
@@ -545,12 +637,15 @@ local function createRaidDifficultyTable(parent, width, instance, difficulty)
             width = width,
             columns = {
                 { key = "enable", width = 46 },
+                { key = "items", width = ITEMS_COLUMN_WIDTH },
+                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
                 { key = "boss", weight = 1, justifyH = "LEFT" },
                 { key = "spec", width = 230 },
             },
         }
     )
     tableView:AddHeaderText("enable", "Enable")
+    tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("boss", "Boss", { justifyH = "LEFT" })
     tableView:AddHeaderText("spec", "Loot specialization")
 
@@ -611,6 +706,14 @@ local function createRaidDifficultyTable(parent, width, instance, difficulty)
                 NS:NotifyConfigurationChanged()
             end,
         }
+        tracked.getLootRequest = function()
+            return NS.LootTracker:CreateRaidRequest(
+                instance,
+                encounter,
+                difficulty,
+                tracked.getSpec()
+            )
+        end
 
         addRuleControls(row, tableView, tracked)
     end
@@ -730,6 +833,7 @@ local function buildRaidPage(page, instance)
     for index = 1, #groups do
         local group = groups[index]
 
+        group.tableView:SetOnHeightChanged(refreshGroupLayout)
         group.header:SetOnExpandedChanged(function(_header, expanded)
             group.collapsed = not expanded
             refreshGroupLayout()
