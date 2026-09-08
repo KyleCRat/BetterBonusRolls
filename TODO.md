@@ -6,7 +6,5 @@
   `CHALLENGE_MODE_START` data, retain it across temporary zone changes,
   overwrite it only for a verified new run, and add provenance and freshness
   rules so old completion data cannot impersonate it.
-- Add a public LibModernSettings tooltip-refresh method for version 1.6 and
-  replace BetterBonusRolls calls to the private `_ShowTooltip` helper.
 - Before release, update the LibModernSettings submodule to version 1.6 and
   disable the developer preview flag.

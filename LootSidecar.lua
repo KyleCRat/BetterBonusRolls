@@ -26,18 +26,9 @@ local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local sidecars = {}
 local defaultSidecar
 
-local function clearOwnedTooltip(button)
-    if GameTooltip.GetOwner and GameTooltip:GetOwner() == button then
-        GameTooltip:Hide()
-        return true
-    end
-
-    return false
-end
-
 local function resetItemRow(itemRow)
-    clearOwnedTooltip(itemRow.checkbox)
-    clearOwnedTooltip(itemRow.linkButton)
+    ModernSettings:HideOwnedTooltip(itemRow.checkbox)
+    ModernSettings:HideOwnedTooltip(itemRow.linkButton)
     itemRow.request = nil
     itemRow.itemID = nil
     itemRow.linkButton.itemLink = nil
@@ -243,8 +234,7 @@ local function renderItems(sidecar, items)
             or "Item " .. item.itemID
         local obtainedAction = obtained and "not obtained" or "obtained"
 
-        local refreshCheckboxTooltip = clearOwnedTooltip(itemRow.checkbox)
-        clearOwnedTooltip(itemRow.linkButton)
+        ModernSettings:HideOwnedTooltip(itemRow.linkButton)
         if not obtained then
             remaining = remaining + 1
         end
@@ -265,9 +255,7 @@ local function renderItems(sidecar, items)
                 .. specName .. " loot specialization.",
         })
         itemRow.checkbox:SetValue(obtained)
-        if refreshCheckboxTooltip then
-            ModernSettings:_ShowTooltip(itemRow.checkbox, itemRow.checkbox)
-        end
+        ModernSettings:RefreshTooltip(itemRow.checkbox)
         itemRow:Show()
     end
 

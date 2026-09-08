@@ -22,15 +22,6 @@ local LIST_BOTTOM_MARGIN = 8
 local ITEM_ROW_STRIPE_ALPHA = 0.035
 local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local function clearOwnedTooltip(button)
-    if GameTooltip.GetOwner and GameTooltip:GetOwner() == button then
-        GameTooltip:Hide()
-        return true
-    end
-
-    return false
-end
-
 local function getItemName(item)
     if not NS:IsSecret(item.name)
         and type(item.name) == "string"
@@ -54,8 +45,8 @@ local function getItemLink(item, itemName)
 end
 
 local function resetItemRow(itemRow)
-    clearOwnedTooltip(itemRow.checkbox)
-    clearOwnedTooltip(itemRow.itemButton)
+    ModernSettings:HideOwnedTooltip(itemRow.checkbox)
+    ModernSettings:HideOwnedTooltip(itemRow.itemButton)
     itemRow.request = nil
     itemRow.itemID = nil
     itemRow.itemButton.itemLink = nil
@@ -337,9 +328,7 @@ local function renderItemRow(tracker, index, entry)
     local itemLink = getItemLink(item, itemName)
     local specName = NS.Catalog:GetSpecName(request.specID)
     local obtainedAction = obtained and "not obtained" or "obtained"
-    local refreshCheckboxTooltip = clearOwnedTooltip(itemRow.checkbox)
-
-    clearOwnedTooltip(itemRow.itemButton)
+    ModernSettings:HideOwnedTooltip(itemRow.itemButton)
     itemRow.request = request
     itemRow.itemID = item.itemID
     itemRow.itemButton.itemLink = item.link
@@ -362,9 +351,7 @@ local function renderItemRow(tracker, index, entry)
             .. specName .. " loot specialization.",
     })
     itemRow.checkbox:SetValue(obtained)
-    if refreshCheckboxTooltip then
-        ModernSettings:_ShowTooltip(itemRow.checkbox, itemRow.checkbox)
-    end
+    ModernSettings:RefreshTooltip(itemRow.checkbox)
     itemRow:Show()
 
     return obtained
