@@ -115,7 +115,9 @@
 - Mythic+ identity now survives reloads and temporary zone changes through one
   persisted run, retries incomplete start and completion data, rejects stale
   unbound runs after one hour, and never treats free-floating last-completion
-  data as the current bonus-roll offer.
+  data as the current bonus-roll offer. Late completion data also restores an
+  eligible offer hidden only because its key information was missing, without
+  reopening roll confirmation or overriding a player's No or /bbr hide action.
 
 ## [12.1.0-1] - 2026-09-02
 

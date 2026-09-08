@@ -1151,6 +1151,103 @@ test("incomplete completion data retries before recovering the run", function()
     assertEqual(harness.challengeRun.completedAt, 1000, "event time is retained")
 end)
 
+local function buildPendingDungeonOffer()
+    return buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+        challengeLevel = 0,
+        difficultyID = 8,
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+end
+
+test("late completion restores the prompt but never authorizes a roll", function()
+    local harness = buildPendingDungeonOffer()
+    assertEqual(harness.frame.shown, false, "missing key data hides offer")
+
+    harness.completionChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+
+    assertEqual(harness.frame.shown, true, "completion restores eligible offer")
+    assertEqual(harness.popupShown, false, "recovery does not open confirmation")
+    assertEqual(harness.nativeRolls, 0, "recovery never rolls")
+    assertEqual(harness.nativePasses, 0, "recovery never passes")
+    assertContains(
+        harness.NS.RollController:GetStatusText(),
+        "+10 Test Dungeon is shown",
+        "restored offer uses the recovered key"
+    )
+
+    clickRoll(harness)
+    assertEqual(harness.nativeRolls, 0, "Blizzard click still needs confirmation")
+    acceptPopup(harness)
+    assertEqual(harness.nativeRolls, 1, "confirmed user click can roll")
+end)
+
+test("completion retry restores an offer hidden before its data arrived", function()
+    local harness = buildPendingDungeonOffer()
+    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+    assertEqual(harness.frame.shown, false, "incomplete completion stays hidden")
+
+    harness.completionChallengeMapID = 300
+    harness.challengeLevel = 10
+    assertEqual(harness:RunNextTimer(), true, "completion retry runs")
+
+    assertEqual(harness.frame.shown, true, "retry restores eligible offer")
+    assertEqual(harness.popupShown, false, "retry does not open confirmation")
+    assertEqual(harness.nativeRolls, 0, "retry never rolls")
+    assertEqual(harness.nativePasses, 0, "retry never passes")
+end)
+
+test("late completion respects No and command hides", function()
+    for _, action in ipairs({ "No", "command" }) do
+        local harness = buildPendingDungeonOffer()
+        harness.NS.RollController:ShowCurrent()
+
+        if action == "No" then
+            harness.passButton:GetScript("OnClick")(harness.passButton)
+        else
+            harness.NS.RollController:HideCurrentByCommand()
+        end
+
+        harness.completionChallengeMapID = 300
+        harness.challengeLevel = 10
+        harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+
+        assertEqual(harness.frame.shown, false, action .. " keeps offer hidden")
+        assertEqual(harness.popupShown, false, action .. " never opens confirmation")
+        assertEqual(harness.nativeRolls, 0, action .. " never rolls")
+        assertEqual(harness.nativePasses, 0, action .. " never passes")
+    end
+end)
+
+test("late completion cannot restore expired or filtered offers", function()
+    for _, condition in ipairs({ "expired", "disabled rule", "below minimum" }) do
+        local harness = buildPendingDungeonOffer()
+        harness.completionChallengeMapID = 300
+        harness.challengeLevel = 10
+
+        if condition == "expired" then
+            harness.now = harness.frame.endTime + 1
+        elseif condition == "disabled rule" then
+            harness.dungeonRule = nil
+        else
+            harness.challengeLevel = 9
+        end
+
+        harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+
+        assertEqual(harness.frame.shown, false, condition .. " stays hidden")
+        assertEqual(harness.popupShown, false, condition .. " never opens confirmation")
+        assertEqual(harness.nativeRolls, 0, condition .. " never rolls")
+        assertEqual(harness.nativePasses, 0, condition .. " never passes")
+    end
+end)
+
 test("fresh completed challenge run identifies the cleared active map", function()
     local harness = buildHarness({
         activeChallengeMapID = 0,

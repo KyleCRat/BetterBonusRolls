@@ -1069,7 +1069,7 @@ local function refreshSwitchPanel(resolved)
     NS.LootSidecar:Refresh(resolved, lootAnchor)
 end
 
-local function hideCurrentOffer(reason, resolved)
+local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
     if not currentOffer or not isRawOfferActive(currentOffer.raw) then
         return false
     end
@@ -1080,6 +1080,13 @@ local function hideCurrentOffer(reason, resolved)
     resolved = resolved or resolveOffer(currentOffer.raw)
     local sourceName = resolved and resolved.sourceName or "unknown source"
     currentOffer.hidden = true
+    -- Only automatic filtering may reopen an offer after its key data arrives.
+    -- No and /bbr hide omit this opt-in and clear any pending recovery.
+    currentOffer.hiddenForMissingChallenge = allowChallengeRecovery == true
+        and resolved ~= nil
+        and resolved.kind == "dungeon"
+        and currentOffer.raw.difficultyID == NS.Catalog.Difficulty.MYTHIC_PLUS
+        and resolved.challengeLevel == nil
 
     if frame:IsShown() then
         GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
@@ -1548,7 +1555,8 @@ function Controller:OnOfferStarted()
         hideCurrentOffer(
             resolved and resolved.reason
                 or "the offer could not be safely evaluated",
-            resolved
+            resolved,
+            true
         )
         return
     end
@@ -1615,7 +1623,8 @@ function Controller:OnConfigurationChanged()
         hideCurrentOffer(
             resolved and resolved.reason
                 or "the offer could not be safely evaluated",
-            resolved
+            resolved,
+            true
         )
     else
         refreshSwitchPanel(resolved)
@@ -1631,6 +1640,7 @@ function Controller:ShowCurrent()
         NS:Print("No active bonus roll can be shown.")
         return false
     end
+    currentOffer.hiddenForMissingChallenge = false
     if frame:IsShown() then
         NS:Print("The bonus roll is already showing.")
         return true
@@ -1645,6 +1655,30 @@ function Controller:ShowCurrent()
     observeCurrentLoot(resolved)
     refreshSwitchPanel(resolved)
     return true
+end
+
+local function restoreOfferAfterChallengeRecovery()
+    if not runtimeEnabled
+        or not currentOffer
+        or not currentOffer.hiddenForMissingChallenge
+        or currentOffer.rollState
+        or not isRawOfferActive(currentOffer.raw)
+        or not ensureScriptsOwned()
+    then
+        return
+    end
+
+    local resolved = resolveOffer(currentOffer.raw)
+    if not resolved or not resolved.challengeLevel then
+        return
+    end
+
+    currentOffer.hiddenForMissingChallenge = false
+    if resolved.allowed then
+        -- Restore only the prompt; never restore a pending roll confirmation.
+        disarm(true, true)
+        Controller:ShowCurrent()
+    end
 end
 
 function Controller:HideCurrentByCommand()
@@ -1922,6 +1956,7 @@ local function handleChallengeCompleted()
             run.completedAt = completedAt
             persistChallengeRun(run)
             cancelChallengeRetry()
+            restoreOfferAfterChallengeRecovery()
             return
         end
 
