@@ -24,6 +24,7 @@ PixelPerfect.lua
 Catalog.lua
 LootTracker.lua
 LootReconciliation.lua
+ObtainedCheckbox.lua
 LootSidecar.lua
 RollController.lua
 Preview.lua

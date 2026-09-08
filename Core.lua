@@ -4,7 +4,7 @@ NS.addonName = addonName
 NS.displayName = "BetterBonusRolls"
 NS.version = "12.1.0-1"
 
-local CURRENT_SCHEMA = 5
+local CURRENT_SCHEMA = 6
 
 -- Persisted BBR ranks, not Blizzard difficulty IDs or literal key levels.
 -- Keep these values stable so existing rules and obtained-item history match.
@@ -357,8 +357,20 @@ local function normalizeObtainedBranch(branch, depth)
         if not isPositiveInteger(key) then
             branch[key] = nil
         elseif depth == 1 then
-            if NS:IsSecret(value) or value ~= true then
+            if NS:IsSecret(value) or type(value) ~= "table" then
                 branch[key] = nil
+            else
+                local obtained = not NS:IsSecret(value.obtained)
+                    and value.obtained == true
+                local confirmedObtained = not NS:IsSecret(value.confirmedObtained)
+                    and value.confirmedObtained == true
+
+                if obtained or confirmedObtained then
+                    value.obtained = obtained
+                    value.confirmedObtained = confirmedObtained
+                else
+                    branch[key] = nil
+                end
             end
         else
             local normalized = normalizeObtainedBranch(value, depth - 1)

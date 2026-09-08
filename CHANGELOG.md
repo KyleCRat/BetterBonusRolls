@@ -4,6 +4,11 @@
 
 ### Added
 
+- Obtained checkboxes now distinguish manual marks from confirmed bonus-roll
+  progress. Confirmed items explain their status in tooltips and ask before
+  being unchecked. Manual overrides retain that confirmation, while later
+  validated tooltip or bonus-roll evidence takes precedence. Existing saved
+  checkmarks are preserved as unconfirmed.
 - Active bonus-roll reward tooltips now reconcile Obtained checkboxes with
   Blizzard's remaining-item list for the exact source, difficulty, and actual
   loot specialization, including a fresh read after changing loot spec.

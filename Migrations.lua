@@ -156,11 +156,47 @@ local function migrateTo5(data)
     end
 end
 
+local function migrateObtainedRecords(branch, depth)
+    if NS:IsSecret(branch) or type(branch) ~= "table" then
+        return
+    end
+
+    for key, value in pairs(branch) do
+        if NS:IsPublicPositiveInteger(key) and not NS:IsSecret(value) then
+            if depth == 1 then
+                if value == true then
+                    -- Older saves did not distinguish manual checkmarks from
+                    -- automatic evidence. Preserve progress without claiming
+                    -- that its source can be reconstructed.
+                    branch[key] = {
+                        obtained = true,
+                        confirmedObtained = false,
+                    }
+                end
+            else
+                migrateObtainedRecords(value, depth - 1)
+            end
+        end
+    end
+end
+
+local function migrateTo6(data)
+    local obtainedItems = data.obtainedItems
+    if NS:IsSecret(obtainedItems) or type(obtainedItems) ~= "table" then
+        return
+    end
+
+    migrateObtainedRecords(obtainedItems.raid, 5)
+    migrateObtainedRecords(obtainedItems.dungeon, 4)
+    migrateObtainedRecords(obtainedItems.worldBoss, 3)
+end
+
 local migrations = {
     [2] = migrateTo2,
     [3] = migrateTo3,
     [4] = migrateTo4,
     [5] = migrateTo5,
+    [6] = migrateTo6,
 }
 
 function Migrations.Apply(data, currentSchema)

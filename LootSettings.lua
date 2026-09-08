@@ -75,18 +75,7 @@ local function createItemRow(panel, index)
         stripe:SetColorTexture(1, 1, 1, ITEM_ROW_STRIPE_ALPHA)
     end
 
-    local checkbox = ModernSettings:CreateCheckbox(itemRow, {
-        value = false,
-        onChanged = function(value)
-            if itemRow.request and itemRow.itemID then
-                NS.LootTracker:SetObtained(
-                    itemRow.request,
-                    itemRow.itemID,
-                    value
-                )
-            end
-        end,
-    })
+    local checkbox = NS.ObtainedCheckbox:Create(itemRow)
 
     checkbox:SetPoint("LEFT", itemRow, "LEFT", 0, 0)
     itemRow.checkbox = checkbox
@@ -159,16 +148,13 @@ local function acquireItemRow(panel, index)
 end
 
 local function resetItemRow(itemRow)
-    ModernSettings:HideOwnedTooltip(itemRow.checkbox)
+    NS.ObtainedCheckbox:Reset(itemRow.checkbox)
     ModernSettings:HideOwnedTooltip(itemRow.linkButton)
-    itemRow.request = nil
-    itemRow.itemID = nil
     itemRow.linkButton.itemLink = nil
     itemRow.linkButton.icon:SetTexture(nil)
     itemRow.linkButton.icon:SetDesaturated(false)
     itemRow.linkButton.linkText:SetText("")
     itemRow.linkButton.linkText:SetAlpha(1)
-    itemRow.checkbox:SetValue(false)
     itemRow:Hide()
 end
 
@@ -237,16 +223,11 @@ local function renderItems(tracked, request, items)
     for index = 1, #items do
         local item = items[index]
         local itemRow = acquireItemRow(panel, index)
-        local obtained = NS.LootTracker:IsObtained(
+        local obtained = NS.ObtainedCheckbox:Update(
+            itemRow.checkbox,
             request,
-            item.itemID
+            item
         )
-        local itemName = not NS:IsSecret(item.name)
-            and type(item.name) == "string"
-            and item.name ~= ""
-            and item.name
-            or "Item " .. item.itemID
-        local obtainedAction = obtained and "not obtained" or "obtained"
 
         ModernSettings:HideOwnedTooltip(itemRow.linkButton)
 
@@ -254,8 +235,6 @@ local function renderItems(tracked, request, items)
             remaining = remaining + 1
         end
 
-        itemRow.request = request
-        itemRow.itemID = item.itemID
         itemRow.linkButton.itemLink = item.link
         itemRow.linkButton.icon:SetTexture(
             item.icon or UNKNOWN_ITEM_ICON
@@ -263,14 +242,6 @@ local function renderItems(tracked, request, items)
         itemRow.linkButton.icon:SetDesaturated(obtained)
         itemRow.linkButton.linkText:SetText(item.link)
         itemRow.linkButton.linkText:SetAlpha(obtained and 0.55 or 1)
-        ModernSettings:SetTooltip(itemRow.checkbox, {
-            title = "Obtained",
-            text = "Mark " .. itemName .. " from "
-                .. request.sourceName .. " " .. obtainedAction .. " for "
-                .. specName .. " loot specialization.",
-        })
-        itemRow.checkbox:SetValue(obtained)
-        ModernSettings:RefreshTooltip(itemRow.checkbox)
         itemRow:Show()
     end
 

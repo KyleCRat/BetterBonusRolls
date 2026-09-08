@@ -1271,11 +1271,11 @@ local function isTrackableRequest(request)
     return false
 end
 
-function Tracker:IsObtained(request, itemID)
+local function getObtainedRecord(request, itemID)
     if not isTrackableRequest(request)
         or not NS:IsPublicPositiveInteger(itemID)
     then
-        return false
+        return nil
     end
 
     if request.kind == "raid" then
@@ -1287,7 +1287,7 @@ function Tracker:IsObtained(request, itemID)
             request.difficultyID,
             request.specID,
             itemID
-        ) == true
+        )
     elseif request.kind == "dungeon" then
         return NS.DB:Get(
             "obtainedItems",
@@ -1296,7 +1296,7 @@ function Tracker:IsObtained(request, itemID)
             request.difficultyRank,
             request.specID,
             itemID
-        ) == true
+        )
     end
 
     return NS.DB:Get(
@@ -1305,79 +1305,70 @@ function Tracker:IsObtained(request, itemID)
         request.encounterID,
         request.specID,
         itemID
-    ) == true
+    )
 end
 
-local function storeObtained(request, itemID, newValue)
-    local method = newValue and "Set" or "ResetPath"
+function Tracker:IsObtained(request, itemID)
+    local record = getObtainedRecord(request, itemID)
+    return record ~= nil and record.obtained == true
+end
+
+function Tracker:IsConfirmedObtained(request, itemID)
+    local record = getObtainedRecord(request, itemID)
+    return record ~= nil and record.confirmedObtained == true
+end
+
+local function storeObtained(request, itemID, obtained, confirmedObtained)
+    local previous = getObtainedRecord(request, itemID)
+    local wasObtained = previous ~= nil and previous.obtained == true
+    local wasConfirmed = previous ~= nil and previous.confirmedObtained == true
+
+    if wasObtained == obtained and wasConfirmed == confirmedObtained then
+        return false
+    end
+
+    local record
+    if obtained or confirmedObtained then
+        record = {
+            obtained = obtained,
+            confirmedObtained = confirmedObtained,
+        }
+    end
+
+    -- LibSimpleDB:Set(path, nil) removes the entry when neither flag is set.
     if request.kind == "raid" then
-        if newValue then
-            NS.DB[method](
-                NS.DB,
-                "obtainedItems",
-                "raid",
-                request.instanceID,
-                request.encounterID,
-                request.difficultyID,
-                request.specID,
-                itemID,
-                true
-            )
-        else
-            NS.DB[method](
-                NS.DB,
-                "obtainedItems",
-                "raid",
-                request.instanceID,
-                request.encounterID,
-                request.difficultyID,
-                request.specID,
-                itemID
-            )
-        end
+        NS.DB:Set(
+            "obtainedItems",
+            "raid",
+            request.instanceID,
+            request.encounterID,
+            request.difficultyID,
+            request.specID,
+            itemID,
+            record
+        )
     elseif request.kind == "dungeon" then
-        if newValue then
-            NS.DB[method](
-                NS.DB,
-                "obtainedItems",
-                "dungeon",
-                request.mapID,
-                request.difficultyRank,
-                request.specID,
-                itemID,
-                true
-            )
-        else
-            NS.DB[method](
-                NS.DB,
-                "obtainedItems",
-                "dungeon",
-                request.mapID,
-                request.difficultyRank,
-                request.specID,
-                itemID
-            )
-        end
-    elseif newValue then
-        NS.DB[method](
-            NS.DB,
+        NS.DB:Set(
+            "obtainedItems",
+            "dungeon",
+            request.mapID,
+            request.difficultyRank,
+            request.specID,
+            itemID,
+            record
+        )
+    else
+        NS.DB:Set(
             "obtainedItems",
             "worldBoss",
             request.encounterID,
             request.specID,
             itemID,
-            true
-        )
-    else
-        NS.DB[method](
-            NS.DB,
-            "obtainedItems",
-            "worldBoss",
-            request.encounterID,
-            request.specID,
-            itemID
+            record
         )
     end
+
+    return true
 end
 
 function Tracker:SetObtained(request, itemID, obtained)
@@ -1388,11 +1379,30 @@ function Tracker:SetObtained(request, itemID, obtained)
         return false
     end
 
-    local newValue = obtained == true
-    if self:IsObtained(request, itemID) ~= newValue then
-        storeObtained(request, itemID, newValue)
+    -- Manual changes affect the checklist, not the evidence behind it.
+    if storeObtained(
+        request,
+        itemID,
+        obtained == true,
+        self:IsConfirmedObtained(request, itemID)
+    ) then
         notifyChanged("obtained", request.trackingKey)
     end
+
+    return true
+end
+
+function Tracker:ConfirmObtained(request, itemID)
+    if not isTrackableRequest(request)
+        or not NS:IsPublicPositiveInteger(itemID)
+    then
+        return false
+    end
+
+    if storeObtained(request, itemID, true, true) then
+        notifyChanged("obtained", request.trackingKey)
+    end
+
     return true
 end
 
@@ -1405,8 +1415,8 @@ function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
         local itemID = items[index].itemID
         local obtained = remainingItemIDs[itemID] ~= true
 
-        if self:IsObtained(request, itemID) ~= obtained then
-            storeObtained(request, itemID, obtained)
+        -- Fresh native evidence wins over either kind of manual change.
+        if storeObtained(request, itemID, obtained, obtained) then
             changed = true
         end
     end
@@ -1511,7 +1521,7 @@ function Tracker:RecordBonusRollItem(snapshot, itemLink, specID)
     local item = Item:CreateFromItemID(itemID)
     item:ContinueOnItemLoad(function()
         if isBonusRollCandidate(itemID, specID) then
-            Tracker:SetObtained(request, itemID, true)
+            Tracker:ConfirmObtained(request, itemID)
         end
     end)
 
