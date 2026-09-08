@@ -996,7 +996,7 @@ local function handleLootSpecChanged(event, unit)
 end
 
 NS:RegisterInitializer(function()
-    NS:RegisterEvent("PLAYER_LOGIN", function()
+    NS.Catalog:WhenReady(function()
         SettingsUI:Register()
     end)
     NS:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED", handleLootSpecChanged)

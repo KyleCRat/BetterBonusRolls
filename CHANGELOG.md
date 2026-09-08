@@ -40,6 +40,12 @@
 
 ### Fixed
 
+- Catalog startup now publishes one complete snapshot and retries transiently
+  unavailable specialization, Adventure Guide, or Challenge Mode data instead
+  of leaving settings built from permanently partial tables.
+- Bonus-roll rewards now wait for Blizzard's item cache before classifying and
+  automatically marking the awarded item Obtained.
+- Errors raised while loading Blizzard's bonus-roll UI are no longer swallowed.
 - Catalog initialization no longer attempts to restore unsupported Adventure
   Guide instance state, preventing the current-season catalog from failing at
   login.

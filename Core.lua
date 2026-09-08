@@ -459,7 +459,11 @@ local function initializeAddon()
             NS.DB:Set("enabled", false)
             NS:Print(conflict .. " is loaded, so BetterBonusRolls was left disabled. Disable it and reload first.")
         else
-            NS:RegisterEvent("PLAYER_LOGIN", function()
+            NS.Catalog:WhenReady(function()
+                if not NS.DB:Get("enabled") then
+                    return
+                end
+
                 local applied = NS.RollController:SetEnabled(true)
                 if applied == false then
                     NS.DB:Set("enabled", false)

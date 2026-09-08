@@ -1333,8 +1333,8 @@ local function install()
         return true
     end
 
-    if not BonusRollFrame and C_AddOns and C_AddOns.LoadAddOn then
-        pcall(C_AddOns.LoadAddOn, "Blizzard_UIPanels_Game")
+    if not BonusRollFrame then
+        C_AddOns.LoadAddOn("Blizzard_UIPanels_Game")
     end
 
     frame = BonusRollFrame

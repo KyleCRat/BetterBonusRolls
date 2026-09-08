@@ -13,3 +13,14 @@
   serialized Journal requests never display each other's loot.
 - Compare one dungeon at Normal, Heroic, Mythic, and a Mythic+ threshold;
   verify each base selection uses its matching pool and Mythic+ uses Mythic.
+- Confirm the current-season Mythic+ bonus-roll reward-track breakpoints, then
+  store Obtained progress separately for every selectable dungeon threshold
+  even when multiple thresholds query the same base Mythic Journal item IDs.
+- Harden the existing single persisted Mythic+ run: retry incomplete
+  `CHALLENGE_MODE_START` data, retain it across temporary zone changes,
+  overwrite it only for a verified new run, and add provenance and freshness
+  rules so old completion data cannot impersonate it.
+- Add a public LibModernSettings tooltip-refresh method for version 1.6 and
+  replace BetterBonusRolls calls to the private `_ShowTooltip` helper.
+- Before release, update the LibModernSettings submodule to version 1.6 and
+  disable the developer preview flag.

@@ -1458,16 +1458,18 @@ function Tracker:RecordBonusRollItem(snapshot, itemLink, specID)
         return nil
     end
 
-    if not isBonusRollCandidate(itemID, specID) then
-        return nil
-    end
-
     local request = createResultRequest(snapshot, specID)
     if not request then
         return nil
     end
 
-    self:SetObtained(request, itemID, true)
+    local item = Item:CreateFromItemID(itemID)
+    item:ContinueOnItemLoad(function()
+        if isBonusRollCandidate(itemID, specID) then
+            Tracker:SetObtained(request, itemID, true)
+        end
+    end)
+
     return itemID
 end
 

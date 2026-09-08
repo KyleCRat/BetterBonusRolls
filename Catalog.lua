@@ -1,6 +1,7 @@
 local _, NS = ...
 
 local Catalog = {
+    ready = false,
     raids = {},
     raidByInstance = {},
     worldBosses = {},
@@ -88,16 +89,35 @@ local RAID_DIFFICULTY_DISPLAY_ORDER = {
     Catalog.Difficulty.WORLD,
 }
 
+local CATALOG_DATA_FIELDS = {
+    "raids",
+    "raidByInstance",
+    "worldBosses",
+    "worldBossByEncounter",
+    "dungeons",
+    "dungeonByMap",
+    "dungeonByInstance",
+    "specs",
+    "specByID",
+}
+
+local CATALOG_RETRY_DELAYS = { 0.25, 0.5, 1, 2 }
+local readyCallbacks = {}
+local retryTimer
+local retryStep = 1
+
 local function ensureEncounterJournal()
     if EJ_GetNumTiers and EJ_GetInstanceByIndex then
         return true
     end
 
-    if C_AddOns and C_AddOns.LoadAddOn then
-        C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
+    C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
+
+    if not EJ_GetNumTiers or not EJ_GetInstanceByIndex then
+        error("BetterBonusRolls could not load Blizzard_EncounterJournal.", 2)
     end
 
-    return EJ_GetNumTiers ~= nil and EJ_GetInstanceByIndex ~= nil
+    return true
 end
 
 local function hasSelectedInstanceDifficulty(difficultyID)
@@ -286,31 +306,36 @@ local function isWorldBossInstance(instanceName, dungeonAreaMapID, tierName)
         and instanceName == tierName
 end
 
-local function collectWorldBosses(instanceID, instanceName, difficulties)
+local function collectWorldBosses(
+    target,
+    instanceID,
+    instanceName,
+    difficulties
+)
     local encounterCollection = collectEncounters(instanceID)
     local encounters = encounterCollection.encounters
     local difficulty = difficulties[1]
 
     for index = 1, #encounters do
         local encounter = encounters[index]
-        if not Catalog.worldBossByEncounter[encounter.id] then
+        if not target.worldBossByEncounter[encounter.id] then
             local boss = {
                 id = encounter.id,
                 name = encounter.name,
-                order = #Catalog.worldBosses + 1,
+                order = #target.worldBosses + 1,
                 instanceID = instanceID,
                 instanceName = instanceName,
                 difficultyID = difficulty and difficulty.id or nil,
                 journalDifficultyID = difficulty
                     and difficulty.journalDifficultyID or nil,
             }
-            Catalog.worldBosses[#Catalog.worldBosses + 1] = boss
-            Catalog.worldBossByEncounter[boss.id] = boss
+            target.worldBosses[#target.worldBosses + 1] = boss
+            target.worldBossByEncounter[boss.id] = boss
         end
     end
 end
 
-local function collectRaidLikeInstances(isRaidList, seen, tierName)
+local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
     local index = 1
 
     while true do
@@ -336,6 +361,7 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
                 and not seen[instanceID]
             then
                 collectWorldBosses(
+                    target,
                     instanceID,
                     instanceName,
                     difficulties
@@ -355,7 +381,7 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
                         local instance = {
                             id = instanceID,
                             name = instanceName,
-                            order = #Catalog.raids + 1,
+                            order = #target.raids + 1,
                             encounters = encounters,
                             encounterByID = encounterCollection.encounterByID,
                             difficulties = difficulties,
@@ -363,8 +389,8 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
                             journalRaidList = isRaidList,
                         }
 
-                        Catalog.raids[#Catalog.raids + 1] = instance
-                        Catalog.raidByInstance[instanceID] = instance
+                        target.raids[#target.raids + 1] = instance
+                        target.raidByInstance[instanceID] = instance
                         seen[instanceID] = true
                     end
                 end
@@ -375,111 +401,105 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
     end
 end
 
-function Catalog:BuildRaids()
-    self.raids = {}
-    self.raidByInstance = {}
-    self.worldBosses = {}
-    self.worldBossByEncounter = {}
-
+local function buildRaids(target)
     if not ensureEncounterJournal() then
-        return
+        return false
     end
 
     local tierCount = EJ_GetNumTiers() or 0
     if NS:IsSecret(tierCount) or type(tierCount) ~= "number" or tierCount < 1 then
-        return
+        return false
     end
 
     EJ_SelectTier(tierCount)
 
     local seen = {}
     local tierName = EJ_GetTierInfo(tierCount)
-    collectRaidLikeInstances(true, seen, tierName)
-    collectRaidLikeInstances(false, seen, nil)
+    collectRaidLikeInstances(target, true, seen, tierName)
+    collectRaidLikeInstances(target, false, seen, nil)
+
+    return #target.raids > 0 or #target.worldBosses > 0
 end
 
-function Catalog:BuildDungeons()
-    self.dungeons = {}
-    self.dungeonByMap = {}
-    self.dungeonByInstance = {}
-
+local function buildDungeons(target)
     if not C_ChallengeMode or not C_ChallengeMode.GetMapTable then
-        return
+        error("BetterBonusRolls requires C_ChallengeMode.GetMapTable.", 2)
     end
 
     local mapTable = C_ChallengeMode.GetMapTable()
-    if NS:IsSecret(mapTable) or type(mapTable) ~= "table" then
-        return
+    if NS:IsSecret(mapTable)
+        or type(mapTable) ~= "table"
+        or #mapTable == 0
+    then
+        return false
     end
 
     local journalOrder = {}
     local journalAvailable = ensureEncounterJournal()
 
-    if journalAvailable then
-        local tierCount = EJ_GetNumTiers() or 0
+    if not journalAvailable then
+        return false
+    end
 
-        if not NS:IsSecret(tierCount)
-            and type(tierCount) == "number"
-            and tierCount > 0
-        then
-            EJ_SelectTier(tierCount)
-            local journalIndex = 1
-            while true do
-                local instanceID = EJ_GetInstanceByIndex(
-                    journalIndex,
-                    false
-                )
-                if NS:IsSecret(instanceID) then
-                    break
-                end
-                if not instanceID then
-                    break
-                end
-                if NS:IsPublicPositiveInteger(instanceID) then
-                    journalOrder[instanceID] = journalIndex
-                end
-                journalIndex = journalIndex + 1
-            end
+    local tierCount = EJ_GetNumTiers() or 0
+    if NS:IsSecret(tierCount)
+        or type(tierCount) ~= "number"
+        or tierCount < 1
+    then
+        return false
+    end
+
+    EJ_SelectTier(tierCount)
+    local journalIndex = 1
+    while true do
+        local instanceID = EJ_GetInstanceByIndex(journalIndex, false)
+        if NS:IsSecret(instanceID) then
+            return false
         end
+        if not instanceID then
+            break
+        end
+        if NS:IsPublicPositiveInteger(instanceID) then
+            journalOrder[instanceID] = journalIndex
+        end
+        journalIndex = journalIndex + 1
     end
 
     for index = 1, #mapTable do
         local challengeMapID = mapTable[index]
-        if NS:IsPublicPositiveInteger(challengeMapID) then
-            local name, _, _, _, _, gameMapID =
-                C_ChallengeMode.GetMapUIInfo(challengeMapID)
-
-            if not NS:IsSecret(name) and type(name) == "string" then
-                if not NS:IsPublicPositiveInteger(gameMapID) then
-                    gameMapID = nil
-                end
-                local journalInstanceID
-                if C_EncounterJournal
-                    and C_EncounterJournal.GetInstanceForGameMap
-                    and NS:IsPublicPositiveInteger(gameMapID)
-                then
-                    journalInstanceID =
-                        C_EncounterJournal.GetInstanceForGameMap(gameMapID)
-                end
-                if not NS:IsPublicPositiveInteger(journalInstanceID) then
-                    journalInstanceID = nil
-                end
-
-                local dungeon = {
-                    id = challengeMapID,
-                    name = name,
-                    order = #self.dungeons + 1,
-                    gameMapID = gameMapID,
-                    journalInstanceID = journalInstanceID,
-                    challengeOrder = index,
-                }
-                self.dungeons[#self.dungeons + 1] = dungeon
-                self.dungeonByMap[challengeMapID] = dungeon
-            end
+        if not NS:IsPublicPositiveInteger(challengeMapID) then
+            return false
         end
+
+        local name, _, _, _, _, gameMapID =
+            C_ChallengeMode.GetMapUIInfo(challengeMapID)
+
+        if NS:IsSecret(name)
+            or type(name) ~= "string"
+            or not NS:IsPublicPositiveInteger(gameMapID)
+        then
+            return false
+        end
+
+        local journalInstanceID =
+            C_EncounterJournal.GetInstanceForGameMap(gameMapID)
+        if not NS:IsPublicPositiveInteger(journalInstanceID) then
+            return false
+        end
+
+        local dungeon = {
+            id = challengeMapID,
+            name = name,
+            order = #target.dungeons + 1,
+            gameMapID = gameMapID,
+            journalInstanceID = journalInstanceID,
+            challengeOrder = index,
+        }
+        target.dungeons[#target.dungeons + 1] = dungeon
+        target.dungeonByMap[challengeMapID] = dungeon
     end
 
-    table.sort(self.dungeons, function(left, right)
+    table.sort(target.dungeons, function(left, right)
         local leftOrder = journalOrder[left.journalInstanceID] or 100000
         local rightOrder = journalOrder[right.journalInstanceID] or 100000
         if leftOrder ~= rightOrder then
@@ -488,14 +508,14 @@ function Catalog:BuildDungeons()
         return left.challengeOrder < right.challengeOrder
     end)
 
-    for index = 1, #self.dungeons do
-        local dungeon = self.dungeons[index]
+    for index = 1, #target.dungeons do
+        local dungeon = target.dungeons[index]
         dungeon.order = index
         local hasJournalInstance = NS:IsPublicPositiveInteger(
             dungeon.journalInstanceID
         )
         local selected = false
-        if journalAvailable and hasJournalInstance then
+        if hasJournalInstance then
             EJ_SelectInstance(dungeon.journalInstanceID)
             selected = true
         end
@@ -522,23 +542,26 @@ function Catalog:BuildDungeons()
             or dungeon.thresholdChoices[#dungeon.thresholdChoices].value
 
         if dungeon.journalInstanceID then
-            local matches = self.dungeonByInstance[dungeon.journalInstanceID]
+            local matches = target.dungeonByInstance[
+                dungeon.journalInstanceID
+            ]
             if not matches then
                 matches = {}
-                self.dungeonByInstance[dungeon.journalInstanceID] = matches
+                target.dungeonByInstance[
+                    dungeon.journalInstanceID
+                ] = matches
             end
             matches[#matches + 1] = dungeon
         end
     end
+
+    return #target.dungeons == #mapTable
 end
 
-function Catalog:BuildSpecs()
-    self.specs = {}
-    self.specByID = {}
-
+local function buildSpecs(target)
     local count = GetNumSpecializations() or 0
-    if NS:IsSecret(count) or type(count) ~= "number" then
-        return
+    if NS:IsSecret(count) or type(count) ~= "number" or count < 1 then
+        return false
     end
 
     for index = 1, count do
@@ -551,18 +574,107 @@ function Catalog:BuildSpecs()
                 id = specID,
                 name = name,
                 icon = icon,
-                order = #self.specs + 1,
+                order = #target.specs + 1,
             }
-            self.specs[#self.specs + 1] = spec
-            self.specByID[specID] = spec
+            target.specs[#target.specs + 1] = spec
+            target.specByID[specID] = spec
         end
+    end
+
+    return #target.specs == count
+end
+
+local function createCatalogData()
+    return {
+        raids = {},
+        raidByInstance = {},
+        worldBosses = {},
+        worldBossByEncounter = {},
+        dungeons = {},
+        dungeonByMap = {},
+        dungeonByInstance = {},
+        specs = {},
+        specByID = {},
+    }
+end
+
+local function runReadyCallback(callback)
+    local ok, err = pcall(callback)
+    if not ok then
+        geterrorhandler()(err)
     end
 end
 
+local function notifyReadyCallbacks()
+    local callbacks = readyCallbacks
+    readyCallbacks = {}
+
+    for index = 1, #callbacks do
+        runReadyCallback(callbacks[index])
+    end
+end
+
+function Catalog:IsReady()
+    return self.ready == true
+end
+
+function Catalog:WhenReady(callback)
+    assert(type(callback) == "function", "catalog callback must be a function")
+
+    if self:IsReady() then
+        runReadyCallback(callback)
+        return
+    end
+
+    readyCallbacks[#readyCallbacks + 1] = callback
+end
+
 function Catalog:Build()
-    self:BuildSpecs()
-    self:BuildRaids()
-    self:BuildDungeons()
+    if self:IsReady() then
+        return true
+    end
+
+    local candidate = createCatalogData()
+    if not buildSpecs(candidate)
+        or not buildRaids(candidate)
+        or not buildDungeons(candidate)
+    then
+        return false
+    end
+
+    for index = 1, #CATALOG_DATA_FIELDS do
+        local field = CATALOG_DATA_FIELDS[index]
+        self[field] = candidate[field]
+    end
+
+    self.ready = true
+    if retryTimer then
+        retryTimer:Cancel()
+        retryTimer = nil
+    end
+    retryStep = 1
+    notifyReadyCallbacks()
+    return true
+end
+
+function Catalog:EnsureReady()
+    if self:Build() then
+        return true
+    end
+    if retryTimer then
+        return false
+    end
+
+    local delay = CATALOG_RETRY_DELAYS[retryStep]
+    if retryStep < #CATALOG_RETRY_DELAYS then
+        retryStep = retryStep + 1
+    end
+
+    retryTimer = C_Timer.NewTimer(delay, function()
+        retryTimer = nil
+        Catalog:EnsureReady()
+    end)
+    return false
 end
 
 function Catalog:CanonicalDifficultyID(difficultyID)
@@ -757,6 +869,6 @@ end
 
 NS:RegisterInitializer(function()
     NS:RegisterEvent("PLAYER_LOGIN", function()
-        Catalog:Build()
+        Catalog:EnsureReady()
     end)
 end)
