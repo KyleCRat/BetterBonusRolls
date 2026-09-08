@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- Developer-only visual test mode. Keep this false in release builds.
-local ENABLE_DEV_PREVIEW = true
+local ENABLE_DEV_PREVIEW = false
 
 local Preview = {}
 NS.Preview = Preview

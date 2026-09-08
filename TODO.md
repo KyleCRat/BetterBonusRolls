@@ -8,5 +8,3 @@ Reference: [Bonus-roll findings and assumptions](BONUS_ROLL_FINDINGS.md).
   Confirm Blizzard refreshes the native remaining-items tooltip after the
   switch; its API does not return the specialization used to generate it.
 - Live-verify the current-season Mythic+ reward and knockout pool boundaries.
-- Before release, update the LibModernSettings submodule to version 1.6 and
-  disable the developer preview flag.

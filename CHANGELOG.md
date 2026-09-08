@@ -31,6 +31,9 @@
 
 ### Changed
 
+- Release packages now include LibModernSettings 1.6.0, matching the settings
+  APIs used by the addon.
+- Disabled the developer-only preview command for release builds.
 - The Loot Tracker now shows separate Difficulty, Boss, and Loot Spec columns
   beside each item, making its source and specialization easier to identify.
   Compact Difficulty and Boss columns leave more room for item names.
