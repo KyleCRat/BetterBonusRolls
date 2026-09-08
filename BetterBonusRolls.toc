@@ -19,6 +19,7 @@ Libs\LibSimpleDB\embed.xml
 Libs\LibModernSettings\embed.xml
 
 Core.lua
+Migrations.lua
 PixelPerfect.lua
 Catalog.lua
 LootTracker.lua

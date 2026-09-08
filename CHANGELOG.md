@@ -26,6 +26,9 @@
 
 ### Changed
 
+- Saved settings now upgrade one schema at a time before initialization,
+  preserving the original difficulty of older loot history. Newer, unsupported
+  saves are left untouched instead of being downgraded.
 - The main settings page now provides direct buttons and descriptions for
   every BetterBonusRolls subpage.
 - Updated raid difficulty sections to use modern charcoal and silver
