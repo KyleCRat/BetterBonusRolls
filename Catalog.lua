@@ -375,18 +375,6 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
     end
 end
 
-local function restoreJournalSelection(tier, instanceID, difficultyID)
-    if NS:IsPublicPositiveInteger(tier) then
-        EJ_SelectTier(tier)
-    end
-    if NS:IsPublicPositiveInteger(instanceID) then
-        EJ_SelectInstance(instanceID)
-    end
-    if NS:IsPublicPositiveInteger(difficultyID) then
-        EJ_SetDifficulty(difficultyID)
-    end
-end
-
 function Catalog:BuildRaids()
     self.raids = {}
     self.raidByInstance = {}
@@ -402,17 +390,12 @@ function Catalog:BuildRaids()
         return
     end
 
-    local savedTier = EJ_GetCurrentTier()
-    local savedInstance = EJ_GetCurrentInstance()
-    local savedDifficulty = EJ_GetDifficulty()
-
     EJ_SelectTier(tierCount)
 
     local seen = {}
     local tierName = EJ_GetTierInfo(tierCount)
     collectRaidLikeInstances(true, seen, tierName)
     collectRaidLikeInstances(false, seen, nil)
-    restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
 end
 
 function Catalog:BuildDungeons()
@@ -431,15 +414,9 @@ function Catalog:BuildDungeons()
 
     local journalOrder = {}
     local journalAvailable = ensureEncounterJournal()
-    local savedTier
-    local savedInstance
-    local savedDifficulty
 
     if journalAvailable then
         local tierCount = EJ_GetNumTiers() or 0
-        savedTier = EJ_GetCurrentTier()
-        savedInstance = EJ_GetCurrentInstance()
-        savedDifficulty = EJ_GetDifficulty()
 
         if not NS:IsSecret(tierCount)
             and type(tierCount) == "number"
@@ -552,10 +529,6 @@ function Catalog:BuildDungeons()
             end
             matches[#matches + 1] = dungeon
         end
-    end
-
-    if journalAvailable then
-        restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
     end
 end
 

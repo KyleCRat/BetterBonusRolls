@@ -40,6 +40,9 @@
 
 ### Fixed
 
+- Catalog initialization no longer attempts to restore unsupported Adventure
+  Guide instance state, preventing the current-season catalog from failing at
+  login.
 - Unexpected loot API errors are no longer silently treated as missing data,
   making genuine catalog or item-loading failures visible for diagnosis.
 - Obtained checkbox tooltips now refresh immediately after toggling instead of
