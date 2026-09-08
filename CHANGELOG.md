@@ -26,6 +26,9 @@
 
 ### Changed
 
+- The Loot Tracker now shows separate Difficulty, Boss, and Loot Spec columns
+  beside each item, making its source and specialization easier to identify.
+  Compact Difficulty and Boss columns leave more room for item names.
 - Saved settings now upgrade one schema at a time before initialization,
   preserving the original difficulty of older loot history. Newer, unsupported
   saves are left untouched instead of being downgraded.

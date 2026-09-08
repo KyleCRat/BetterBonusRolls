@@ -16,8 +16,19 @@ local ITEM_ICON_SIZE = 30
 local ITEM_TEXT_GAP = 8
 local LIST_INSET = 8
 local OBTAINED_COLUMN_WIDTH = 74
-local SOURCE_COLUMN_WIDTH = 250
-local SOURCE_COLUMN_GAP = 12
+local CONTEXT_COLUMN_GAP = 12
+local CONTEXT_COLUMNS = {
+    { key = "difficulty", label = "Difficulty", width = 65 },
+    { key = "boss", label = "Boss", width = 140 },
+    { key = "spec", label = "Loot Spec", width = 110 },
+}
+local ITEM_COLUMN_RIGHT_INSET = LIST_INSET
+
+for _, column in ipairs(CONTEXT_COLUMNS) do
+    ITEM_COLUMN_RIGHT_INSET = ITEM_COLUMN_RIGHT_INSET
+        + column.width + CONTEXT_COLUMN_GAP
+end
+
 local LIST_BOTTOM_MARGIN = 8
 local ITEM_ROW_STRIPE_ALPHA = 0.035
 local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -54,9 +65,41 @@ local function resetItemRow(itemRow)
     itemRow.itemButton.icon:SetDesaturated(false)
     itemRow.itemButton.linkText:SetText("")
     itemRow.itemButton.linkText:SetAlpha(1)
-    itemRow.sourceText:SetText("")
+
+    for _, text in pairs(itemRow.contextText) do
+        text:SetText("")
+    end
+
     itemRow.checkbox:SetValue(false)
     itemRow:Hide()
+end
+
+local function createContextColumns(parent, fontObject)
+    local columns = {}
+    local rightInset = LIST_INSET
+
+    -- Use the same right-aligned column boundaries for headings and item rows.
+    for index = #CONTEXT_COLUMNS, 1, -1 do
+        local column = CONTEXT_COLUMNS[index]
+        local text = parent:CreateFontString(nil, "OVERLAY", fontObject)
+
+        text:SetPoint(
+            "TOPLEFT",
+            parent,
+            "TOPRIGHT",
+            -(rightInset + column.width),
+            0
+        )
+        text:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -rightInset, 0)
+        text:SetJustifyH("LEFT")
+        text:SetJustifyV("MIDDLE")
+        text:SetWordWrap(false)
+        text:SetMaxLines(1)
+        columns[column.key] = text
+        rightInset = rightInset + column.width + CONTEXT_COLUMN_GAP
+    end
+
+    return columns
 end
 
 local function createItemRow(tracker, index)
@@ -121,7 +164,7 @@ local function createItemRow(tracker, index)
         "BOTTOMRIGHT",
         itemRow,
         "BOTTOMRIGHT",
-        -(LIST_INSET + SOURCE_COLUMN_WIDTH + SOURCE_COLUMN_GAP),
+        -ITEM_COLUMN_RIGHT_INSET,
         0
     )
 
@@ -170,31 +213,10 @@ local function createItemRow(tracker, index)
     end)
     itemRow.itemButton = itemButton
 
-    local sourceText = itemRow:CreateFontString(
-        nil,
-        "OVERLAY",
+    itemRow.contextText = createContextColumns(
+        itemRow,
         "GameFontHighlight"
     )
-
-    sourceText:SetPoint(
-        "TOPLEFT",
-        itemRow,
-        "TOPRIGHT",
-        -(LIST_INSET + SOURCE_COLUMN_WIDTH),
-        0
-    )
-    sourceText:SetPoint(
-        "BOTTOMRIGHT",
-        itemRow,
-        "BOTTOMRIGHT",
-        -LIST_INSET,
-        0
-    )
-    sourceText:SetJustifyH("LEFT")
-    sourceText:SetJustifyV("MIDDLE")
-    sourceText:SetWordWrap(false)
-    sourceText:SetMaxLines(1)
-    itemRow.sourceText = sourceText
 
     return itemRow
 end
@@ -255,36 +277,21 @@ local function createListHeader(tracker)
         "BOTTOMRIGHT",
         header,
         "BOTTOMRIGHT",
-        -(LIST_INSET + SOURCE_COLUMN_WIDTH + SOURCE_COLUMN_GAP),
+        -ITEM_COLUMN_RIGHT_INSET,
         0
     )
     itemText:SetJustifyH("LEFT")
     itemText:SetJustifyV("MIDDLE")
     itemText:SetText("Item")
 
-    local sourceText = header:CreateFontString(
-        nil,
-        "OVERLAY",
+    local contextText = createContextColumns(
+        header,
         "GameFontNormalSmall"
     )
 
-    sourceText:SetPoint(
-        "TOPLEFT",
-        header,
-        "TOPRIGHT",
-        -(LIST_INSET + SOURCE_COLUMN_WIDTH),
-        0
-    )
-    sourceText:SetPoint(
-        "BOTTOMRIGHT",
-        header,
-        "BOTTOMRIGHT",
-        -LIST_INSET,
-        0
-    )
-    sourceText:SetJustifyH("LEFT")
-    sourceText:SetJustifyV("MIDDLE")
-    sourceText:SetText("Difficulty and boss")
+    for _, column in ipairs(CONTEXT_COLUMNS) do
+        contextText[column.key]:SetText(column.label)
+    end
 end
 
 local function getStatusText(requestCount, loadingCount, unavailableCount,
@@ -338,12 +345,16 @@ local function renderItemRow(tracker, index, entry)
     itemRow.itemButton.icon:SetDesaturated(obtained)
     itemRow.itemButton.linkText:SetText(itemLink)
     itemRow.itemButton.linkText:SetAlpha(obtained and 0.55 or 1)
-    itemRow.sourceText:SetText(request.sourceName)
-    itemRow.sourceText:SetTextColor(
-        obtained and GRAY_FONT_COLOR.r or HIGHLIGHT_FONT_COLOR.r,
-        obtained and GRAY_FONT_COLOR.g or HIGHLIGHT_FONT_COLOR.g,
-        obtained and GRAY_FONT_COLOR.b or HIGHLIGHT_FONT_COLOR.b
-    )
+    itemRow.contextText.difficulty:SetText(request.difficultyName)
+    itemRow.contextText.boss:SetText(request.contentName)
+    itemRow.contextText.spec:SetText(specName)
+
+    local textColor = obtained and GRAY_FONT_COLOR or HIGHLIGHT_FONT_COLOR
+
+    for _, text in pairs(itemRow.contextText) do
+        text:SetTextColor(textColor.r, textColor.g, textColor.b)
+    end
+
     ModernSettings:SetTooltip(itemRow.checkbox, {
         title = "Obtained",
         text = "Mark " .. itemName .. " from "
