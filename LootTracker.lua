@@ -15,13 +15,13 @@ local poolCache = {}
 local pendingItems = {}
 local failedItems = {}
 local journalQueue = {}
-local queuedJournalQueries = {}
-local dirtyPoolKeys = {}
+local jobsByQueryKey = {}
+local dirtyJobs = {}
 local changedCallbacks = {}
-local poolRefreshTimer
+local jobRefreshTimer
 local itemRetryTimer
 local itemRetryDueAt
-local activeJournalQuery
+local activeJournalJob
 local journalRetryTimer
 local journalPumpTimer
 
@@ -75,29 +75,6 @@ local function notifyChanged(changeType, key)
         if not ok then
             reportError(message)
         end
-    end
-end
-
-local function flushPoolRefreshes()
-    local keys = dirtyPoolKeys
-
-    dirtyPoolKeys = {}
-    poolRefreshTimer = nil
-
-    for queryKey in pairs(keys) do
-        poolCache[queryKey] = nil
-        notifyChanged("pool", queryKey)
-    end
-end
-
-local function queuePoolRefresh(queryKey)
-    if not isPublicString(queryKey) then
-        return
-    end
-
-    dirtyPoolKeys[queryKey] = true
-    if not poolRefreshTimer then
-        poolRefreshTimer = C_Timer.NewTimer(0, flushPoolRefreshes)
     end
 end
 
@@ -240,7 +217,6 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
     )
     local journalDifficultyID = threshold
         and threshold.journalDifficultyID or nil
-    local encounterIDs = {}
 
     if not NS:IsPublicPositiveInteger(mapID)
         or not NS:IsPublicPositiveInteger(instanceID)
@@ -272,7 +248,6 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
         difficultyRank = minimumDifficulty,
         instanceID = instanceID,
         journalDifficultyID = journalDifficultyID,
-        encounterIDs = encounterIDs,
         specID = specID,
         classID = classID,
         difficultyName = difficultyName,
@@ -541,6 +516,7 @@ local function getPublicTime()
 end
 
 local processPendingItems
+local queueJobRefresh
 
 local function cancelItemRetryTimer()
     local timer = itemRetryTimer
@@ -602,8 +578,8 @@ local function completePendingItem(itemID, success)
         failedItems[itemID] = true
     end
 
-    for queryKey in pairs(pending.waiters) do
-        queuePoolRefresh(queryKey)
+    for job in pairs(pending.waiters) do
+        queueJobRefresh(job)
     end
 
     if not next(pendingItems) then
@@ -653,9 +629,8 @@ processPendingItems = function()
     scheduleItemRetryTimer()
 end
 
-local function addPendingItem(itemID, queryKey)
+local function addPendingItem(itemID, job)
     if failedItems[itemID]
-        or not isPublicString(queryKey)
         or not C_Item
         or type(C_Item.RequestLoadItemDataByID) ~= "function"
     then
@@ -678,7 +653,7 @@ local function addPendingItem(itemID, queryKey)
             waiters = {},
         }
         pendingItems[itemID] = pending
-        pending.waiters[queryKey] = true
+        pending.waiters[job] = true
 
         -- Install the pending entry before requesting because the result
         -- event can fire synchronously.
@@ -687,7 +662,7 @@ local function addPendingItem(itemID, queryKey)
             scheduleItemRetryTimer()
         end
     else
-        pending.waiters[queryKey] = true
+        pending.waiters[job] = true
         scheduleItemRetryTimer()
     end
 
@@ -768,26 +743,29 @@ local function isBonusRollCandidate(itemID, specID)
     return hasExplicitSpecialization(itemID, specID)
 end
 
-local function isExpectedEncounter(request, encounterID)
+local function isExpectedEncounter(job, encounterID)
+    if NS:IsSecret(encounterID) then
+        return false
+    end
     if encounterID == nil then
         return true
     end
     if not NS:IsPublicPositiveInteger(encounterID) then
         return false
     end
+    local request = job.request
     if request.kind == "dungeon" then
-        return type(request.encounterIDs) == "table"
-            and request.encounterIDs[encounterID] == true
+        return job.encounterIDs[encounterID] == true
     end
 
     return encounterID == request.encounterID
 end
 
-local function collectJournalItem(info, request, items, seen)
+local function collectJournalItem(info, job, items, seen)
     if NS:IsSecret(info) or type(info) ~= "table" then
         return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
-    if not isExpectedEncounter(request, info.encounterID) then
+    if not isExpectedEncounter(job, info.encounterID) then
         return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
 
@@ -807,7 +785,7 @@ local function collectJournalItem(info, request, items, seen)
             return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
         end
         if cached ~= true then
-            if addPendingItem(itemID, request.queryKey) then
+            if addPendingItem(itemID, job) then
                 return ITEM_COLLECTION_STATUS.ITEM_PENDING
             end
 
@@ -819,7 +797,7 @@ local function collectJournalItem(info, request, items, seen)
         failedItems[itemID] = nil
     end
 
-    if not isBonusRollCandidate(itemID, request.specID) then
+    if not isBonusRollCandidate(itemID, job.request.specID) then
         return ITEM_COLLECTION_STATUS.COMPLETE
     end
 
@@ -841,22 +819,21 @@ local function collectJournalItem(info, request, items, seen)
     return ITEM_COLLECTION_STATUS.COMPLETE
 end
 
-local function refreshDungeonEncounterIDs(request)
-    if request.kind ~= "dungeon"
-        or type(request.encounterIDs) ~= "table"
-    then
+local function refreshDungeonEncounterIDs(job)
+    if job.request.kind ~= "dungeon" then
         return
     end
 
+    wipe(job.encounterIDs)
     local index = 1
     while true do
         local _, _, encounterID = EJ_GetEncounterInfoByIndex(index)
 
-        if encounterID == nil or NS:IsSecret(encounterID) then
+        if NS:IsSecret(encounterID) or encounterID == nil then
             return
         end
         if NS:IsPublicPositiveInteger(encounterID) then
-            request.encounterIDs[encounterID] = true
+            job.encounterIDs[encounterID] = true
         end
 
         index = index + 1
@@ -872,7 +849,6 @@ local function applyJournalRequest(request)
         EncounterJournal_DisplayInstance(request.instanceID)
         EJ_SetDifficulty(request.journalDifficultyID)
 
-        refreshDungeonEncounterIDs(request)
         if request.encounterID then
             -- Encounter selection belongs after difficulty selection. This is
             -- also the ordering used by Blizzard and BonusRollPreview.
@@ -891,7 +867,8 @@ local function applyJournalRequest(request)
     return ok
 end
 
-local function readSelectedJournal(request)
+local function readSelectedJournal(job)
+    local request = job.request
     local items = {}
     local seen = {}
     local itemPending = false
@@ -947,6 +924,10 @@ local function readSelectedJournal(request)
             return
         end
 
+        -- Encounter data can arrive after navigation. Refresh it only after
+        -- verifying that the selected Journal state still belongs to this job.
+        refreshDungeonEncounterIDs(job)
+
         local count = EJ_GetNumLoot()
         if NS:IsSecret(count)
             or type(count) ~= "number"
@@ -963,7 +944,7 @@ local function readSelectedJournal(request)
             local info = C_EncounterJournal.GetLootInfoByIndex(index)
             local collectionStatus = collectJournalItem(
                 info,
-                request,
+                job,
                 items,
                 seen
             )
@@ -1050,12 +1031,11 @@ local function cancelJournalRetryTimer()
     end
 end
 
-local startNextJournalQuery
-local processActiveJournalQuery
-local scheduleJournalPump
+local startNextJournalJob
+local processActiveJournalJob
 
-scheduleJournalPump = function()
-    if activeJournalQuery
+local function scheduleJournalPump()
+    if activeJournalJob
         or journalPumpTimer
         or #journalQueue == 0
     then
@@ -1064,43 +1044,73 @@ scheduleJournalPump = function()
 
     journalPumpTimer = C_Timer.NewTimer(0, function()
         journalPumpTimer = nil
-        if not activeJournalQuery then
-            startNextJournalQuery()
+        if not activeJournalJob then
+            startNextJournalJob()
         end
     end)
 end
 
-local function scheduleActiveJournalAttempt(owner, delay)
+local function scheduleActiveJournalAttempt(job, delay)
     cancelJournalRetryTimer()
     journalRetryTimer = C_Timer.NewTimer(delay, function()
         journalRetryTimer = nil
-        if activeJournalQuery == owner then
-            processActiveJournalQuery(owner)
+        if activeJournalJob == job then
+            processActiveJournalJob(job)
         end
     end)
 end
 
-local function finishActiveJournalQuery(owner, result)
-    if activeJournalQuery ~= owner then
+local function releaseJob(job)
+    jobsByQueryKey[job.request.queryKey] = nil
+    dirtyJobs[job] = nil
+
+    -- A terminal result no longer owns item retries. Other jobs waiting on
+    -- the same item keep their subscriptions and existing retry deadlines.
+    for itemID, pending in pairs(pendingItems) do
+        pending.waiters[job] = nil
+        if not next(pending.waiters) then
+            pendingItems[itemID] = nil
+        end
+    end
+    scheduleItemRetryTimer()
+end
+
+local function finishActiveJournalJob(job, result)
+    if activeJournalJob ~= job then
         return
     end
 
-    activeJournalQuery = nil
+    activeJournalJob = nil
     cancelJournalRetryTimer()
-    poolCache[owner.request.queryKey] = result
-    notifyChanged("pool", owner.request.queryKey)
+
+    if result.status == "loading" then
+        -- Item-data waits do not hold the Journal. The same job resumes when
+        -- an item completes, without clearing its cache or asking UI to retry.
+        job.phase = "items"
+    else
+        releaseJob(job)
+    end
+
+    poolCache[job.request.queryKey] = result
+    notifyChanged("pool", job.request.queryKey)
     scheduleJournalPump()
 end
 
-processActiveJournalQuery = function(owner)
-    local result = readSelectedJournal(owner.request)
+processActiveJournalJob = function(job)
+    local result = readSelectedJournal(job)
 
     if result.journalPending ~= true then
-        finishActiveJournalQuery(owner, result)
+        finishActiveJournalJob(job, result)
         return
     end
 
-    if owner.retryStep >= #RETRY_DELAYS then
+    -- Item events may allow an early read, but an incomplete early read must
+    -- not consume another retry or move an already scheduled deadline.
+    if journalRetryTimer then
+        return
+    end
+
+    if job.retryStep >= #RETRY_DELAYS then
         result = {
             status = "unavailable",
             items = result.items or {},
@@ -1108,47 +1118,37 @@ processActiveJournalQuery = function(owner)
             retryable = true,
             failedItemIDs = result.failedItemIDs,
         }
-        finishActiveJournalQuery(owner, result)
+        finishActiveJournalJob(job, result)
         return
     end
 
-    owner.retryStep = owner.retryStep + 1
+    job.retryStep = job.retryStep + 1
     scheduleActiveJournalAttempt(
-        owner,
-        RETRY_DELAYS[owner.retryStep]
+        job,
+        RETRY_DELAYS[job.retryStep]
     )
 end
 
-startNextJournalQuery = function()
-    local queued = journalQueue[1]
-    if not queued then
+startNextJournalJob = function()
+    local job = table.remove(journalQueue, 1)
+    if not job then
         return
     end
 
-    local request = queued.request
+    local request = job.request
+    activeJournalJob = job
+    job.phase = "journal"
 
     if not ensureEncounterJournal() then
-        table.remove(journalQueue, 1)
-        queuedJournalQueries[request.queryKey] = nil
-        poolCache[request.queryKey] = {
+        finishActiveJournalJob(job, {
             status = "unavailable",
             items = {},
             message = "The Encounter Journal is unavailable.",
             retryable = true,
-        }
-        notifyChanged("pool", request.queryKey)
-        scheduleJournalPump()
+        })
         return
     end
 
-    table.remove(journalQueue, 1)
-    queuedJournalQueries[request.queryKey] = nil
-
-    local owner = {
-        request = request,
-        retryStep = 0,
-    }
-    activeJournalQuery = owner
     poolCache[request.queryKey] = {
         status = "loading",
         items = {},
@@ -1156,7 +1156,7 @@ startNextJournalQuery = function()
     }
 
     if not applyJournalRequest(request) then
-        finishActiveJournalQuery(owner, {
+        finishActiveJournalJob(job, {
             status = "unavailable",
             items = {},
             message = "Loot information could not be loaded.",
@@ -1167,30 +1167,60 @@ startNextJournalQuery = function()
 
     -- Warm Journal data is commonly available synchronously. Read it now;
     -- RETRY_DELAYS are fallbacks only for data that is still cold.
-    processActiveJournalQuery(owner)
-    if activeJournalQuery == owner then
+    processActiveJournalJob(job)
+    if activeJournalJob == job then
         notifyChanged("pool", request.queryKey)
     end
 end
 
-local function enqueueJournalQuery(request)
-    if activeJournalQuery
-        and activeJournalQuery.request.queryKey == request.queryKey
-    then
-        activeJournalQuery.request = request
+local function enqueueJournalJob(request)
+    if jobsByQueryKey[request.queryKey] then
         return
     end
 
-    local queued = queuedJournalQueries[request.queryKey]
-    if queued then
-        queued.request = request
-        return
-    end
-
-    queued = { request = request }
-    queuedJournalQueries[request.queryKey] = queued
-    journalQueue[#journalQueue + 1] = queued
+    -- The request describes the lookup and is never mutated by the loader.
+    -- Only the job owns discovered encounters, retries, and lifecycle state.
+    local job = {
+        request = CopyTable(request),
+        encounterIDs = {},
+        retryStep = 0,
+        phase = "queued",
+    }
+    jobsByQueryKey[request.queryKey] = job
+    journalQueue[#journalQueue + 1] = job
     scheduleJournalPump()
+end
+
+local function flushJobRefreshes()
+    local jobs = dirtyJobs
+
+    dirtyJobs = {}
+    jobRefreshTimer = nil
+
+    for job in pairs(jobs) do
+        if jobsByQueryKey[job.request.queryKey] == job then
+            if activeJournalJob == job then
+                processActiveJournalJob(job)
+            elseif job.phase == "items" then
+                job.phase = "queued"
+                journalQueue[#journalQueue + 1] = job
+                scheduleJournalPump()
+            end
+        end
+    end
+end
+
+queueJobRefresh = function(job)
+    if jobsByQueryKey[job.request.queryKey] ~= job then
+        return
+    end
+
+    -- ITEM_DATA_LOAD_RESULT can fire inside RequestLoadItemDataByID. Resume
+    -- after that read has unwound, and coalesce items belonging to one job.
+    dirtyJobs[job] = true
+    if not jobRefreshTimer then
+        jobRefreshTimer = C_Timer.NewTimer(0, flushJobRefreshes)
+    end
 end
 
 function Tracker:GetPool(request)
@@ -1207,7 +1237,7 @@ function Tracker:GetPool(request)
         return cached
     end
 
-    local waiting = activeJournalQuery ~= nil
+    local waiting = activeJournalJob ~= nil
         or journalPumpTimer ~= nil
         or #journalQueue > 0
     local result = {
@@ -1216,7 +1246,7 @@ function Tracker:GetPool(request)
         message = waiting and "Waiting for Encounter Journal..." or nil,
     }
     poolCache[request.queryKey] = result
-    enqueueJournalQuery(request)
+    enqueueJournalJob(request)
 
     return result
 end
@@ -1227,6 +1257,11 @@ function Tracker:RetryPool(request)
     end
 
     local queryKey = request.queryKey
+    if jobsByQueryKey[queryKey] then
+        -- Repeated redraws or Retry clicks join work already in progress.
+        return true
+    end
+
     local cached = poolCache[queryKey]
     local failedItemIDs = cached and cached.failedItemIDs
 
@@ -1239,7 +1274,7 @@ function Tracker:RetryPool(request)
     end
 
     poolCache[queryKey] = nil
-    dirtyPoolKeys[queryKey] = nil
+    self:GetPool(request)
 
     return true
 end

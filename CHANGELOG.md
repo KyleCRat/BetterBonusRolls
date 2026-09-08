@@ -84,6 +84,9 @@
   structurally matched to its owning instance, difficulty, specialization
   filter, and encounters, so overlapping expansions or Retry actions cannot
   exchange loot pools.
+- Loot lookups now retain one loader-owned job through Journal and item-data
+  waits. Redraws cannot replace its encounter or retry state, and item-data
+  callbacks resume loading directly without requiring a settings redraw.
 - Loot discovery now follows Blizzard's visible Adventure Guide navigation
   order: select the Raid or Dungeon tab, display the requested instance, apply
   its difficulty, then select an encounter and loot filter. This prevents an
