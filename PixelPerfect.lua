@@ -96,14 +96,6 @@ function PixelPerfect.SetBorderColor(frame, color)
     setTextureColor(border.right, color)
 end
 
-function PixelPerfect.SetBorderSize(frame, size)
-    local border = borders[frame]
-
-    assert(border, "frame does not have a pixel-perfect border")
-    border.size = size
-    refreshBorder(frame, border)
-end
-
 function PixelPerfect.CreateBorder(frame, size, color, drawLayer, subLevel)
     local border = borders[frame]
 

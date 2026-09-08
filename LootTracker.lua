@@ -461,48 +461,13 @@ function Tracker:CreateOfferRequest(snapshot, specID)
 end
 
 local function ensureEncounterJournal()
-    if EJ_SelectInstance
-        and EJ_SetDifficulty
-        and EJ_SetLootFilter
-        and EJ_GetInstanceInfo
-        and EJ_GetDifficulty
-        and EJ_GetLootFilter
-        and EJ_GetNumLoot
-        and EJ_GetEncounterInfoByIndex
-        and EncounterJournal
-        and EJ_ContentTab_SelectAppropriateInstanceTab
-        and EncounterJournal_DisplayInstance
-        and EncounterJournal_DisplayEncounter
-        and EncounterJournal_OnFilterChanged
-        and C_EncounterJournal
-        and C_EncounterJournal.GetBaseDifficultyID
-        and C_EncounterJournal.GetLootInfoByIndex
-        and C_EncounterJournal.ResetSlotFilter
-    then
-        return true
+    -- The second return distinguishes fully loaded from still loading.
+    local _, loaded = C_AddOns.IsAddOnLoaded("Blizzard_EncounterJournal")
+    if not loaded then
+        loaded = C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
     end
 
-    if C_AddOns and C_AddOns.LoadAddOn then
-        C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
-    end
-
-    return EJ_SelectInstance ~= nil
-        and EJ_SetDifficulty ~= nil
-        and EJ_SetLootFilter ~= nil
-        and EJ_GetInstanceInfo ~= nil
-        and EJ_GetDifficulty ~= nil
-        and EJ_GetLootFilter ~= nil
-        and EJ_GetNumLoot ~= nil
-        and EJ_GetEncounterInfoByIndex ~= nil
-        and EncounterJournal ~= nil
-        and EJ_ContentTab_SelectAppropriateInstanceTab ~= nil
-        and EncounterJournal_DisplayInstance ~= nil
-        and EncounterJournal_DisplayEncounter ~= nil
-        and EncounterJournal_OnFilterChanged ~= nil
-        and C_EncounterJournal ~= nil
-        and C_EncounterJournal.GetBaseDifficultyID ~= nil
-        and C_EncounterJournal.GetLootInfoByIndex ~= nil
-        and C_EncounterJournal.ResetSlotFilter ~= nil
+    return loaded == true
 end
 
 local function getPublicTime()
@@ -587,10 +552,6 @@ local function completePendingItem(itemID, success)
     end
 end
 
-local function requestPendingItem(itemID)
-    C_Item.RequestLoadItemDataByID(itemID)
-end
-
 processPendingItems = function()
     local itemIDs = {}
     local now = getPublicTime()
@@ -619,7 +580,7 @@ processPendingItems = function()
                     pending.nextRetryAt = now
                         + ITEM_LOAD_FINAL_SETTLE_DELAY
                 end
-                requestPendingItem(itemID)
+                C_Item.RequestLoadItemDataByID(itemID)
             else
                 completePendingItem(itemID, false)
             end
@@ -657,7 +618,7 @@ local function addPendingItem(itemID, job)
 
         -- Install the pending entry before requesting because the result
         -- event can fire synchronously.
-        requestPendingItem(itemID)
+        C_Item.RequestLoadItemDataByID(itemID)
         if pendingItems[itemID] then
             scheduleItemRetryTimer()
         end
@@ -1005,6 +966,7 @@ local function readSelectedJournal(job)
         }
     end
 
+    -- Consumers can rely on ready pools containing validated items.
     return {
         status = "ready",
         items = items,

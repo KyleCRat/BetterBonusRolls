@@ -280,8 +280,7 @@ local function createListHeader(tracker)
     end
 end
 
-local function getStatusText(requestCount, loadingCount, unavailableCount,
-    emptyCount, itemCount)
+local function getStatusText(requestCount, loadingCount, unavailableCount)
     if requestCount == 0 then
         return "No enabled bosses or dungeons have loot to track."
     end
@@ -299,16 +298,6 @@ local function getStatusText(requestCount, loadingCount, unavailableCount,
             or unavailableCount
                 .. " enabled loot lists are unavailable; use their source pages to retry."
     end
-    if emptyCount > 0 then
-        messages[#messages + 1] = emptyCount == 1
-            and "1 enabled loot list has no bonus-rollable items."
-            or emptyCount
-                .. " enabled loot lists have no bonus-rollable items."
-    end
-    if itemCount == 0 and #messages == 0 then
-        return "No bonus-rollable items were found for the enabled sources."
-    end
-
     return #messages > 0 and table.concat(messages, " ") or nil
 end
 
@@ -367,7 +356,6 @@ function LootTrackerSettings:Refresh()
     local entries = {}
     local loadingCount = 0
     local unavailableCount = 0
-    local emptyCount = 0
 
     self.activeQueryKeys = {}
     self.activeTrackingKeys = {}
@@ -380,15 +368,11 @@ function LootTrackerSettings:Refresh()
         self.activeTrackingKeys[request.trackingKey] = true
 
         if pool.status == "ready" then
-            if #pool.items == 0 then
-                emptyCount = emptyCount + 1
-            else
-                for itemIndex = 1, #pool.items do
-                    entries[#entries + 1] = {
-                        request = request,
-                        item = pool.items[itemIndex],
-                    }
-                end
+            for itemIndex = 1, #pool.items do
+                entries[#entries + 1] = {
+                    request = request,
+                    item = pool.items[itemIndex],
+                }
             end
         elseif pool.status == "pending" or pool.status == "loading" then
             loadingCount = loadingCount + 1
@@ -413,9 +397,7 @@ function LootTrackerSettings:Refresh()
     local statusText = getStatusText(
         #enabled,
         loadingCount,
-        unavailableCount,
-        emptyCount,
-        #entries
+        unavailableCount
     )
 
     self.statusText:ClearAllPoints()

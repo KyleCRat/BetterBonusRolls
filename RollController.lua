@@ -1322,7 +1322,7 @@ local function createLootSpecPanel(parent, anchor, clickHandler)
     panel:SetSize(LOOT_SPEC_PANEL_WIDTH, LOOT_SPEC_PANEL_HEIGHT)
     panel:SetPoint("LEFT", anchor, "RIGHT", 6, 0)
     panel:SetFrameLevel(parent:GetFrameLevel() + 10)
-    panel.background = NS.PixelPerfect.CreateSurface(panel)
+    NS.PixelPerfect.CreateSurface(panel)
 
     local title = panel:CreateFontString(
         nil,

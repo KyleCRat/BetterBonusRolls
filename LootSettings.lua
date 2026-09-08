@@ -251,15 +251,6 @@ local function renderItems(tracked, request, items)
         .. remaining .. " remaining / " .. #items .. " total"
     )
 
-    if #items == 0 then
-        renderStatus(
-            tracked,
-            "No bonus-rollable items were found for this combination.",
-            true
-        )
-        return
-    end
-
     tracked.lootContentRows = #items
     setPanelHeight(tracked, tracked.lootContentRows)
 end
@@ -333,7 +324,7 @@ local function setExpanded(tracked, expanded)
     end
 end
 
-function LootSettings:Attach(row, tableView, tracked)
+function LootSettings:Attach(row, tracked)
     assert(type(tracked.getLootRequest) == "function")
 
     tracked.row = row
@@ -374,7 +365,7 @@ function LootSettings:Attach(row, tableView, tracked)
     )
     panel:SetHeight(1)
 
-    panel.background = NS.PixelPerfect.CreateSurface(
+    NS.PixelPerfect.CreateSurface(
         panel,
         DETAILS_BACKGROUND_COLOR,
         DETAILS_BORDER_COLOR,

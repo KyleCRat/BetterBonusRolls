@@ -141,7 +141,7 @@ local function createPreviewFrame()
     frame:SetUserPlaced(false)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
-    frame.background = NS.PixelPerfect.CreateSurface(frame)
+    NS.PixelPerfect.CreateSurface(frame)
     frame:SetScript("OnDragStart", function(self)
         if not isPlayerInCombat() then
             self:StartMoving()

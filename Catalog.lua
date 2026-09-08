@@ -97,7 +97,7 @@ local retryStep = 1
 
 local function ensureEncounterJournal()
     if EJ_GetNumTiers and EJ_GetInstanceByIndex then
-        return true
+        return
     end
 
     C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
@@ -105,8 +105,6 @@ local function ensureEncounterJournal()
     if not EJ_GetNumTiers or not EJ_GetInstanceByIndex then
         error("BetterBonusRolls could not load Blizzard_EncounterJournal.", 2)
     end
-
-    return true
 end
 
 local function hasSelectedInstanceDifficulty(difficultyID)
@@ -207,7 +205,6 @@ local function collectEncounters(instanceID)
             local encounter = {
                 id = encounterID,
                 name = name,
-                order = #encounters + 1,
             }
             encounters[#encounters + 1] = encounter
             encounterByID[encounterID] = encounter
@@ -242,12 +239,7 @@ local function isWorldBossInstance(instanceName, dungeonAreaMapID, tierName)
         and instanceName == tierName
 end
 
-local function collectWorldBosses(
-    target,
-    instanceID,
-    instanceName,
-    difficulties
-)
+local function collectWorldBosses(target, instanceID, difficulties)
     local encounterCollection = collectEncounters(instanceID)
     local encounters = encounterCollection.encounters
     local difficulty = difficulties[1]
@@ -258,9 +250,7 @@ local function collectWorldBosses(
             local boss = {
                 id = encounter.id,
                 name = encounter.name,
-                order = #target.worldBosses + 1,
                 instanceID = instanceID,
-                instanceName = instanceName,
                 difficultyID = difficulty and difficulty.id or nil,
                 journalDifficultyID = difficulty
                     and difficulty.journalDifficultyID or nil,
@@ -275,11 +265,8 @@ local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
     local index = 1
 
     while true do
-        local instanceID, name, ignored3, ignored4, ignored5, ignored6,
-            ignored7, dungeonAreaMapID = EJ_GetInstanceByIndex(
-            index,
-            isRaidList
-        )
+        local instanceID, name, _, _, _, _, _, dungeonAreaMapID =
+            EJ_GetInstanceByIndex(index, isRaidList)
         if NS:IsSecret(instanceID) then
             break
         end
@@ -299,7 +286,6 @@ local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
                 collectWorldBosses(
                     target,
                     instanceID,
-                    instanceName,
                     difficulties
                 )
                 seen[instanceID] = true
@@ -317,12 +303,10 @@ local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
                         local instance = {
                             id = instanceID,
                             name = instanceName,
-                            order = #target.raids + 1,
                             encounters = encounters,
                             encounterByID = encounterCollection.encounterByID,
                             difficulties = difficulties,
                             difficultyByID = difficultyByID,
-                            journalRaidList = isRaidList,
                         }
 
                         target.raids[#target.raids + 1] = instance
@@ -338,9 +322,7 @@ local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
 end
 
 local function buildRaids(target)
-    if not ensureEncounterJournal() then
-        return false
-    end
+    ensureEncounterJournal()
 
     local tierCount = EJ_GetNumTiers() or 0
     if NS:IsSecret(tierCount) or type(tierCount) ~= "number" or tierCount < 1 then
@@ -371,11 +353,7 @@ local function buildDungeons(target)
     end
 
     local journalOrder = {}
-    local journalAvailable = ensureEncounterJournal()
-
-    if not journalAvailable then
-        return false
-    end
+    ensureEncounterJournal()
 
     local tierCount = EJ_GetNumTiers() or 0
     if NS:IsSecret(tierCount)
@@ -426,7 +404,6 @@ local function buildDungeons(target)
         local dungeon = {
             id = challengeMapID,
             name = name,
-            order = #target.dungeons + 1,
             gameMapID = gameMapID,
             journalInstanceID = journalInstanceID,
             challengeOrder = index,
@@ -446,40 +423,22 @@ local function buildDungeons(target)
 
     for index = 1, #target.dungeons do
         local dungeon = target.dungeons[index]
-        dungeon.order = index
-        local hasJournalInstance = NS:IsPublicPositiveInteger(
-            dungeon.journalInstanceID
-        )
-        if hasJournalInstance then
-            EJ_SelectInstance(dungeon.journalInstanceID)
-            local encounterCollection = collectEncounters(
-                dungeon.journalInstanceID
-            )
-            dungeon.encounters = encounterCollection.encounters
-            dungeon.encounterByID = encounterCollection.encounterByID
-        else
-            dungeon.encounters = {}
-            dungeon.encounterByID = {}
-        end
-
         local thresholds = buildDungeonThresholds()
         dungeon.thresholdChoices = thresholds.choices
         dungeon.thresholdByValue = thresholds.byValue
         dungeon.defaultMinimumDifficulty =
             NS.RuleDefaults.dungeonMinimumDifficulty
 
-        if dungeon.journalInstanceID then
-            local matches = target.dungeonByInstance[
+        local matches = target.dungeonByInstance[
+            dungeon.journalInstanceID
+        ]
+        if not matches then
+            matches = {}
+            target.dungeonByInstance[
                 dungeon.journalInstanceID
-            ]
-            if not matches then
-                matches = {}
-                target.dungeonByInstance[
-                    dungeon.journalInstanceID
-                ] = matches
-            end
-            matches[#matches + 1] = dungeon
+            ] = matches
         end
+        matches[#matches + 1] = dungeon
     end
 
     return #target.dungeons == #mapTable
@@ -501,7 +460,6 @@ local function buildSpecs(target)
                 id = specID,
                 name = name,
                 icon = icon,
-                order = #target.specs + 1,
             }
             target.specs[#target.specs + 1] = spec
             target.specByID[specID] = spec

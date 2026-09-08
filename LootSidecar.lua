@@ -265,15 +265,6 @@ local function render(sidecar)
         return
     end
 
-    if #pool.items == 0 then
-        renderStatus(
-            sidecar,
-            "No bonus-rollable items were found for this combination.",
-            true
-        )
-        return
-    end
-
     renderItems(sidecar, pool.items)
 end
 
@@ -353,7 +344,7 @@ function LootSidecar:Create(parent)
     panel:SetWidth(PANEL_WIDTH)
     panel:SetFrameLevel(parent:GetFrameLevel() + 20)
     panel:EnableMouse(true)
-    panel.background = NS.PixelPerfect.CreateSurface(
+    NS.PixelPerfect.CreateSurface(
         panel,
         BACKGROUND_COLOR,
         BORDER_COLOR,

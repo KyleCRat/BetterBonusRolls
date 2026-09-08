@@ -59,6 +59,10 @@
   and added 8px of parent-row containment below their existing bottom padding.
 - Moved eligibility findings and assumptions into dedicated reference notes,
   keeping TODO focused on unfinished work and both documents out of releases.
+- Removed redundant startup dungeon-encounter scans and unused internal
+  metadata, UI references, helpers, and unreachable fallback displays and
+  module guards. Loot loading now checks the Journal's actual addon load state
+  instead of duplicated API-availability lists.
 
 ### Fixed
 

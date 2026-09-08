@@ -144,7 +144,7 @@ local function addRuleControls(row, tableView, tracked, thresholdChoices)
     })
 
     if tracked.getLootRequest then
-        NS.LootSettings:Attach(row, tableView, tracked)
+        NS.LootSettings:Attach(row, tracked)
     end
 
     trackRuleRow(tracked)

@@ -1,8 +1,6 @@
 local addonName, NS = ...
 
-NS.addonName = addonName
 NS.displayName = "BetterBonusRolls"
-NS.version = "12.1.0-1"
 
 local CURRENT_SCHEMA = 6
 
@@ -155,31 +153,23 @@ function NS:SetEnabled(enabled)
     end
 
     self.DB:Set("enabled", enabled)
-    if self.RollController then
-        local applied = self.RollController:SetEnabled(enabled)
-        if enabled and applied == false then
-            self.DB:Set("enabled", false)
-            if self.SettingsUI then
-                self.SettingsUI:RefreshGeneralControls()
-            end
-            return false
-        end
-    end
-    if self.SettingsUI then
+    local applied = self.RollController:SetEnabled(enabled)
+    if enabled and applied == false then
+        self.DB:Set("enabled", false)
         self.SettingsUI:RefreshGeneralControls()
+        return false
     end
+    self.SettingsUI:RefreshGeneralControls()
 
     return true
 end
 
 function NS:NotifyConfigurationChanged()
-    if self.RollController then
-        self.RollController:OnConfigurationChanged()
-    end
+    self.RollController:OnConfigurationChanged()
 end
 
 function NS:OpenSettings(categoryID)
-    if self.SettingsUI and self.SettingsUI.category then
+    if self.SettingsUI.category then
         if InCombatLockdown and InCombatLockdown() then
             self:Print("Settings cannot be opened in combat.")
             return true
@@ -472,9 +462,7 @@ local function initializeAddon()
                 local applied = NS.RollController:SetEnabled(true)
                 if applied == false then
                     NS.DB:Set("enabled", false)
-                    if NS.SettingsUI then
-                        NS.SettingsUI:RefreshGeneralControls()
-                    end
+                    NS.SettingsUI:RefreshGeneralControls()
                 end
             end)
         end
