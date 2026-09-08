@@ -2,7 +2,7 @@
 
 BetterBonusRolls only shows you bonus rolls for the content and loot specializations you care about. Configure each character separately; matching offers stay visible and everything else is hidden without being declined.
 
-The addon is disabled by default.
+The addon is disabled by default. Supports Retail WoW 12.1.0.
 
 ## Getting Started
 
@@ -16,14 +16,25 @@ Unchecked rows are treated as content you do not want to bonus roll and their of
 
 ## What Happens When a Roll Appears
 
+While BetterBonusRolls is enabled:
+
 - Clicking Blizzard's **Roll** button always opens a confirmation. The roll is not used until you accept it.
 - If the configured loot specialization is not active, a **Change Loot Spec** button appears beside the roll. It changes only your loot specialization and never uses the roll.
 - If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
+- A checklist beside the offer shows its bonus-rollable items and which ones you have obtained.
 - Clicking Blizzard's **No** button hides the offer without declining it. BetterBonusRolls prints a reminder that `/bbr show` can restore it while the offer remains active.
 - When a bonus roll awards a tracked item, its matching entry is automatically marked **Obtained** for that source, difficulty, and loot specialization.
 - Once the server offer expires, it can no longer be restored.
 
 BetterBonusRolls never automatically spends or permanently declines a bonus roll.
+
+## Tracking Your Loot
+
+Open **Enabled Bonus Roll Loot Tracker** in settings to see items from all your enabled rules, with a total remaining count. This page manages your checklist; use the content pages to change which bosses or dungeons are enabled and which loot specialization to use.
+
+Progress is saved per character, source, difficulty, and loot specialization. Each selectable Mythic+ key level has its own checklist. BetterBonusRolls records item rewards from confirmed rolls and updates checkmarks when it can match Blizzard's remaining-item tooltip to the loot list for your active loot specialization.
+
+You can also mark items manually. **Confirmed Obtained** tooltips identify items the addon has verified, and unchecking one asks for confirmation. Later confirmed information takes precedence over manual changes. If loot information cannot finish loading, use **Retry**; loading may change the page shown in the Adventure Guide.
 
 ## Supported Content
 
@@ -34,7 +45,7 @@ BetterBonusRolls never automatically spends or permanently declines a bonus roll
 | Bountiful Delves | Use one rule for all Bountiful Delves with a minimum Tier 1-11 and loot specialization. |
 | Outdoor Content | Configure current-season World Bosses individually and Nightmare Prey separately. |
 
-Bonus-rollable item lists are available for raids, Lairs, current-season dungeons, and individual World Bosses. These include equipment and specialization-specific tier tokens. Blizzard does not currently expose a complete equivalent loot pool for Bountiful Delves or Nightmare Prey.
+Bonus-rollable item lists are available for raids, Lairs, current-season dungeons, and individual World Bosses. These include equipment and specialization-specific tier tokens. Item tracking is not currently available for Bountiful Delves or Nightmare Prey.
 
 ## Commands
 

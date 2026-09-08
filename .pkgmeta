@@ -13,12 +13,7 @@ externals:
     tag: 2.0.0
 
 ignore:
-  - .pkgmeta
-  - .editorconfig
-  - .gitattributes
-  - .git
   - AGENTS.md
-  - PLAN.md
   - TODO.md
   - BONUS_ROLL_FINDINGS.md
   - ICON.png

@@ -4,7 +4,7 @@
 ## IconTexture: Interface\AddOns\BetterBonusRolls\ICON.tga
 ## AddonCompartmentFunc: BetterBonusRolls_OnAddonCompartmentClick
 ## Author: Yvairel
-## Version: 12.1.0-1
+## Version: 12.1.0-2
 ## SavedVariablesPerCharacter: BetterBonusRollsDB
 ## OptionalDeps: BonusRollConfirm, BonusRollGate
 ## Category-enUS: Loot

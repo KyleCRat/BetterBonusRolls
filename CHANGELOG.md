@@ -1,133 +1,54 @@
 # Changelog
 
-## Unreleased
+## [12.1.0-2] - 2026-09-08
 
 ### Added
 
-- Obtained checkboxes now distinguish manual marks from confirmed bonus-roll
-  progress. Confirmed items explain their status in tooltips and ask before
-  being unchecked. Manual overrides retain that confirmation, while later
-  validated tooltip or bonus-roll evidence takes precedence. Existing saved
-  checkmarks are preserved as unconfirmed.
-- Active bonus-roll reward tooltips now reconcile Obtained checkboxes with
-  Blizzard's remaining-item list for the exact source, difficulty, and actual
-  loot specialization, including a fresh read after changing loot spec.
-  Missing, unrecognized, or unfinished data leaves existing progress intact.
-- Added an Obtained-item checklist beside visible bonus-roll offers. Its header
-  identifies the exact difficulty and source, each checkbox describes whether
-  it will mark the item obtained or not obtained for that source and loot
-  specialization, and the panel sits to the right of the loot-specialization
-  switcher when a change is needed.
-- The developer preview now includes the item checklist, preferring a randomly
-  selected enabled loot rule and falling back to known current-season loot.
-- Added an Enabled Bonus Roll Loot Tracker settings page that combines items
-  from every enabled raid boss, dungeon, and World Boss, with an overall
-  remaining count and direct Obtained controls.
-- Added expandable bonus-rollable item lists for enabled raid, Lair, dungeon,
-  and World Boss rules, including specialization-specific tier tokens, exact
-  item tooltips, and character-specific Obtained checkboxes.
-- Bonus-roll item rewards now mark their matching source, difficulty, and
-  actual loot-specialization entry as Obtained automatically.
+- Added bonus-roll item checklists for raids, Lairs, current-season dungeons,
+  and World Bosses, including specialization-specific tier tokens and item
+  tooltips. Open a row's Items cog to review its loot.
+- Added an item checklist beside active bonus-roll offers, with the source,
+  difficulty, loot specialization, and remaining-item count.
+- Added the Enabled Bonus Roll Loot Tracker settings page to manage items
+  from all enabled rules in one place.
+- Bonus-roll rewards and matching Blizzard remaining-item tooltips now update
+  Obtained checkmarks for the relevant source, difficulty, and actual loot
+  specialization, including after a loot-spec change.
+- Confirmed items now explain their status in checkbox tooltips and ask before
+  being manually unchecked. Later confirmed data takes precedence over manual
+  changes; existing checkmarks are preserved as unconfirmed.
 
 ### Changed
 
-- Release packages now include LibModernSettings 1.6.0, matching the settings
-  APIs used by the addon.
-- Disabled the developer-only preview command for release builds.
-- The Loot Tracker now shows separate Difficulty, Boss, and Loot Spec columns
-  beside each item, making its source and specialization easier to identify.
-  Compact Difficulty and Boss columns leave more room for item names.
-- Saved settings now upgrade one schema at a time before initialization,
-  preserving the original difficulty of older loot history. Newer, unsupported
-  saves are left untouched instead of being downgraded.
-- The main settings page now provides direct buttons and descriptions for
-  every BetterBonusRolls subpage.
-- Updated raid difficulty sections to use modern charcoal and silver
-  expandable headers.
-- Loot lists now retry transient Encounter Journal and item-data misses with
-  bounded exponential backoff, then offer a manual Retry action if Blizzard's
-  data still does not finish loading.
-- Dungeon minimum menus now offer only Mythic+ `+2` through `+10`, with new
-  rules defaulting to `+10`. Existing Normal, Heroic, and Mythic 0 minimums move
-  to `+2`; their saved loot history stays at its original difficulty. All key
-  levels continue to use Mythic Journal item lists.
-- Dungeon Obtained progress is now tracked independently for every selectable
-  key level, while identical Journal queries may still share their cached item
-  list. Named dungeon-rank constants make the supported bounds explicit without
-  changing any saved rank values.
-- Moved item-list cogs beside each rule's Enable checkbox, centered their
-  headings, and applied consistent 8px spacing. Enlarged the cog art and item
-  links, and placed Obtained checkboxes before item icons with matching gaps.
-- Fully bordered expanded item lists, restored visible alternating item rows,
-  and added 8px of parent-row containment below their existing bottom padding.
-- Moved eligibility findings and assumptions into dedicated reference notes,
-  keeping TODO focused on unfinished work and both documents out of releases.
-- Removed redundant startup dungeon-encounter scans and unused internal
-  metadata, UI references, helpers, and unreachable fallback displays and
-  module guards. Loot loading now checks the Journal's actual addon load state
-  instead of duplicated API-availability lists.
+- Dungeon minimums now offer Mythic+ `+2` through `+10`, defaulting to `+10`
+  and including higher keys. Older Normal, Heroic, and Mythic 0 minimums move
+  to `+2` without moving their saved item history.
+- Dungeon Obtained progress is tracked separately for each selectable key
+  level and loot specialization.
+- Refreshed raid difficulty headers with modern styling, larger difficulty
+  icons, and clearer expand/collapse arrows.
+- Improved item-list spacing, column widths, checkbox placement, and crisp
+  borders. The main settings page now links directly to every subpage.
+- Updated the embedded LibModernSettings dependency to 1.6.0 and disabled the
+  developer preview command.
 
 ### Fixed
 
-- Catalog startup now publishes one complete snapshot and retries transiently
-  unavailable specialization, Adventure Guide, or Challenge Mode data instead
-  of leaving settings built from permanently partial tables.
-- Bonus-roll rewards now wait for Blizzard's item cache before classifying and
-  automatically marking the awarded item Obtained.
-- Errors raised while loading Blizzard's bonus-roll UI are no longer swallowed.
-- Catalog initialization no longer attempts to restore unsupported Adventure
-  Guide instance state, preventing the current-season catalog from failing at
-  login.
-- Unexpected loot API errors are no longer silently treated as missing data,
-  making genuine catalog or item-loading failures visible for diagnosis.
-- Obtained checkbox tooltips now refresh immediately after toggling instead of
-  disappearing until the pointer leaves and re-enters the checkbox.
-- Corrected loot-list item requests to listen for Blizzard's
-  `ITEM_DATA_LOAD_RESULT` event and defer cache refreshes safely when that
-  event fires synchronously, preventing rows from remaining stuck on Loading.
-- Transient zero-count, zero-candidate, missing-row, and missing-link Journal
-  results are no longer cached as valid empty loot lists.
-- Encounter Journal loot queries are now serialized, and each result must be
-  structurally matched to its owning instance, difficulty, specialization
-  filter, and encounters, so overlapping expansions or Retry actions cannot
-  exchange loot pools.
-- Loot lookups now retain one loader-owned job through Journal and item-data
-  waits. Redraws cannot replace its encounter or retry state, and item-data
-  callbacks resume loading directly without requiring a settings redraw.
-- Loot discovery now follows Blizzard's visible Adventure Guide navigation
-  order: select the Raid or Dungeon tab, display the requested instance, apply
-  its difficulty, then select an encounter and loot filter. This prevents an
-  open Journal's difficulty refresh from restoring its previously viewed page.
-- Lair World and flexible-Mythic loot queries now validate through Blizzard's
-  base-difficulty mapping, allowing those pools to finish loading while their
-  BetterBonusRolls rules remain distinct.
-- Journal navigation now runs once per request while bounded backoff only
-  checks for completed data, so cold loot data is no longer restarted on every
-  retry. The Guide is intentionally left on the queried page for this MVP.
-- Warm Journal pools are now read immediately after navigation; the 0.25, 0.5,
-  1, and 2 second schedule is used only for cold-data retries.
-  Expanded item panels retain their previous row height while refreshing so
-  settings changes no longer collapse them to a single Loading row.
-- The Loading message is deferred until the first immediate Journal read finds
-  incomplete data, eliminating the one-tick flicker for warm loot pools.
-- Expanded item panels, the bonus-roll preview, and the wrong-loot-specialization
-  sidecar now share a crisp one-physical-pixel border across UI-scale and
-  display-size changes instead of using pixelated tooltip chrome.
-- Accepted Blizzard's documented encounter-less loot rows and now refresh
-  dungeon encounter indexes within each serialized query attempt, so a cold
-  legacy-dungeon catalog cannot make a valid combination immediately
-  unavailable.
-- Restored larger Blizzard difficulty icons beside raid section names and a
-  brighter, optically centered borderless arrow that points down when
-  collapsed and up when open.
-- Successful and failed bonus-roll attempts no longer fall through to the
-  misleading unused-roll expiration message.
-- Mythic+ identity now survives reloads and temporary zone changes through one
-  persisted run, retries incomplete start and completion data, rejects stale
-  unbound runs after one hour, and never treats free-floating last-completion
-  data as the current bonus-roll offer. Late completion data also restores an
-  eligible offer hidden only because its key information was missing, without
-  reopening roll confirmation or overriding a player's No or /bbr hide action.
+- Improved cold-start catalog and loot loading, including legacy dungeons and
+  Lair World and Mythic difficulties. Incomplete data is retried, with a Retry
+  button when loading cannot finish.
+- Prevented overlapping loot requests from showing another source's items.
+  Delayed item data can now finish loading without a settings redraw.
+- Warm loot lists load immediately, and expanded panels retain their height
+  while refreshing to avoid Loading flicker and layout jumps.
+- Obtained tooltips refresh immediately after a checkbox changes, and
+  uncached bonus-roll rewards wait for item data before being recorded.
+- Successful and failed rolls no longer print an unused-roll expiration
+  message.
+- Improved Mythic+ detection across reloads and temporary zone changes while
+  rejecting stale run data. Eligible offers hidden only while key data loads
+  can reappear automatically without overriding a manual hide or reopening
+  roll confirmation.
 
 ## [12.1.0-1] - 2026-09-02
 
