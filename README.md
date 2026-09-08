@@ -30,7 +30,7 @@ BetterBonusRolls never automatically spends or permanently declines a bonus roll
 | Content | Available rules |
 | --- | --- |
 | Raids and Lairs | Choose each boss, difficulty, and loot specialization independently. |
-| Current Season Dungeons | Choose each dungeon, its minimum difficulty, and loot specialization. Available Normal, Heroic, and Mythic choices come from that dungeon's Adventure Guide entry; Timewalking is omitted. Mythic and `+2` through `+10` show the Mythic loot pool, and `+10` also covers higher keys. |
+| Current Season Dungeons | Choose each dungeon, its minimum Mythic+ key level from `+2` through `+10`, and loot specialization. New rules default to `+10`, which also includes higher keys. Normal, Heroic, and Mythic 0 are not selectable. |
 | Bountiful Delves | Use one rule for all Bountiful Delves with a minimum Tier 1-11 and loot specialization. |
 | Outdoor Content | Configure current-season World Bosses individually and Nightmare Prey separately. |
 

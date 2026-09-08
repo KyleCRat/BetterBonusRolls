@@ -4,15 +4,35 @@ NS.addonName = addonName
 NS.displayName = "BetterBonusRolls"
 NS.version = "12.1.0-1"
 
-local CURRENT_SCHEMA = 4
+local CURRENT_SCHEMA = 5
+
+-- Persisted BBR ranks, not Blizzard difficulty IDs or literal key levels.
+-- Keep these values stable so existing rules and obtained-item history match.
+local DUNGEON_RANK = {
+    NORMAL = 1,
+    HEROIC = 2,
+    MYTHIC_0 = 3,
+    MYTHIC_PLUS_2 = 4,
+    MYTHIC_PLUS_10 = 12,
+}
+NS.DungeonDifficultyRank = DUNGEON_RANK
+
+local MYTHIC_PLUS_KEY_LEVEL = {
+    MINIMUM = 2,
+    MAXIMUM_TRACKED = 10,
+}
+NS.MythicPlusKeyLevel = MYTHIC_PLUS_KEY_LEVEL
 
 NS.RuleDefaults = {
-    dungeonMinimumDifficulty = 12,
+    dungeonMinimumDifficulty = DUNGEON_RANK.MYTHIC_PLUS_10,
     delveMinimumTier = 1,
 }
 
 NS.RuleLimits = {
-    dungeonMinimumDifficulty = { minimum = 1, maximum = 12 },
+    dungeonMinimumDifficulty = {
+        minimum = DUNGEON_RANK.MYTHIC_PLUS_2,
+        maximum = DUNGEON_RANK.MYTHIC_PLUS_10,
+    },
     delveMinimumTier = { minimum = 1, maximum = 11 },
 }
 
@@ -250,7 +270,7 @@ local function normalizeChallengeRun(data)
     end
 end
 
-local function migrateDungeonObtainedDifficulties(data)
+local function migrateDungeonObtainedDifficulties(data, legacyMinimum)
     local obtainedItems = data.obtainedItems
     local oldDungeons = type(obtainedItems) == "table"
         and obtainedItems.dungeon or nil
@@ -261,13 +281,19 @@ local function migrateDungeonObtainedDifficulties(data)
     local migrated = {}
     for mapID, specifications in pairs(oldDungeons) do
         if isPositiveInteger(mapID) and type(specifications) == "table" then
-            local rule = data.dungeonRules[mapID]
+            local rule = type(data.dungeonRules) == "table"
+                and data.dungeonRules[mapID] or nil
             local difficulty = type(rule) == "table"
                 and rule.minimumDifficulty or nil
-            if not isIntegerInRange(
-                difficulty,
-                NS.RuleLimits.dungeonMinimumDifficulty
-            ) then
+            if isPositiveInteger(rule) then
+                difficulty = legacyMinimum
+            end
+
+            -- Preserve ranks 1-3 in old obtained-item history even though
+            -- Normal, Heroic, and Mythic 0 are no longer selectable.
+            if not isPositiveInteger(difficulty)
+                or difficulty > NS.RuleLimits.dungeonMinimumDifficulty.maximum
+            then
                 difficulty = NS.RuleDefaults.dungeonMinimumDifficulty
             end
 
@@ -285,18 +311,21 @@ local function getLegacyDungeonMinimum(data)
     if type(mythicPlus) == "table"
         and mythicPlus.enforceMinimumLevel == false
     then
-        return NS.RuleLimits.dungeonMinimumDifficulty.minimum
+        return DUNGEON_RANK.NORMAL
     end
 
     local level = type(mythicPlus) == "table"
         and mythicPlus.minimumLevel or nil
     if type(level) ~= "number" or level % 1 ~= 0 then
-        level = 10
+        level = MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED
     end
-    level = math.max(2, math.min(10, level))
+    level = math.max(
+        MYTHIC_PLUS_KEY_LEVEL.MINIMUM,
+        math.min(MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED, level)
+    )
 
-    -- Normal, Heroic, Mythic, then +2 through +10.
-    return level + 2
+    return DUNGEON_RANK.MYTHIC_PLUS_2
+        + (level - MYTHIC_PLUS_KEY_LEVEL.MINIMUM)
 end
 
 local function normalizeDungeonRules(data, legacyMinimum)
@@ -309,13 +338,24 @@ local function normalizeDungeonRules(data, legacyMinimum)
         if isPositiveInteger(rule) then
             data.dungeonRules[mapID] = {
                 specializationID = rule,
-                minimumDifficulty = legacyMinimum,
+                minimumDifficulty = math.max(
+                    legacyMinimum,
+                    NS.RuleLimits.dungeonMinimumDifficulty.minimum
+                ),
             }
         elseif type(rule) == "table" then
             if not isLootSpecSelection(rule.specializationID) then
                 data.dungeonRules[mapID] = nil
             else
-                if not isIntegerInRange(
+                if isPositiveInteger(rule.minimumDifficulty)
+                    and rule.minimumDifficulty
+                        < NS.RuleLimits.dungeonMinimumDifficulty.minimum
+                then
+                    -- Former base-difficulty minimums already allowed every
+                    -- key. Keep that behavior by choosing the lowest M+ key.
+                    rule.minimumDifficulty =
+                        NS.RuleLimits.dungeonMinimumDifficulty.minimum
+                elseif not isIntegerInRange(
                     rule.minimumDifficulty,
                     NS.RuleLimits.dungeonMinimumDifficulty
                 ) then
@@ -447,11 +487,14 @@ local function normalizeDatabase(data)
     end
 
     local legacyMinimum = getLegacyDungeonMinimum(data)
-    normalizeDungeonRules(data, legacyMinimum)
 
     if data.schema < 4 then
-        migrateDungeonObtainedDifficulties(data)
+        -- Assign old combined history before moving base-difficulty rules to
+        -- +2, so that history cannot be mistaken for Mythic+ obtained items.
+        migrateDungeonObtainedDifficulties(data, legacyMinimum)
     end
+
+    normalizeDungeonRules(data, legacyMinimum)
 
     data.schema = CURRENT_SCHEMA
 

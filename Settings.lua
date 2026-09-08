@@ -274,7 +274,7 @@ local function buildDungeonPage(page)
 
     layout:AddHeader(
         "Current Season Dungeons",
-        "Enable each dungeon independently, then choose its minimum difficulty and required loot specialization. Available base difficulties come from the Adventure Guide; Timewalking is excluded, and Mythic through +10 use the Mythic loot table."
+        "Enable each dungeon independently, then choose its minimum Mythic+ key level and loot specialization. Choose +2 to allow any key, or a higher minimum up to +10. The +10 setting also includes higher keys."
     )
 
     if #NS.Catalog.dungeons == 0 then
@@ -304,7 +304,7 @@ local function buildDungeonPage(page)
     tableView:AddHeaderText("enable", "Enable")
     tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("dungeon", "Dungeon", { justifyH = "LEFT" })
-    tableView:AddHeaderText("minimum", "Minimum")
+    tableView:AddHeaderText("minimum", "Minimum key")
     tableView:AddHeaderText("spec", "Loot specialization")
 
     for index = 1, #NS.Catalog.dungeons do
@@ -944,7 +944,7 @@ function SettingsUI:Register()
     buildDungeonPage(dungeonPage)
     destinations[#destinations + 1] = {
         label = "Current Season Dungeons",
-        description = "Choose each dungeon's minimum difficulty and required loot specialization.",
+        description = "Choose each dungeon's minimum Mythic+ key level and loot specialization.",
         category = dungeonCategory,
     }
 

@@ -15,13 +15,14 @@ local Catalog = {
 
 NS.Catalog = Catalog
 
+local DUNGEON_RANK = NS.DungeonDifficultyRank
+local MYTHIC_PLUS_KEY_LEVEL = NS.MythicPlusKeyLevel
 local CLIENT_DIFFICULTY = DifficultyUtil and DifficultyUtil.ID or {}
 
 Catalog.Difficulty = {
     DUNGEON_NORMAL = CLIENT_DIFFICULTY.DungeonNormal or 1,
     DUNGEON_HEROIC = CLIENT_DIFFICULTY.DungeonHeroic or 2,
     MYTHIC_PLUS = CLIENT_DIFFICULTY.DungeonChallenge or 8,
-    DUNGEON_TIMEWALKING = CLIENT_DIFFICULTY.DungeonTimewalker or 24,
     NORMAL = CLIENT_DIFFICULTY.PrimaryRaidNormal or 14,
     HEROIC = CLIENT_DIFFICULTY.PrimaryRaidHeroic or 15,
     MYTHIC = CLIENT_DIFFICULTY.PrimaryRaidMythic or 16,
@@ -34,32 +35,20 @@ Catalog.Difficulty = {
     WORLD = CLIENT_DIFFICULTY.RaidWorld or 250,
 }
 
-local DUNGEON_BASE_THRESHOLD_DEFINITIONS = {
-    {
-        value = 1,
-        label = "Normal",
-        journalDifficultyID = Catalog.Difficulty.DUNGEON_NORMAL,
-    },
-    {
-        value = 2,
-        label = "Heroic",
-        journalDifficultyID = Catalog.Difficulty.DUNGEON_HEROIC,
-    },
-    {
-        value = 3,
-        label = "Mythic (M0)",
-        journalDifficultyID = Catalog.Difficulty.DUNGEON_MYTHIC,
-    },
-}
-
+-- Keep the historical ranks for stored progress and unexpected base-difficulty
+-- offers. Only ranks 4 through 12 (+2 through +10) are selectable now.
 local DUNGEON_THRESHOLD_LABELS = {
-    [1] = "Normal",
-    [2] = "Heroic",
-    [3] = "Mythic",
+    [DUNGEON_RANK.NORMAL] = "Normal",
+    [DUNGEON_RANK.HEROIC] = "Heroic",
+    [DUNGEON_RANK.MYTHIC_0] = "Mythic",
 }
 
-for level = 2, 10 do
-    DUNGEON_THRESHOLD_LABELS[level + 2] = "+" .. level
+for level = MYTHIC_PLUS_KEY_LEVEL.MINIMUM,
+    MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED
+do
+    local rank = DUNGEON_RANK.MYTHIC_PLUS_2
+        + (level - MYTHIC_PLUS_KEY_LEVEL.MINIMUM)
+    DUNGEON_THRESHOLD_LABELS[rank] = "+" .. level
 end
 
 local DIFFICULTY_LABELS = {
@@ -134,15 +123,6 @@ local function hasSelectedInstanceDifficulty(difficultyID)
     return not NS:IsSecret(result) and result == true
 end
 
-local function isSelectedInstanceDifficultyValid(difficultyID)
-    local result = EJ_IsValidInstanceDifficulty(difficultyID)
-    if result ~= nil and not NS:IsSecret(result) then
-        return result == true
-    end
-
-    return hasSelectedInstanceDifficulty(difficultyID)
-end
-
 local function collectDifficulties()
     local difficulties = {}
     local hasWorld = hasSelectedInstanceDifficulty(
@@ -180,57 +160,13 @@ local function collectDifficulties()
     return difficulties
 end
 
-local function collectDungeonThresholds(includeBaseDifficulties)
+local function buildDungeonThresholds()
     local choices = {}
     local byValue = {}
 
-    if includeBaseDifficulties then
-        local timewalkingBaseDifficultyID
-        if isSelectedInstanceDifficultyValid(
-                Catalog.Difficulty.DUNGEON_TIMEWALKING
-            )
-            and hasSelectedInstanceDifficulty(
-                Catalog.Difficulty.DUNGEON_TIMEWALKING
-            )
-        then
-            timewalkingBaseDifficultyID =
-                C_EncounterJournal.GetBaseDifficultyID(
-                    Catalog.Difficulty.DUNGEON_TIMEWALKING
-                )
-            if NS:IsSecret(timewalkingBaseDifficultyID)
-                or not NS:IsPublicPositiveInteger(
-                    timewalkingBaseDifficultyID
-                )
-            then
-                timewalkingBaseDifficultyID = nil
-            end
-        end
-
-        for index = 1, #DUNGEON_BASE_THRESHOLD_DEFINITIONS do
-            local definition = DUNGEON_BASE_THRESHOLD_DEFINITIONS[index]
-
-            if definition.journalDifficultyID
-                ~= timewalkingBaseDifficultyID
-                and isSelectedInstanceDifficultyValid(
-                    definition.journalDifficultyID
-                )
-            then
-                local choice = {
-                    value = definition.value,
-                    label = definition.label,
-                    journalDifficultyID = definition.journalDifficultyID,
-                }
-                choices[#choices + 1] = choice
-                byValue[choice.value] = choice
-            end
-        end
-    end
-
-    -- Every entry came from the active Challenge Mode map table, so +2
-    -- through +10 are valid completion thresholds. Blizzard exposes their
-    -- shared item pool through the base Mythic Journal difficulty.
-    for level = 2, 10 do
-        local value = level + 2
+    -- All current-season dungeon rules are Mythic+. Use the Mythic Journal
+    -- item catalog for every key, while retaining separate progress per rank.
+    for value = DUNGEON_RANK.MYTHIC_PLUS_2, DUNGEON_RANK.MYTHIC_PLUS_10 do
         local choice = {
             value = value,
             label = DUNGEON_THRESHOLD_LABELS[value],
@@ -514,13 +450,8 @@ local function buildDungeons(target)
         local hasJournalInstance = NS:IsPublicPositiveInteger(
             dungeon.journalInstanceID
         )
-        local selected = false
         if hasJournalInstance then
             EJ_SelectInstance(dungeon.journalInstanceID)
-            selected = true
-        end
-
-        if hasJournalInstance then
             local encounterCollection = collectEncounters(
                 dungeon.journalInstanceID
             )
@@ -531,15 +462,11 @@ local function buildDungeons(target)
             dungeon.encounterByID = {}
         end
 
-        local thresholds = collectDungeonThresholds(selected)
+        local thresholds = buildDungeonThresholds()
         dungeon.thresholdChoices = thresholds.choices
         dungeon.thresholdByValue = thresholds.byValue
         dungeon.defaultMinimumDifficulty =
-            dungeon.thresholdByValue[
-                NS.RuleDefaults.dungeonMinimumDifficulty
-            ]
-            and NS.RuleDefaults.dungeonMinimumDifficulty
-            or dungeon.thresholdChoices[#dungeon.thresholdChoices].value
+            NS.RuleDefaults.dungeonMinimumDifficulty
 
         if dungeon.journalInstanceID then
             local matches = target.dungeonByInstance[
@@ -783,16 +710,21 @@ end
 
 function Catalog:GetDungeonCompletionRank(difficultyID, challengeLevel)
     if difficultyID == self.Difficulty.DUNGEON_NORMAL then
-        return 1
+        return DUNGEON_RANK.NORMAL
     elseif difficultyID == self.Difficulty.DUNGEON_HEROIC then
-        return 2
+        return DUNGEON_RANK.HEROIC
     elseif difficultyID == self.Difficulty.DUNGEON_MYTHIC then
-        return 3
+        return DUNGEON_RANK.MYTHIC_0
     elseif difficultyID == self.Difficulty.MYTHIC_PLUS
         and NS:IsPublicPositiveInteger(challengeLevel)
-        and challengeLevel >= 2
+        and challengeLevel >= MYTHIC_PLUS_KEY_LEVEL.MINIMUM
     then
-        return math.min(challengeLevel, 10) + 2
+        local level = math.min(
+            challengeLevel,
+            MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED
+        )
+        return DUNGEON_RANK.MYTHIC_PLUS_2
+            + (level - MYTHIC_PLUS_KEY_LEVEL.MINIMUM)
     end
 
     return nil

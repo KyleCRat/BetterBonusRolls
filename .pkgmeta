@@ -19,6 +19,8 @@ ignore:
   - .git
   - AGENTS.md
   - PLAN.md
+  - TODO.md
+  - BONUS_ROLL_FINDINGS.md
   - ICON.png
   - tests
   - "Libs/LibModernSettings/tests"

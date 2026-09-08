@@ -407,7 +407,7 @@ local function buildHarness(options)
             },
         },
         RuleLimits = {
-            dungeonMinimumDifficulty = { minimum = 1, maximum = 12 },
+            dungeonMinimumDifficulty = { minimum = 4, maximum = 12 },
             delveMinimumTier = { minimum = 1, maximum = 11 },
         },
     }
@@ -486,7 +486,7 @@ local function buildHarness(options)
         return type(dungeon) == "table"
             and type(rank) == "number"
             and rank % 1 == 0
-            and rank >= 1
+            and rank >= 4
             and rank <= 12
     end
 

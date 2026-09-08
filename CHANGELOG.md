@@ -33,18 +33,21 @@
 - Loot lists now retry transient Encounter Journal and item-data misses with
   bounded exponential backoff, then offer a manual Retry action if Blizzard's
   data still does not finish loading.
-- Dungeon minimum menus now include only the standard base difficulties each
-  dungeon exposes in the current Adventure Guide, omit Timewalking, and use
-  the Mythic Journal pool for Mythic and every `+2` through `+10` threshold.
+- Dungeon minimum menus now offer only Mythic+ `+2` through `+10`, with new
+  rules defaulting to `+10`. Existing Normal, Heroic, and Mythic 0 minimums move
+  to `+2`; their saved loot history stays at its original difficulty. All key
+  levels continue to use Mythic Journal item lists.
 - Dungeon Obtained progress is now tracked independently for every selectable
-  difficulty. Existing dungeon progress is retained under each dungeon's
-  currently selected minimum, while identical Journal queries may still share
-  their cached item list.
+  key level, while identical Journal queries may still share their cached item
+  list. Named dungeon-rank constants make the supported bounds explicit without
+  changing any saved rank values.
 - Moved item-list cogs beside each rule's Enable checkbox, centered their
   headings, and applied consistent 8px spacing. Enlarged the cog art and item
   links, and placed Obtained checkboxes before item icons with matching gaps.
 - Fully bordered expanded item lists, restored visible alternating item rows,
   and added 8px of parent-row containment below their existing bottom padding.
+- Moved eligibility findings and assumptions into dedicated reference notes,
+  keeping TODO focused on unfinished work and both documents out of releases.
 
 ### Fixed
 
