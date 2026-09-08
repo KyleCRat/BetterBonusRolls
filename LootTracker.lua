@@ -6,6 +6,11 @@ NS.LootTracker = Tracker
 local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local RETRY_DELAYS = { 0.25, 0.5, 1, 2 }
 local ITEM_LOAD_FINAL_SETTLE_DELAY = 1
+local ITEM_COLLECTION_STATUS = {
+    COMPLETE = "complete",
+    ITEM_PENDING = "itemPending",
+    JOURNAL_PENDING = "journalPending",
+}
 local poolCache = {}
 local pendingItems = {}
 local failedItems = {}
@@ -19,23 +24,6 @@ local itemRetryDueAt
 local activeJournalQuery
 local journalRetryTimer
 local journalPumpTimer
-
-local function pack(...)
-    return { n = select("#", ...), ... }
-end
-
-local function safeCall(func, ...)
-    if type(func) ~= "function" then
-        return nil
-    end
-
-    local results = pack(pcall(func, ...))
-    if not results[1] then
-        return nil
-    end
-
-    return unpack(results, 2, results.n)
-end
 
 local function reportError(message)
     if NS:IsSecret(message) then
@@ -53,7 +41,7 @@ local function isPublicString(value)
 end
 
 local function getPlayerClassID()
-    local _, _, classID = safeCall(UnitClass, "player")
+    local _, _, classID = UnitClass("player")
     if NS:IsPublicPositiveInteger(classID) then
         return classID
     end
@@ -128,7 +116,10 @@ local function makeRaidKeys(instanceID, encounterID, difficultyID, specID,
         classID,
     }, ":")
 
-    return trackingKey, queryKey
+    return {
+        trackingKey = trackingKey,
+        queryKey = queryKey,
+    }
 end
 
 local function makeDungeonKeys(mapID, specID, instanceID,
@@ -145,7 +136,10 @@ local function makeDungeonKeys(mapID, specID, instanceID,
         classID,
     }, ":")
 
-    return trackingKey, queryKey
+    return {
+        trackingKey = trackingKey,
+        queryKey = queryKey,
+    }
 end
 
 local function makeWorldBossKeys(encounterID, specID, instanceID,
@@ -162,7 +156,10 @@ local function makeWorldBossKeys(encounterID, specID, instanceID,
         classID,
     }, ":")
 
-    return trackingKey, queryKey
+    return {
+        trackingKey = trackingKey,
+        queryKey = queryKey,
+    }
 end
 
 function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
@@ -193,7 +190,7 @@ function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
         return nil
     end
 
-    local trackingKey, queryKey = makeRaidKeys(
+    local keys = makeRaidKeys(
         instanceID,
         encounterID,
         difficultyID,
@@ -218,8 +215,8 @@ function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
         specID = specID,
         classID = classID,
         sourceName = difficultyName .. " " .. encounterName,
-        trackingKey = trackingKey,
-        queryKey = queryKey,
+        trackingKey = keys.trackingKey,
+        queryKey = keys.queryKey,
     }
 end
 
@@ -249,7 +246,7 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
         return nil
     end
 
-    local trackingKey, queryKey = makeDungeonKeys(
+    local keys = makeDungeonKeys(
         mapID,
         specID,
         instanceID,
@@ -272,8 +269,8 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
         specID = specID,
         classID = classID,
         sourceName = difficultyName .. " " .. sourceName,
-        trackingKey = trackingKey,
-        queryKey = queryKey,
+        trackingKey = keys.trackingKey,
+        queryKey = keys.queryKey,
     }
 end
 
@@ -297,7 +294,7 @@ function Tracker:CreateWorldBossRequest(boss, selection)
         return nil
     end
 
-    local trackingKey, queryKey = makeWorldBossKeys(
+    local keys = makeWorldBossKeys(
         encounterID,
         specID,
         instanceID,
@@ -319,8 +316,8 @@ function Tracker:CreateWorldBossRequest(boss, selection)
         specID = specID,
         classID = classID,
         sourceName = difficultyName .. " " .. sourceName,
-        trackingKey = trackingKey,
-        queryKey = queryKey,
+        trackingKey = keys.trackingKey,
+        queryKey = keys.queryKey,
     }
 end
 
@@ -493,7 +490,7 @@ local function ensureEncounterJournal()
     end
 
     if C_AddOns and C_AddOns.LoadAddOn then
-        safeCall(C_AddOns.LoadAddOn, "Blizzard_EncounterJournal")
+        C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
     end
 
     return EJ_SelectInstance ~= nil
@@ -516,7 +513,7 @@ local function ensureEncounterJournal()
 end
 
 local function getPublicTime()
-    local now = safeCall(GetTime)
+    local now = GetTime()
 
     if NS:IsSecret(now) or type(now) ~= "number" then
         return 0
@@ -597,7 +594,7 @@ local function completePendingItem(itemID, success)
 end
 
 local function requestPendingItem(itemID)
-    safeCall(C_Item.RequestLoadItemDataByID, itemID)
+    C_Item.RequestLoadItemDataByID(itemID)
 end
 
 processPendingItems = function()
@@ -615,7 +612,7 @@ processPendingItems = function()
         if pending and pending.nextRetryAt <= now + 0.01 then
             local cached = C_Item
                 and C_Item.IsItemDataCachedByID
-                and safeCall(C_Item.IsItemDataCachedByID, itemID)
+                and C_Item.IsItemDataCachedByID(itemID)
 
             if not NS:IsSecret(cached) and cached == true then
                 completePendingItem(itemID, true)
@@ -687,7 +684,7 @@ local function getItemIcon(itemID, journalIcon)
         return journalIcon
     end
 
-    local icon = C_Item and safeCall(C_Item.GetItemIconByID, itemID)
+    local icon = C_Item.GetItemIconByID(itemID)
     if not NS:IsSecret(icon)
         and (type(icon) == "number" or type(icon) == "string")
     then
@@ -702,8 +699,7 @@ local function getItemName(itemID, journalName)
         return journalName
     end
 
-    local itemName = C_Item
-        and safeCall(C_Item.GetItemInfo, itemID)
+    local itemName = C_Item.GetItemInfo(itemID)
     if isPublicString(itemName) and itemName ~= "" then
         return itemName
     end
@@ -712,7 +708,7 @@ local function getItemName(itemID, journalName)
 end
 
 local function hasExplicitSpecialization(itemID, specID)
-    local specs = safeCall(C_Item.GetItemSpecInfo, itemID)
+    local specs = C_Item.GetItemSpecInfo(itemID)
     if NS:IsSecret(specs) or type(specs) ~= "table" then
         return false
     end
@@ -732,10 +728,10 @@ local function hasExplicitSpecialization(itemID, specID)
 end
 
 local function isBonusRollCandidate(itemID, specID)
-    local equippable = safeCall(C_Item.IsEquippableItem, itemID)
-    local cosmetic = safeCall(C_Item.IsCosmeticItem, itemID)
-    local decor = safeCall(C_Item.IsDecorItem, itemID)
-    local curio = safeCall(C_Item.IsCurioItem, itemID)
+    local equippable = C_Item.IsEquippableItem(itemID)
+    local cosmetic = C_Item.IsCosmeticItem(itemID)
+    local decor = C_Item.IsDecorItem(itemID)
+    local curio = C_Item.IsCurioItem(itemID)
 
     if NS:IsSecret(equippable)
         or NS:IsSecret(cosmetic)
@@ -771,29 +767,33 @@ end
 
 local function collectJournalItem(info, request, items, seen)
     if NS:IsSecret(info) or type(info) ~= "table" then
-        return false, false, true
+        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
     if not isExpectedEncounter(request, info.encounterID) then
-        return false, false, true
+        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
 
     local itemID = info.itemID
     if not NS:IsPublicPositiveInteger(itemID) then
-        return false, false, true
+        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
     if seen[itemID] then
-        return false, false, false
+        return ITEM_COLLECTION_STATUS.COMPLETE
     end
     seen[itemID] = true
 
     if C_Item and C_Item.IsItemDataCachedByID then
-        local cached = safeCall(C_Item.IsItemDataCachedByID, itemID)
+        local cached = C_Item.IsItemDataCachedByID(itemID)
 
         if NS:IsSecret(cached) then
-            return false, false, true
+            return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
         end
         if cached ~= true then
-            return false, addPendingItem(itemID, request.queryKey), false
+            if addPendingItem(itemID, request.queryKey) then
+                return ITEM_COLLECTION_STATUS.ITEM_PENDING
+            end
+
+            return ITEM_COLLECTION_STATUS.COMPLETE
         end
 
         -- A previous request may have timed out before another Blizzard UI
@@ -802,15 +802,15 @@ local function collectJournalItem(info, request, items, seen)
     end
 
     if not isBonusRollCandidate(itemID, request.specID) then
-        return false, false, false
+        return ITEM_COLLECTION_STATUS.COMPLETE
     end
 
     local link = info.link
     if NS:IsSecret(link) then
-        return false, false, true
+        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
     if type(link) ~= "string" or link == "" then
-        return false, false, true
+        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
 
     items[#items + 1] = {
@@ -820,7 +820,7 @@ local function collectJournalItem(info, request, items, seen)
         icon = getItemIcon(itemID, info.icon),
     }
 
-    return true, false, false
+    return ITEM_COLLECTION_STATUS.COMPLETE
 end
 
 local function refreshDungeonEncounterIDs(request)
@@ -943,16 +943,20 @@ local function readSelectedJournal(request)
 
         for index = 1, count do
             local info = C_EncounterJournal.GetLootInfoByIndex(index)
-            local _, currentItemPending, currentJournalPending =
-                collectJournalItem(
+            local collectionStatus = collectJournalItem(
                 info,
                 request,
                 items,
                 seen
             )
 
-            itemPending = itemPending or currentItemPending
-            journalPending = journalPending or currentJournalPending
+            if collectionStatus == ITEM_COLLECTION_STATUS.ITEM_PENDING then
+                itemPending = true
+            elseif collectionStatus
+                == ITEM_COLLECTION_STATUS.JOURNAL_PENDING
+            then
+                journalPending = true
+            end
             if not NS:IsSecret(info)
                 and type(info) == "table"
                 and NS:IsPublicPositiveInteger(info.itemID)
@@ -1449,7 +1453,7 @@ function Tracker:RecordBonusRollItem(snapshot, itemLink, specID)
         return nil
     end
 
-    local itemID = safeCall(C_Item.GetItemIDForItemInfo, itemLink)
+    local itemID = C_Item.GetItemIDForItemInfo(itemLink)
     if not NS:IsPublicPositiveInteger(itemID) then
         return nil
     end

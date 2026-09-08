@@ -88,30 +88,13 @@ local RAID_DIFFICULTY_DISPLAY_ORDER = {
     Catalog.Difficulty.WORLD,
 }
 
-local function pack(...)
-    return { n = select("#", ...), ... }
-end
-
-local function safeCall(func, ...)
-    if type(func) ~= "function" then
-        return nil
-    end
-
-    local results = pack(pcall(func, ...))
-    if not results[1] then
-        return nil
-    end
-
-    return unpack(results, 2, results.n)
-end
-
 local function ensureEncounterJournal()
     if EJ_GetNumTiers and EJ_GetInstanceByIndex then
         return true
     end
 
     if C_AddOns and C_AddOns.LoadAddOn then
-        safeCall(C_AddOns.LoadAddOn, "Blizzard_EncounterJournal")
+        C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
     end
 
     return EJ_GetNumTiers ~= nil and EJ_GetInstanceByIndex ~= nil
@@ -119,8 +102,7 @@ end
 
 local function hasSelectedInstanceDifficulty(difficultyID)
     if C_EncounterJournal and C_EncounterJournal.InstanceHasDifficultyID then
-        local result = safeCall(
-            C_EncounterJournal.InstanceHasDifficultyID,
+        local result = C_EncounterJournal.InstanceHasDifficultyID(
             difficultyID
         )
         if result ~= nil and not NS:IsSecret(result) then
@@ -128,12 +110,12 @@ local function hasSelectedInstanceDifficulty(difficultyID)
         end
     end
 
-    local result = safeCall(EJ_IsValidInstanceDifficulty, difficultyID)
+    local result = EJ_IsValidInstanceDifficulty(difficultyID)
     return not NS:IsSecret(result) and result == true
 end
 
 local function isSelectedInstanceDifficultyValid(difficultyID)
-    local result = safeCall(EJ_IsValidInstanceDifficulty, difficultyID)
+    local result = EJ_IsValidInstanceDifficulty(difficultyID)
     if result ~= nil and not NS:IsSecret(result) then
         return result == true
     end
@@ -191,10 +173,10 @@ local function collectDungeonThresholds(includeBaseDifficulties)
                 Catalog.Difficulty.DUNGEON_TIMEWALKING
             )
         then
-            timewalkingBaseDifficultyID = safeCall(
-                C_EncounterJournal.GetBaseDifficultyID,
-                Catalog.Difficulty.DUNGEON_TIMEWALKING
-            )
+            timewalkingBaseDifficultyID =
+                C_EncounterJournal.GetBaseDifficultyID(
+                    Catalog.Difficulty.DUNGEON_TIMEWALKING
+                )
             if NS:IsSecret(timewalkingBaseDifficultyID)
                 or not NS:IsPublicPositiveInteger(
                     timewalkingBaseDifficultyID
@@ -238,7 +220,10 @@ local function collectDungeonThresholds(includeBaseDifficulties)
         byValue[value] = choice
     end
 
-    return choices, byValue
+    return {
+        choices = choices,
+        byValue = byValue,
+    }
 end
 
 local function collectEncounters(instanceID)
@@ -247,8 +232,7 @@ local function collectEncounters(instanceID)
     local index = 1
 
     while true do
-        local name, _, encounterID = safeCall(
-            EJ_GetEncounterInfoByIndex,
+        local name, _, encounterID = EJ_GetEncounterInfoByIndex(
             index,
             instanceID
         )
@@ -276,7 +260,10 @@ local function collectEncounters(instanceID)
         index = index + 1
     end
 
-    return encounters, encounterByID
+    return {
+        encounters = encounters,
+        encounterByID = encounterByID,
+    }
 end
 
 local function getPublicInstanceName(name, instanceID)
@@ -300,7 +287,8 @@ local function isWorldBossInstance(instanceName, dungeonAreaMapID, tierName)
 end
 
 local function collectWorldBosses(instanceID, instanceName, difficulties)
-    local encounters = collectEncounters(instanceID)
+    local encounterCollection = collectEncounters(instanceID)
+    local encounters = encounterCollection.encounters
     local difficulty = difficulties[1]
 
     for index = 1, #encounters do
@@ -327,8 +315,7 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
 
     while true do
         local instanceID, name, ignored3, ignored4, ignored5, ignored6,
-            ignored7, dungeonAreaMapID = safeCall(
-            EJ_GetInstanceByIndex,
+            ignored7, dungeonAreaMapID = EJ_GetInstanceByIndex(
             index,
             isRaidList
         )
@@ -340,7 +327,7 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
         end
 
         if NS:IsPublicPositiveInteger(instanceID) then
-            safeCall(EJ_SelectInstance, instanceID)
+            EJ_SelectInstance(instanceID)
             local instanceName = getPublicInstanceName(name, instanceID)
             local difficulties = collectDifficulties()
 
@@ -356,7 +343,8 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
                 seen[instanceID] = true
             else
                 if #difficulties > 0 and not seen[instanceID] then
-                    local encounters, encounterByID = collectEncounters(instanceID)
+                    local encounterCollection = collectEncounters(instanceID)
+                    local encounters = encounterCollection.encounters
                     if #encounters > 0 then
                         local difficultyByID = {}
                         for difficultyIndex = 1, #difficulties do
@@ -369,7 +357,7 @@ local function collectRaidLikeInstances(isRaidList, seen, tierName)
                             name = instanceName,
                             order = #Catalog.raids + 1,
                             encounters = encounters,
-                            encounterByID = encounterByID,
+                            encounterByID = encounterCollection.encounterByID,
                             difficulties = difficulties,
                             difficultyByID = difficultyByID,
                             journalRaidList = isRaidList,
@@ -389,13 +377,13 @@ end
 
 local function restoreJournalSelection(tier, instanceID, difficultyID)
     if NS:IsPublicPositiveInteger(tier) then
-        safeCall(EJ_SelectTier, tier)
+        EJ_SelectTier(tier)
     end
     if NS:IsPublicPositiveInteger(instanceID) then
-        safeCall(EJ_SelectInstance, instanceID)
+        EJ_SelectInstance(instanceID)
     end
     if NS:IsPublicPositiveInteger(difficultyID) then
-        safeCall(EJ_SetDifficulty, difficultyID)
+        EJ_SetDifficulty(difficultyID)
     end
 end
 
@@ -409,23 +397,19 @@ function Catalog:BuildRaids()
         return
     end
 
-    local tierCount = safeCall(EJ_GetNumTiers) or 0
+    local tierCount = EJ_GetNumTiers() or 0
     if NS:IsSecret(tierCount) or type(tierCount) ~= "number" or tierCount < 1 then
         return
     end
 
-    local savedTier = safeCall(EJ_GetCurrentTier)
-    local savedInstance = safeCall(EJ_GetCurrentInstance)
-    local savedDifficulty = safeCall(EJ_GetDifficulty)
+    local savedTier = EJ_GetCurrentTier()
+    local savedInstance = EJ_GetCurrentInstance()
+    local savedDifficulty = EJ_GetDifficulty()
 
-    local selected = pcall(EJ_SelectTier, tierCount)
-    if not selected then
-        restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
-        return
-    end
+    EJ_SelectTier(tierCount)
 
     local seen = {}
-    local tierName = safeCall(EJ_GetTierInfo, tierCount)
+    local tierName = EJ_GetTierInfo(tierCount)
     collectRaidLikeInstances(true, seen, tierName)
     collectRaidLikeInstances(false, seen, nil)
     restoreJournalSelection(savedTier, savedInstance, savedDifficulty)
@@ -440,7 +424,7 @@ function Catalog:BuildDungeons()
         return
     end
 
-    local mapTable = safeCall(C_ChallengeMode.GetMapTable)
+    local mapTable = C_ChallengeMode.GetMapTable()
     if NS:IsSecret(mapTable) or type(mapTable) ~= "table" then
         return
     end
@@ -452,20 +436,19 @@ function Catalog:BuildDungeons()
     local savedDifficulty
 
     if journalAvailable then
-        local tierCount = safeCall(EJ_GetNumTiers) or 0
-        savedTier = safeCall(EJ_GetCurrentTier)
-        savedInstance = safeCall(EJ_GetCurrentInstance)
-        savedDifficulty = safeCall(EJ_GetDifficulty)
+        local tierCount = EJ_GetNumTiers() or 0
+        savedTier = EJ_GetCurrentTier()
+        savedInstance = EJ_GetCurrentInstance()
+        savedDifficulty = EJ_GetDifficulty()
 
         if not NS:IsSecret(tierCount)
             and type(tierCount) == "number"
             and tierCount > 0
         then
-            safeCall(EJ_SelectTier, tierCount)
+            EJ_SelectTier(tierCount)
             local journalIndex = 1
             while true do
-                local instanceID = safeCall(
-                    EJ_GetInstanceByIndex,
+                local instanceID = EJ_GetInstanceByIndex(
                     journalIndex,
                     false
                 )
@@ -486,10 +469,8 @@ function Catalog:BuildDungeons()
     for index = 1, #mapTable do
         local challengeMapID = mapTable[index]
         if NS:IsPublicPositiveInteger(challengeMapID) then
-            local name, _, _, _, _, gameMapID = safeCall(
-                C_ChallengeMode.GetMapUIInfo,
-                challengeMapID
-            )
+            local name, _, _, _, _, gameMapID =
+                C_ChallengeMode.GetMapUIInfo(challengeMapID)
 
             if not NS:IsSecret(name) and type(name) == "string" then
                 if not NS:IsPublicPositiveInteger(gameMapID) then
@@ -500,10 +481,8 @@ function Catalog:BuildDungeons()
                     and C_EncounterJournal.GetInstanceForGameMap
                     and NS:IsPublicPositiveInteger(gameMapID)
                 then
-                    journalInstanceID = safeCall(
-                        C_EncounterJournal.GetInstanceForGameMap,
-                        gameMapID
-                    )
+                    journalInstanceID =
+                        C_EncounterJournal.GetInstanceForGameMap(gameMapID)
                 end
                 if not NS:IsPublicPositiveInteger(journalInstanceID) then
                     journalInstanceID = nil
@@ -538,21 +517,26 @@ function Catalog:BuildDungeons()
         local hasJournalInstance = NS:IsPublicPositiveInteger(
             dungeon.journalInstanceID
         )
-        local selected = journalAvailable
-            and hasJournalInstance
-            and pcall(EJ_SelectInstance, dungeon.journalInstanceID)
+        local selected = false
+        if journalAvailable and hasJournalInstance then
+            EJ_SelectInstance(dungeon.journalInstanceID)
+            selected = true
+        end
 
         if hasJournalInstance then
-            dungeon.encounters, dungeon.encounterByID = collectEncounters(
+            local encounterCollection = collectEncounters(
                 dungeon.journalInstanceID
             )
+            dungeon.encounters = encounterCollection.encounters
+            dungeon.encounterByID = encounterCollection.encounterByID
         else
             dungeon.encounters = {}
             dungeon.encounterByID = {}
         end
 
-        dungeon.thresholdChoices, dungeon.thresholdByValue =
-            collectDungeonThresholds(selected == true)
+        local thresholds = collectDungeonThresholds(selected)
+        dungeon.thresholdChoices = thresholds.choices
+        dungeon.thresholdByValue = thresholds.byValue
         dungeon.defaultMinimumDifficulty =
             dungeon.thresholdByValue[
                 NS.RuleDefaults.dungeonMinimumDifficulty
@@ -579,13 +563,13 @@ function Catalog:BuildSpecs()
     self.specs = {}
     self.specByID = {}
 
-    local count = safeCall(GetNumSpecializations) or 0
+    local count = GetNumSpecializations() or 0
     if NS:IsSecret(count) or type(count) ~= "number" then
         return
     end
 
     for index = 1, count do
-        local specID, name, _, icon = safeCall(GetSpecializationInfo, index)
+        local specID, name, _, icon = GetSpecializationInfo(index)
         if NS:IsPublicPositiveInteger(specID)
             and not NS:IsSecret(name)
             and type(name) == "string"
@@ -622,7 +606,7 @@ function Catalog:GetDifficultyName(difficultyID)
         return label
     end
 
-    local clientLabel = safeCall(GetDifficultyInfo, difficultyID)
+    local clientLabel = GetDifficultyInfo(difficultyID)
     if not NS:IsSecret(clientLabel) and type(clientLabel) == "string" then
         return clientLabel
     end
@@ -737,12 +721,12 @@ function Catalog:IsDungeonDifficulty(difficultyID)
 end
 
 function Catalog:GetActiveSpecID()
-    local activeIndex = safeCall(GetSpecialization)
+    local activeIndex = GetSpecialization()
     if not NS:IsPublicPositiveInteger(activeIndex) then
         return nil
     end
 
-    local specID = safeCall(GetSpecializationInfo, activeIndex)
+    local specID = GetSpecializationInfo(activeIndex)
     if NS:IsPublicPositiveInteger(specID) then
         return specID
     end
@@ -751,7 +735,7 @@ function Catalog:GetActiveSpecID()
 end
 
 function Catalog:GetEffectiveLootSpecID()
-    local lootSpecID = safeCall(GetLootSpecialization)
+    local lootSpecID = GetLootSpecialization()
     if NS:IsPublicPositiveInteger(lootSpecID) then
         return lootSpecID
     end
@@ -766,7 +750,7 @@ function Catalog:GetSpecName(specID)
     end
 
     if NS:IsPublicPositiveInteger(specID) then
-        local _, name = safeCall(GetSpecializationInfoByID, specID)
+        local _, name = GetSpecializationInfoByID(specID)
         if not NS:IsSecret(name) and type(name) == "string" then
             return name
         end

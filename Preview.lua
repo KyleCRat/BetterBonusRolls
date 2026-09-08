@@ -182,11 +182,12 @@ local function createPreviewFrame()
     closeButton:SetFrameLevel(frame:GetFrameLevel() + 20)
     closeButton:SetScript("OnClick", closePreview)
 
-    panel, button = NS.RollController:CreateLootSpecPanel(
+    panel = NS.RollController:CreateLootSpecPanel(
         frame,
         frame,
         handleButtonClick
     )
+    button = panel.button
     lootSidecar = NS.LootSidecar:Create(frame)
     frame:Hide()
 end

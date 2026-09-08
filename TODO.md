@@ -13,8 +13,3 @@
   serialized Journal requests never display each other's loot.
 - Compare one dungeon at Normal, Heroic, Mythic, and a Mythic+ threshold;
   verify each base selection uses its matching pool and Mythic+ uses Mythic.
-- Remove the duplicated `pack`/`safeCall` wrappers from `Catalog.lua` and
-  `LootTracker.lua`. Call required Interface `120100` APIs directly, preserve
-  multiple returns explicitly at their call sites, and use error-reporting
-  `pcall` only around genuine optional or transactional failure boundaries so
-  API errors cannot be silently mistaken for legitimate `nil` results.

@@ -40,6 +40,8 @@
 
 ### Fixed
 
+- Unexpected loot API errors are no longer silently treated as missing data,
+  making genuine catalog or item-loading failures visible for diagnosis.
 - Obtained checkbox tooltips now refresh immediately after toggling instead of
   disappearing until the pointer leaves and re-enters the checkbox.
 - Corrected loot-list item requests to listen for Blizzard's

@@ -204,17 +204,24 @@ local function resolveLootSpecSelection(selection)
         local activeSpecID = NS.Catalog:GetActiveSpecID()
         local activeSpec = getCurrentClassSpec(activeSpecID)
         if activeSpec then
-            return activeSpec.id, 0
+            return {
+                desiredSpecID = activeSpec.id,
+                desiredLootSpecID = 0,
+            }
         end
-        return nil, nil
+
+        return nil
     end
 
     local spec = getCurrentClassSpec(selection)
     if spec then
-        return spec.id, spec.id
+        return {
+            desiredSpecID = spec.id,
+            desiredLootSpecID = spec.id,
+        }
     end
 
-    return nil, nil
+    return nil
 end
 
 local function getActiveDelveTier()
@@ -243,12 +250,12 @@ end
 
 local function getCompletionChallenge()
     if not C_ChallengeMode or not C_ChallengeMode.GetChallengeCompletionInfo then
-        return nil, nil
+        return nil
     end
 
     local ok, info = pcall(C_ChallengeMode.GetChallengeCompletionInfo)
     if not ok or NS:IsSecret(info) or type(info) ~= "table" then
-        return nil, nil
+        return nil
     end
 
     local mapID = info.mapChallengeModeID
@@ -256,15 +263,18 @@ local function getCompletionChallenge()
     if NS:IsPublicPositiveInteger(mapID)
         and NS:IsPublicPositiveInteger(level)
     then
-        return mapID, level
+        return {
+            mapID = mapID,
+            level = level,
+        }
     end
 
-    return nil, nil
+    return nil
 end
 
 local function getActiveChallenge()
     if not C_ChallengeMode then
-        return nil, nil
+        return nil
     end
 
     local mapID
@@ -282,7 +292,14 @@ local function getActiveChallenge()
         end
     end
 
-    return mapID, level
+    if not mapID and not level then
+        return nil
+    end
+
+    return {
+        mapID = mapID,
+        level = level,
+    }
 end
 
 local function isPublicOptionalPositiveInteger(value)
@@ -442,28 +459,31 @@ local function clearChallengeRunForOffer(raw)
 end
 
 local function getChallengeForOffer(raw)
-    local mapID, level = getActiveChallenge()
+    local activeChallenge = getActiveChallenge()
+    local mapID = activeChallenge and activeChallenge.mapID
+    local level = activeChallenge and activeChallenge.level
     if NS:IsPublicPositiveInteger(mapID)
         and NS:IsPublicPositiveInteger(level)
     then
         local activeRun = buildChallengeRun(mapID, level)
         persistChallengeRun(activeRun)
         if activeRun and challengeRunMatchesOffer(activeRun, raw) then
-            bindChallengeRunToOffer(activeRun, raw)
-            return mapID, level
+            return bindChallengeRunToOffer(activeRun, raw)
         end
 
-        return nil, nil
+        return nil
     end
 
     if challengeRunMatchesOffer(challengeRun, raw) then
         local bound = bindChallengeRunToOffer(challengeRun, raw)
         if bound then
-            return bound.mapID, bound.level
+            return bound
         end
     end
 
-    local completionMapID, completionLevel = getCompletionChallenge()
+    local completion = getCompletionChallenge()
+    local completionMapID = completion and completion.mapID
+    local completionLevel = completion and completion.level
     if NS:IsPublicPositiveInteger(completionMapID)
         and NS:IsPublicPositiveInteger(completionLevel)
     then
@@ -473,12 +493,11 @@ local function getChallengeForOffer(raw)
         )
         if recovered and challengeRunMatchesOffer(recovered, raw) then
             persistChallengeRun(recovered)
-            bindChallengeRunToOffer(recovered, raw)
-            return completionMapID, completionLevel
+            return bindChallengeRunToOffer(recovered, raw)
         end
     end
 
-    return nil, nil
+    return nil
 end
 
 local function getDungeonRule(mapID)
@@ -496,7 +515,7 @@ local function getDungeonRule(mapID)
         mapID,
         "specializationID"
     )
-    local desiredSpecID, desiredLootSpecID = resolveLootSpecSelection(
+    local resolvedSpec = resolveLootSpecSelection(
         specSelection
     )
     local minimumDifficulty = NS.DB:Get(
@@ -506,7 +525,7 @@ local function getDungeonRule(mapID)
     )
     local limits = NS.RuleLimits.dungeonMinimumDifficulty
 
-    if not desiredSpecID
+    if not resolvedSpec
         or not NS:IsPublicPositiveInteger(minimumDifficulty)
         or minimumDifficulty < limits.minimum
         or minimumDifficulty > limits.maximum
@@ -519,8 +538,8 @@ local function getDungeonRule(mapID)
     end
 
     return {
-        desiredSpecID = desiredSpecID,
-        desiredLootSpecID = desiredLootSpecID,
+        desiredSpecID = resolvedSpec.desiredSpecID,
+        desiredLootSpecID = resolvedSpec.desiredLootSpecID,
         minimumDifficulty = minimumDifficulty,
     }
 end
@@ -537,10 +556,16 @@ local function findStandardDungeon(raw)
     local matches = NS:IsPublicPositiveInteger(raw.instanceID)
         and NS.Catalog.dungeonByInstance[raw.instanceID] or nil
     if not matches or #matches == 0 then
-        return nil, nil, false
+        return {
+            ambiguous = false,
+        }
     end
     if #matches == 1 then
-        return matches[1], getDungeonRule(matches[1].id), false
+        return {
+            dungeon = matches[1],
+            rule = getDungeonRule(matches[1].id),
+            ambiguous = false,
+        }
     end
 
     local selectedDungeon
@@ -550,14 +575,20 @@ local function findStandardDungeon(raw)
         local rule = getDungeonRule(dungeon.id)
         if rule then
             if selectedRule and not sameDungeonRule(selectedRule, rule) then
-                return nil, nil, true
+                return {
+                    ambiguous = true,
+                }
             end
             selectedDungeon = selectedDungeon or dungeon
             selectedRule = selectedRule or rule
         end
     end
 
-    return selectedDungeon or matches[1], selectedRule, false
+    return {
+        dungeon = selectedDungeon or matches[1],
+        rule = selectedRule,
+        ambiguous = false,
+    }
 end
 
 local function resolveDungeonOffer(raw)
@@ -570,7 +601,10 @@ local function resolveDungeonOffer(raw)
     local ambiguous = false
 
     if isMythicPlus then
-        mapID, level = getChallengeForOffer(raw)
+        local challenge = getChallengeForOffer(raw)
+
+        mapID = challenge and challenge.mapID
+        level = challenge and challenge.level
         dungeon = mapID and NS.Catalog.dungeonByMap[mapID]
 
         if dungeon
@@ -601,7 +635,11 @@ local function resolveDungeonOffer(raw)
             end
         end
     else
-        dungeon, rule, ambiguous = findStandardDungeon(raw)
+        local match = findStandardDungeon(raw)
+
+        dungeon = match.dungeon
+        rule = match.rule
+        ambiguous = match.ambiguous
         mapID = dungeon and dungeon.id or nil
     end
 
@@ -680,16 +718,16 @@ local function getContentRule(ruleKey, hasTier)
         ruleKey,
         "specializationID"
     )
-    local desiredSpecID, desiredLootSpecID = resolveLootSpecSelection(
+    local resolvedSpec = resolveLootSpecSelection(
         specSelection
     )
-    if not desiredSpecID then
+    if not resolvedSpec then
         return nil
     end
 
     local rule = {
-        desiredSpecID = desiredSpecID,
-        desiredLootSpecID = desiredLootSpecID,
+        desiredSpecID = resolvedSpec.desiredSpecID,
+        desiredLootSpecID = resolvedSpec.desiredLootSpecID,
     }
     if hasTier then
         local minimumTier = NS.DB:Get(
@@ -774,10 +812,10 @@ local function resolveWorldOffer(raw)
             boss.id,
             "specializationID"
         )
-        local desiredSpecID, desiredLootSpecID = resolveLootSpecSelection(
+        local resolvedSpec = resolveLootSpecSelection(
             specSelection
         )
-        if not desiredSpecID then
+        if not resolvedSpec then
             result.configured = false
             result.allowed = false
             result.reason = "the " .. boss.name .. " bonus-roll rule is disabled"
@@ -786,8 +824,8 @@ local function resolveWorldOffer(raw)
 
         result.configured = true
         result.allowed = true
-        result.desiredSpecID = desiredSpecID
-        result.desiredLootSpecID = desiredLootSpecID
+        result.desiredSpecID = resolvedSpec.desiredSpecID
+        result.desiredLootSpecID = resolvedSpec.desiredLootSpecID
         return result
     end
 
@@ -851,10 +889,10 @@ local function resolveRaidOffer(raw)
         encounter.id,
         difficultyID
     )
-    local desiredSpecID, desiredLootSpecID = resolveLootSpecSelection(
+    local resolvedSpec = resolveLootSpecSelection(
         specSelection
     )
-    if not desiredSpecID then
+    if not resolvedSpec then
         return {
             kind = "raid",
             configured = false,
@@ -868,8 +906,8 @@ local function resolveRaidOffer(raw)
         kind = "raid",
         configured = true,
         allowed = true,
-        desiredSpecID = desiredSpecID,
-        desiredLootSpecID = desiredLootSpecID,
+        desiredSpecID = resolvedSpec.desiredSpecID,
+        desiredLootSpecID = resolvedSpec.desiredLootSpecID,
         sourceName = sourceName,
     }
 end
@@ -1013,8 +1051,12 @@ local function buildConfirmationText(snapshot)
         and snapshot.allowed
         and snapshot.currentSpecID == snapshot.desiredSpecID
     then
-        return "Use a bonus roll on " .. snapshot.sourceName .. " in "
-            .. currentName .. " loot specialization?", "Use Bonus Roll", false
+        return {
+            text = "Use a bonus roll on " .. snapshot.sourceName .. " in "
+                .. currentName .. " loot specialization?",
+            acceptText = "Use Bonus Roll",
+            showAlert = false,
+        }
     end
 
     local lines = {}
@@ -1038,7 +1080,11 @@ local function buildConfirmationText(snapshot)
     lines[#lines + 1] = "Are you sure you wish to use a bonus roll on "
         .. snapshot.sourceName .. " anyway?"
 
-    return table.concat(lines, "\n"), "Roll Anyway", true
+    return {
+        text = table.concat(lines, "\n"),
+        acceptText = "Roll Anyway",
+        showAlert = true,
+    }
 end
 
 local function currentSnapshot()
@@ -1111,7 +1157,7 @@ local function handleRollButtonClick(self, mouseButton, down)
     armedToken = token
     rollButton:Disable()
 
-    local text, acceptText, showAlert = buildConfirmationText(snapshot)
+    local confirmation = buildConfirmationText(snapshot)
     if not StaticPopup_ShowCustomGenericConfirmation then
         disarm(false, true)
         NS:Print("Unable to open the bonus-roll confirmation; no roll was used.")
@@ -1119,16 +1165,16 @@ local function handleRollButtonClick(self, mouseButton, down)
     end
 
     StaticPopup_ShowCustomGenericConfirmation({
-        text = text,
+        text = confirmation.text,
         callback = function()
             confirmArmedToken(token)
         end,
         cancelCallback = function()
             cancelArmedToken(token)
         end,
-        acceptText = acceptText,
+        acceptText = confirmation.acceptText,
         cancelText = "Cancel",
-        showAlert = showAlert,
+        showAlert = confirmation.showAlert,
         referenceKey = confirmationReference,
     })
 
@@ -1262,9 +1308,10 @@ local function createLootSpecPanel(parent, anchor, clickHandler)
     end)
     button:SetScript("OnLeave", GameTooltip_Hide)
     button:Hide()
+    panel.button = button
     panel:Hide()
 
-    return panel, button
+    return panel
 end
 
 function Controller:CreateLootSpecPanel(parent, anchor, clickHandler)
@@ -1272,11 +1319,12 @@ function Controller:CreateLootSpecPanel(parent, anchor, clickHandler)
 end
 
 local function createSwitchPanel()
-    switchPanel, switchButton = createLootSpecPanel(
+    switchPanel = createLootSpecPanel(
         frame.PromptFrame,
         frame,
         handleSwitchButtonClick
     )
+    switchButton = switchPanel.button
     NS.LootSidecar:Attach(frame.PromptFrame)
 end
 
@@ -1703,7 +1751,9 @@ local function handleBonusRollActivation(event)
 end
 
 local function handleChallengeStart(_, mapID)
-    local activeMapID, level = getActiveChallenge()
+    local activeChallenge = getActiveChallenge()
+    local activeMapID = activeChallenge and activeChallenge.mapID
+    local level = activeChallenge and activeChallenge.level
     local eventMapID = NS:IsPublicPositiveInteger(mapID) and mapID or nil
     if activeMapID and eventMapID and activeMapID ~= eventMapID then
         persistChallengeRun(nil)
@@ -1720,8 +1770,12 @@ local function handleChallengeStart(_, mapID)
 end
 
 local function handleChallengeCompleted()
-    local mapID, level = getCompletionChallenge()
-    local run = buildChallengeRun(mapID, level, challengeRun)
+    local completion = getCompletionChallenge()
+    local run = buildChallengeRun(
+        completion and completion.mapID,
+        completion and completion.level,
+        challengeRun
+    )
     if run then
         persistChallengeRun(run)
     end
@@ -1745,8 +1799,11 @@ NS:RegisterInitializer(function()
     restoreChallengeRun()
     install()
     NS:RegisterEvent("PLAYER_LOGIN", function()
-        local mapID, level = getActiveChallenge()
-        local run = buildChallengeRun(mapID, level)
+        local activeChallenge = getActiveChallenge()
+        local run = buildChallengeRun(
+            activeChallenge and activeChallenge.mapID,
+            activeChallenge and activeChallenge.level
+        )
         if run then
             persistChallengeRun(run)
         end
