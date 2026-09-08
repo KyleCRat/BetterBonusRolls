@@ -23,12 +23,16 @@ local timedOutSpellID
 local unsafeHidden = false
 local confirmationReference = {}
 local challengeRun
+local challengeRetryTimer
+local challengeRetryGeneration = 0
 
 local LOOT_SPEC_PANEL_WIDTH = 64
 local LOOT_SPEC_PANEL_HEIGHT = 76
 local LOOT_SPEC_BUTTON_SIZE = 34
 local LOOT_SPEC_ICON_SIZE = 22
 local PERSISTED_OFFER_EXPIRY_GRACE = 5
+local CHALLENGE_RUN_MAX_AGE = 60 * 60
+local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
 local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local delveState = {}
 
@@ -249,12 +253,8 @@ local function rememberActiveDelveTier()
 end
 
 local function getCompletionChallenge()
-    if not C_ChallengeMode or not C_ChallengeMode.GetChallengeCompletionInfo then
-        return nil
-    end
-
-    local ok, info = pcall(C_ChallengeMode.GetChallengeCompletionInfo)
-    if not ok or NS:IsSecret(info) or type(info) ~= "table" then
+    local info = C_ChallengeMode.GetChallengeCompletionInfo()
+    if NS:IsSecret(info) or type(info) ~= "table" then
         return nil
     end
 
@@ -273,23 +273,14 @@ local function getCompletionChallenge()
 end
 
 local function getActiveChallenge()
-    if not C_ChallengeMode then
-        return nil
-    end
+    local mapID = C_ChallengeMode.GetActiveChallengeMapID()
+    local level = C_ChallengeMode.GetActiveKeystoneInfo()
 
-    local mapID
-    local level
-    if C_ChallengeMode.GetActiveChallengeMapID then
-        local ok, value = pcall(C_ChallengeMode.GetActiveChallengeMapID)
-        if ok and NS:IsPublicPositiveInteger(value) then
-            mapID = value
-        end
+    if not NS:IsPublicPositiveInteger(mapID) then
+        mapID = nil
     end
-    if C_ChallengeMode.GetActiveKeystoneInfo then
-        local ok, value = pcall(C_ChallengeMode.GetActiveKeystoneInfo)
-        if ok and NS:IsPublicPositiveInteger(value) then
-            level = value
-        end
+    if not NS:IsPublicPositiveInteger(level) then
+        level = nil
     end
 
     if not mapID and not level then
@@ -318,11 +309,16 @@ local function isChallengeRunValid(run)
     if NS:IsSecret(run)
         or type(run) ~= "table"
         or not NS:IsPublicPositiveInteger(run.mapID)
-        or not NS:IsPublicPositiveInteger(run.level)
-        or not NS:IsPublicPositiveInteger(run.recordedAt)
+        or not isPublicOptionalPositiveInteger(run.level)
+        or not NS:IsPublicPositiveInteger(run.startedAt)
+        or not isPublicOptionalPositiveInteger(run.completedAt)
         or not isPublicOptionalPositiveInteger(run.gameMapID)
         or not isPublicOptionalPositiveInteger(run.journalInstanceID)
     then
+        return false
+    end
+
+    if not run.level and (run.completedAt or run.offer) then
         return false
     end
 
@@ -346,6 +342,41 @@ local function persistChallengeRun(run)
     NS.DB:Set("challengeRun", run)
 end
 
+local function cancelChallengeRetry()
+    local timer = challengeRetryTimer
+
+    challengeRetryTimer = nil
+    if timer then
+        timer:Cancel()
+    end
+end
+
+local function beginChallengeRetrySeries()
+    cancelChallengeRetry()
+    challengeRetryGeneration = challengeRetryGeneration + 1
+    return challengeRetryGeneration
+end
+
+local function isChallengeTimestampFresh(timestamp)
+    if not NS:IsPublicPositiveInteger(timestamp) then
+        return false
+    end
+
+    local now = getPublicTimestamp()
+    return now and now <= timestamp + CHALLENGE_RUN_MAX_AGE
+end
+
+local function expireStaleUnboundChallengeRun()
+    if not challengeRun or challengeRun.offer then
+        return
+    end
+
+    local timestamp = challengeRun.completedAt or challengeRun.startedAt
+    if not isChallengeTimestampFresh(timestamp) then
+        persistChallengeRun(nil)
+    end
+end
+
 local function restoreChallengeRun()
     local restored = NS.DB:GetCopy("challengeRun")
     if not isChallengeRunValid(restored) then
@@ -364,48 +395,71 @@ local function restoreChallengeRun()
     end
 
     challengeRun = restored
+    expireStaleUnboundChallengeRun()
 end
 
-local function buildChallengeRun(mapID, level, previous)
+local function buildChallengeRun(mapID, level, startedAt)
     if not NS:IsPublicPositiveInteger(mapID)
-        or not NS:IsPublicPositiveInteger(level)
+        or not isPublicOptionalPositiveInteger(level)
+        or not NS:IsPublicPositiveInteger(startedAt)
     then
-        return nil
-    end
-
-    local recordedAt = getPublicTimestamp()
-    if previous
-        and previous.mapID == mapID
-        and previous.level == level
-        and NS:IsPublicPositiveInteger(previous.recordedAt)
-    then
-        recordedAt = previous.recordedAt
-    end
-    if not recordedAt then
         return nil
     end
 
     local dungeon = NS.Catalog.dungeonByMap[mapID]
-    local run = {
+    return {
         mapID = mapID,
         level = level,
-        recordedAt = recordedAt,
+        startedAt = startedAt,
         gameMapID = dungeon and dungeon.gameMapID or nil,
         journalInstanceID = dungeon and dungeon.journalInstanceID or nil,
     }
-    if previous
-        and previous.mapID == mapID
-        and previous.level == level
-        and previous.offer
+end
+
+local function buildActiveChallengeRun(active, preserveExisting)
+    if not active
+        or not NS:IsPublicPositiveInteger(active.mapID)
+        or not NS:IsPublicPositiveInteger(active.level)
     then
-        run.offer = copyRawOffer(previous.offer)
+        return nil
+    end
+
+    local startedAt = getPublicTimestamp()
+    local previous = challengeRun
+    local sameRun = preserveExisting
+        and isChallengeRunValid(previous)
+        and previous.mapID == active.mapID
+        and (not previous.level or previous.level == active.level)
+    if sameRun then
+        startedAt = previous.startedAt
+    end
+
+    local run = buildChallengeRun(active.mapID, active.level, startedAt)
+    if not run then
+        return nil
+    end
+
+    if sameRun and previous.level == active.level then
+        run.completedAt = previous.completedAt
+        if previous.offer then
+            run.offer = copyRawOffer(previous.offer)
+        end
     end
 
     return run
 end
 
-local function challengeRunMatchesOffer(run, raw)
-    if not isChallengeRunValid(run) then
+local function reconcileActiveChallenge()
+    local run = buildActiveChallengeRun(getActiveChallenge(), true)
+    if run then
+        persistChallengeRun(run)
+    end
+end
+
+local function challengeRunMatchesSource(run, raw)
+    if not isChallengeRunValid(run)
+        or not NS:IsPublicPositiveInteger(run.level)
+    then
         return false
     end
 
@@ -440,10 +494,15 @@ local function bindChallengeRunToOffer(run, raw)
         return run
     end
 
-    local bound = buildChallengeRun(run.mapID, run.level, run)
+    local bound = buildChallengeRun(
+        run.mapID,
+        run.level,
+        run.startedAt
+    )
     if not bound then
         return nil
     end
+    bound.completedAt = run.completedAt
     bound.offer = copyRawOffer(raw)
     persistChallengeRun(bound)
     return bound
@@ -459,41 +518,36 @@ local function clearChallengeRunForOffer(raw)
 end
 
 local function getChallengeForOffer(raw)
+    if challengeRun
+        and challengeRun.offer
+        and challengeRunMatchesSource(challengeRun, raw)
+    then
+        return bindChallengeRunToOffer(challengeRun, raw)
+    end
+
     local activeChallenge = getActiveChallenge()
     local mapID = activeChallenge and activeChallenge.mapID
     local level = activeChallenge and activeChallenge.level
     if NS:IsPublicPositiveInteger(mapID)
         and NS:IsPublicPositiveInteger(level)
     then
-        local activeRun = buildChallengeRun(mapID, level)
+        local activeRun = buildActiveChallengeRun(activeChallenge, false)
         persistChallengeRun(activeRun)
-        if activeRun and challengeRunMatchesOffer(activeRun, raw) then
+        if activeRun and challengeRunMatchesSource(activeRun, raw) then
             return bindChallengeRunToOffer(activeRun, raw)
         end
 
         return nil
     end
 
-    if challengeRunMatchesOffer(challengeRun, raw) then
+    expireStaleUnboundChallengeRun()
+    if challengeRun
+        and isChallengeTimestampFresh(challengeRun.completedAt)
+        and challengeRunMatchesSource(challengeRun, raw)
+    then
         local bound = bindChallengeRunToOffer(challengeRun, raw)
         if bound then
             return bound
-        end
-    end
-
-    local completion = getCompletionChallenge()
-    local completionMapID = completion and completion.mapID
-    local completionLevel = completion and completion.level
-    if NS:IsPublicPositiveInteger(completionMapID)
-        and NS:IsPublicPositiveInteger(completionLevel)
-    then
-        local recovered = buildChallengeRun(
-            completionMapID,
-            completionLevel
-        )
-        if recovered and challengeRunMatchesOffer(recovered, raw) then
-            persistChallengeRun(recovered)
-            return bindChallengeRunToOffer(recovered, raw)
         end
     end
 
@@ -1751,34 +1805,102 @@ local function handleBonusRollActivation(event)
 end
 
 local function handleChallengeStart(_, mapID)
-    local activeChallenge = getActiveChallenge()
-    local activeMapID = activeChallenge and activeChallenge.mapID
-    local level = activeChallenge and activeChallenge.level
     local eventMapID = NS:IsPublicPositiveInteger(mapID) and mapID or nil
-    if activeMapID and eventMapID and activeMapID ~= eventMapID then
-        persistChallengeRun(nil)
+    local startedAt = getPublicTimestamp()
+    if not eventMapID or not startedAt then
         return
     end
-    activeMapID = activeMapID or eventMapID
 
-    local run = buildChallengeRun(activeMapID, level)
-    if run then
-        persistChallengeRun(run)
-    else
-        persistChallengeRun(nil)
+    local ownerGeneration = beginChallengeRetrySeries()
+    persistChallengeRun(buildChallengeRun(eventMapID, nil, startedAt))
+
+    local retryIndex = 1
+    local function attemptCapture()
+        if challengeRetryGeneration ~= ownerGeneration then
+            return
+        end
+
+        local active = getActiveChallenge()
+        if active
+            and active.mapID == eventMapID
+            and NS:IsPublicPositiveInteger(active.level)
+        then
+            persistChallengeRun(buildChallengeRun(
+                eventMapID,
+                active.level,
+                startedAt
+            ))
+            cancelChallengeRetry()
+            return
+        end
+
+        local delay = CHALLENGE_RETRY_DELAYS[retryIndex]
+        retryIndex = retryIndex + 1
+        if delay then
+            challengeRetryTimer = C_Timer.NewTimer(delay, function()
+                challengeRetryTimer = nil
+                attemptCapture()
+            end)
+        end
     end
+
+    attemptCapture()
 end
 
 local function handleChallengeCompleted()
-    local completion = getCompletionChallenge()
-    local run = buildChallengeRun(
-        completion and completion.mapID,
-        completion and completion.level,
-        challengeRun
-    )
-    if run then
-        persistChallengeRun(run)
+    local completedAt = getPublicTimestamp()
+    if not completedAt then
+        return
     end
+
+    local ownerGeneration = beginChallengeRetrySeries()
+    local retryIndex = 1
+    local function attemptCapture()
+        if challengeRetryGeneration ~= ownerGeneration then
+            return
+        end
+
+        local completion = getCompletionChallenge()
+        local run
+        if completion then
+            local startedAt = completedAt
+            if isChallengeRunValid(challengeRun)
+                and challengeRun.mapID == completion.mapID
+            then
+                startedAt = challengeRun.startedAt
+            end
+
+            run = buildChallengeRun(
+                completion.mapID,
+                completion.level,
+                startedAt
+            )
+        elseif isChallengeRunValid(challengeRun) and challengeRun.level then
+            run = buildChallengeRun(
+                challengeRun.mapID,
+                challengeRun.level,
+                challengeRun.startedAt
+            )
+        end
+
+        if run then
+            run.completedAt = completedAt
+            persistChallengeRun(run)
+            cancelChallengeRetry()
+            return
+        end
+
+        local delay = CHALLENGE_RETRY_DELAYS[retryIndex]
+        retryIndex = retryIndex + 1
+        if delay then
+            challengeRetryTimer = C_Timer.NewTimer(delay, function()
+                challengeRetryTimer = nil
+                attemptCapture()
+            end)
+        end
+    end
+
+    attemptCapture()
 end
 
 local function handleAddonLoaded(_, loadedAddon)
@@ -1799,17 +1921,11 @@ NS:RegisterInitializer(function()
     restoreChallengeRun()
     install()
     NS:RegisterEvent("PLAYER_LOGIN", function()
-        local activeChallenge = getActiveChallenge()
-        local run = buildChallengeRun(
-            activeChallenge and activeChallenge.mapID,
-            activeChallenge and activeChallenge.level
-        )
-        if run then
-            persistChallengeRun(run)
-        end
+        reconcileActiveChallenge()
         install()
         rememberActiveDelveTier()
     end)
+    NS:RegisterEvent("PLAYER_ENTERING_WORLD", reconcileActiveChallenge)
     NS:RegisterEvent("ADDON_LOADED", handleAddonLoaded)
     NS:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED", handleLootSpecUpdate)
     NS:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", handleLootSpecUpdate)

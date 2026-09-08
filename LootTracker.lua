@@ -122,17 +122,20 @@ local function makeRaidKeys(instanceID, encounterID, difficultyID, specID,
     }
 end
 
-local function makeDungeonKeys(mapID, specID, instanceID,
+local function makeDungeonKeys(mapID, difficultyRank, specID, instanceID,
     journalDifficultyID, classID)
     local trackingKey = table.concat({
         "dungeon",
         mapID,
+        difficultyRank,
         specID,
     }, ":")
     local queryKey = table.concat({
-        trackingKey,
+        "dungeon",
+        mapID,
         instanceID,
         journalDifficultyID,
+        specID,
         classID,
     }, ":")
 
@@ -248,6 +251,7 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
 
     local keys = makeDungeonKeys(
         mapID,
+        minimumDifficulty,
         specID,
         instanceID,
         journalDifficultyID,
@@ -263,6 +267,7 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
     return {
         kind = "dungeon",
         mapID = mapID,
+        difficultyRank = minimumDifficulty,
         instanceID = instanceID,
         journalDifficultyID = journalDifficultyID,
         encounterIDs = encounterIDs,
@@ -1245,6 +1250,7 @@ local function isTrackableRequest(request)
             and NS:IsPublicPositiveInteger(request.difficultyID)
     elseif kind == "dungeon" then
         return NS:IsPublicPositiveInteger(request.mapID)
+            and NS:IsPublicPositiveInteger(request.difficultyRank)
     elseif kind == "worldBoss" then
         return NS:IsPublicPositiveInteger(request.encounterID)
     end
@@ -1274,6 +1280,7 @@ function Tracker:IsObtained(request, itemID)
             "obtainedItems",
             "dungeon",
             request.mapID,
+            request.difficultyRank,
             request.specID,
             itemID
         ) == true
@@ -1335,6 +1342,7 @@ function Tracker:SetObtained(request, itemID, obtained)
                 "obtainedItems",
                 "dungeon",
                 request.mapID,
+                request.difficultyRank,
                 request.specID,
                 itemID,
                 true
@@ -1345,6 +1353,7 @@ function Tracker:SetObtained(request, itemID, obtained)
                 "obtainedItems",
                 "dungeon",
                 request.mapID,
+                request.difficultyRank,
                 request.specID,
                 itemID
             )
@@ -1410,16 +1419,19 @@ local function createResultRequest(snapshot, specID)
         }
     elseif kind == "dungeon"
         and NS:IsPublicPositiveInteger(snapshot.dungeonMapID)
+        and NS:IsPublicPositiveInteger(snapshot.completionRank)
     then
         local trackingKey = table.concat({
             "dungeon",
             snapshot.dungeonMapID,
+            snapshot.completionRank,
             specID,
         }, ":")
 
         return {
             kind = "dungeon",
             mapID = snapshot.dungeonMapID,
+            difficultyRank = snapshot.completionRank,
             specID = specID,
             trackingKey = trackingKey,
         }

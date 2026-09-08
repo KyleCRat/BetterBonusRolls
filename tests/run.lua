@@ -158,7 +158,7 @@ end
 local function buildHarness(options)
     options = options or {}
     local harness = {
-        now = 1000,
+        now = options.now or 1000,
         nativeRolls = 0,
         nativePasses = 0,
         lootSpecChanges = 0,
@@ -181,6 +181,7 @@ local function buildHarness(options)
         initializers = {},
         popupShown = false,
         recordedItems = {},
+        timers = {},
     }
     if options.raidRule == nil and not options.unconfigured then
         harness.raidRule = 1
@@ -318,6 +319,36 @@ local function buildHarness(options)
     end
     time = function()
         return harness.now
+    end
+    C_Timer = {
+        NewTimer = function(delay, callback)
+            local timer = {
+                delay = delay,
+                callback = callback,
+                cancelled = false,
+            }
+
+            function timer:Cancel()
+                self.cancelled = true
+            end
+
+            harness.timers[#harness.timers + 1] = timer
+            return timer
+        end,
+    }
+
+    function harness:RunNextTimer()
+        while #self.timers > 0 do
+            local timer = table.remove(self.timers, 1)
+
+            if not timer.cancelled then
+                self.now = self.now + timer.delay
+                timer.callback()
+                return true
+            end
+        end
+
+        return false
     end
 
     local NS = {
@@ -890,7 +921,7 @@ test("challenge start replaces and persists one atomic run", function()
         challengeRun = {
             mapID = 999,
             level = 4,
-            recordedAt = 900,
+            startedAt = 900,
             offer = {
                 spellID = 499,
                 endTime = 1050,
@@ -907,6 +938,7 @@ test("challenge start replaces and persists one atomic run", function()
 
     assertEqual(harness.challengeRun.mapID, 300, "start stores challenge map")
     assertEqual(harness.challengeRun.level, 10, "start stores key level")
+    assertEqual(harness.challengeRun.startedAt, 1000, "start stores its time")
     assertEqual(harness.challengeRun.gameMapID, 900, "start stores game map")
     assertEqual(
         harness.challengeRun.journalInstanceID,
@@ -915,10 +947,86 @@ test("challenge start replaces and persists one atomic run", function()
     )
     assertEqual(harness.challengeRun.offer, nil, "new start removes old offer")
     assertEqual(harness.nativeRolls, 0, "challenge start never rolls")
+end)
 
-    harness.activeChallengeMapID = 301
+test("incomplete challenge start retries without retaining an old run", function()
+    local harness = buildHarness({
+        challengeRun = {
+            mapID = 999,
+            level = 4,
+            startedAt = 900,
+        },
+    })
+
+    harness.activeChallengeMapID = 0
+    harness.challengeLevel = 0
     harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
-    assertEqual(harness.challengeRun, nil, "conflicting start maps fail closed")
+
+    assertEqual(harness.challengeRun.mapID, 300, "event map replaces old run")
+    assertEqual(harness.challengeRun.level, nil, "partial start stores no level")
+    assertEqual(harness.challengeRun.offer, nil, "partial start clears old offer")
+
+    harness.activeChallengeMapID = 300
+    harness.challengeLevel = 10
+    assertEqual(harness:RunNextTimer(), true, "start retry was scheduled")
+    assertEqual(harness.challengeRun.mapID, 300, "retry keeps event map")
+    assertEqual(harness.challengeRun.level, 10, "retry captures current level")
+    assertEqual(harness.nativeRolls, 0, "start retry never rolls")
+end)
+
+test("new challenge start invalidates an older delayed retry", function()
+    local harness = buildHarness()
+
+    harness.activeChallengeMapID = 0
+    harness.challengeLevel = 0
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 301)
+
+    harness.activeChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness:RunNextTimer()
+    assertEqual(harness.challengeRun.mapID, 301, "newest start remains owner")
+    assertEqual(harness.challengeRun.level, nil, "old retry cannot add its level")
+end)
+
+test("world transitions retain a persisted run when active data is absent", function()
+    local harness = buildHarness()
+
+    harness.activeChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    local startedAt = harness.challengeRun.startedAt
+
+    harness.activeChallengeMapID = 0
+    harness.challengeLevel = 0
+    harness.events.PLAYER_ENTERING_WORLD("PLAYER_ENTERING_WORLD")
+
+    assertEqual(harness.challengeRun.mapID, 300, "zone change retains map")
+    assertEqual(harness.challengeRun.level, 10, "zone change retains level")
+    assertEqual(
+        harness.challengeRun.startedAt,
+        startedAt,
+        "zone change retains start provenance"
+    )
+end)
+
+test("challenge completion refreshes the persisted run", function()
+    local harness = buildHarness()
+
+    harness.activeChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    harness.activeChallengeMapID = 0
+    harness.now = 1050
+    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+
+    assertEqual(harness.challengeRun.mapID, 300, "completion retains map")
+    assertEqual(harness.challengeRun.level, 10, "completion retains level")
+    assertEqual(
+        harness.challengeRun.completedAt,
+        1050,
+        "completion stores freshness time"
+    )
 end)
 
 test("Mythic+ offer survives reload using its persisted run", function()
@@ -976,10 +1084,10 @@ test("Mythic+ offer survives reload using its persisted run", function()
     assertEqual(reloaded.challengeRun, nil, "used offer clears persisted run")
 end)
 
-test("Mythic+ resolver never combines partial challenge data", function()
+test("Mythic+ resolver ignores free-floating completion data", function()
     local harness = buildHarness({
         activeChallengeMapID = 0,
-        completionChallengeMapID = 0,
+        completionChallengeMapID = 300,
         challengeLevel = 10,
         difficultyID = 8,
         dungeonRule = {
@@ -988,13 +1096,108 @@ test("Mythic+ resolver never combines partial challenge data", function()
         },
     })
 
-    assertEqual(harness.frame.shown, false, "unverified key level hides offer")
+    assertEqual(harness.frame.shown, false, "stale completion data hides offer")
     assertContains(
         harness.messages[#harness.messages],
         "completed key level could not be verified",
-        "partial data fails closed"
+        "uncorrelated completion data fails closed"
     )
-    assertEqual(harness.nativeRolls, 0, "partial data never rolls")
+    assertEqual(harness.nativeRolls, 0, "stale completion data never rolls")
+end)
+
+test("fresh completion event can recover an incomplete start", function()
+    local harness = buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+    })
+
+    harness.challengeLevel = 0
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    assertEqual(harness.challengeRun.level, nil, "start remains incomplete")
+
+    harness.completionChallengeMapID = 300
+    harness.challengeLevel = 10
+    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+
+    assertEqual(harness.challengeRun.mapID, 300, "completion recovers map")
+    assertEqual(harness.challengeRun.level, 10, "completion recovers level")
+    assertEqual(harness.challengeRun.completedAt, 1000, "recovery is fresh")
+    assertEqual(harness.nativeRolls, 0, "completion recovery never rolls")
+end)
+
+test("incomplete completion data retries before recovering the run", function()
+    local harness = buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+    })
+
+    harness.challengeLevel = 0
+    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+    assertEqual(harness.challengeRun.level, nil, "completion remains pending")
+
+    harness.completionChallengeMapID = 300
+    harness.challengeLevel = 10
+    assertEqual(harness:RunNextTimer(), true, "completion retry was scheduled")
+    assertEqual(harness.challengeRun.mapID, 300, "retry recovers map")
+    assertEqual(harness.challengeRun.level, 10, "retry recovers level")
+    assertEqual(harness.challengeRun.completedAt, 1000, "event time is retained")
+end)
+
+test("fresh completed challenge run identifies the cleared active map", function()
+    local harness = buildHarness({
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 0,
+        challengeLevel = 10,
+        difficultyID = 8,
+        challengeRun = {
+            mapID = 300,
+            level = 10,
+            startedAt = 900,
+            completedAt = 999,
+            gameMapID = 900,
+            journalInstanceID = 100,
+        },
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+
+    assertEqual(harness.frame.shown, true, "fresh completion shows offer")
+    assertEqual(
+        harness.challengeRun.offer.spellID,
+        harness.frame.spellID,
+        "fresh completion binds exact offer"
+    )
+    assertEqual(harness.nativeRolls, 0, "fresh completion never rolls")
+end)
+
+test("stale unbound challenge run cannot identify an offer", function()
+    local harness = buildHarness({
+        now = 5000,
+        endTime = 5100,
+        activeChallengeMapID = 0,
+        completionChallengeMapID = 300,
+        challengeLevel = 10,
+        difficultyID = 8,
+        challengeRun = {
+            mapID = 300,
+            level = 10,
+            startedAt = 100,
+            completedAt = 100,
+            gameMapID = 900,
+            journalInstanceID = 100,
+        },
+        dungeonRule = {
+            specializationID = 1,
+            minimumDifficulty = 12,
+        },
+    })
+
+    assertEqual(harness.challengeRun, nil, "stale run is discarded")
+    assertEqual(harness.frame.shown, false, "stale run cannot show offer")
+    assertEqual(harness.nativeRolls, 0, "stale run never rolls")
 end)
 
 test("unconfigured offer hides but can be manually confirmed", function()

@@ -32,6 +32,10 @@
 - Dungeon minimum menus now include only the standard base difficulties each
   dungeon exposes in the current Adventure Guide, omit Timewalking, and use
   the Mythic Journal pool for Mythic and every `+2` through `+10` threshold.
+- Dungeon Obtained progress is now tracked independently for every selectable
+  difficulty. Existing dungeon progress is retained under each dungeon's
+  currently selected minimum, while identical Journal queries may still share
+  their cached item list.
 - Moved item-list cogs beside each rule's Enable checkbox, centered their
   headings, and applied consistent 8px spacing. Enlarged the cog art and item
   links, and placed Obtained checkboxes before item icons with matching gaps.
@@ -90,6 +94,10 @@
   collapsed and up when open.
 - Successful and failed bonus-roll attempts no longer fall through to the
   misleading unused-roll expiration message.
+- Mythic+ identity now survives reloads and temporary zone changes through one
+  persisted run, retries incomplete start and completion data, rejects stale
+  unbound runs after one hour, and never treats free-floating last-completion
+  data as the current bonus-roll offer.
 
 ## [12.1.0-1] - 2026-09-02
 

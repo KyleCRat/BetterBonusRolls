@@ -4,7 +4,7 @@ NS.addonName = addonName
 NS.displayName = "BetterBonusRolls"
 NS.version = "12.1.0-1"
 
-local CURRENT_SCHEMA = 3
+local CURRENT_SCHEMA = 4
 
 NS.RuleDefaults = {
     dungeonMinimumDifficulty = 12,
@@ -205,14 +205,32 @@ local function normalizeChallengeRun(data)
     if run == nil then
         return
     end
-    if type(run) ~= "table"
-        or not isPositiveInteger(run.mapID)
-        or not isPositiveInteger(run.level)
-        or not isPositiveInteger(run.recordedAt)
+    if type(run) ~= "table" then
+        data.challengeRun = nil
+        return
+    end
+
+    if not isPositiveInteger(run.startedAt)
+        and isPositiveInteger(run.recordedAt)
+    then
+        run.startedAt = run.recordedAt
+    end
+    run.recordedAt = nil
+
+    if not isPositiveInteger(run.mapID)
+        or not isOptionalPositiveInteger(run.level)
+        or not isPositiveInteger(run.startedAt)
+        or not isOptionalPositiveInteger(run.completedAt)
         or not isOptionalPositiveInteger(run.gameMapID)
         or not isOptionalPositiveInteger(run.journalInstanceID)
     then
         data.challengeRun = nil
+        return
+    end
+
+    if not run.level then
+        run.completedAt = nil
+        run.offer = nil
         return
     end
 
@@ -230,6 +248,36 @@ local function normalizeChallengeRun(data)
     then
         run.offer = nil
     end
+end
+
+local function migrateDungeonObtainedDifficulties(data)
+    local obtainedItems = data.obtainedItems
+    local oldDungeons = type(obtainedItems) == "table"
+        and obtainedItems.dungeon or nil
+    if type(oldDungeons) ~= "table" then
+        return
+    end
+
+    local migrated = {}
+    for mapID, specifications in pairs(oldDungeons) do
+        if isPositiveInteger(mapID) and type(specifications) == "table" then
+            local rule = data.dungeonRules[mapID]
+            local difficulty = type(rule) == "table"
+                and rule.minimumDifficulty or nil
+            if not isIntegerInRange(
+                difficulty,
+                NS.RuleLimits.dungeonMinimumDifficulty
+            ) then
+                difficulty = NS.RuleDefaults.dungeonMinimumDifficulty
+            end
+
+            migrated[mapID] = {
+                [difficulty] = specifications,
+            }
+        end
+    end
+
+    obtainedItems.dungeon = migrated
 end
 
 local function getLegacyDungeonMinimum(data)
@@ -382,7 +430,7 @@ local function normalizeObtainedItems(data)
     )
     obtainedItems.dungeon = normalizeObtainedBranch(
         obtainedItems.dungeon,
-        3
+        4
     )
     obtainedItems.worldBoss = normalizeObtainedBranch(
         obtainedItems.worldBoss,
@@ -401,9 +449,11 @@ local function normalizeDatabase(data)
     local legacyMinimum = getLegacyDungeonMinimum(data)
     normalizeDungeonRules(data, legacyMinimum)
 
-    if data.schema < CURRENT_SCHEMA then
-        data.schema = CURRENT_SCHEMA
+    if data.schema < 4 then
+        migrateDungeonObtainedDifficulties(data)
     end
+
+    data.schema = CURRENT_SCHEMA
 
     -- This global Mythic+ setting became a per-dungeon threshold in schema 2.
     data.mythicPlus = nil
