@@ -415,11 +415,18 @@ function Tracker:CollectEnabledLootRequests()
     return requests
 end
 
-function Tracker:CreateOfferRequest(snapshot)
+function Tracker:CreateOfferRequest(snapshot, specID)
     if NS:IsSecret(snapshot)
         or type(snapshot) ~= "table"
-        or not NS:IsPublicPositiveInteger(snapshot.desiredSpecID)
+        or NS:IsSecret(specID)
     then
+        return nil
+    end
+
+    if specID == nil then
+        specID = snapshot.desiredSpecID
+    end
+    if not NS:IsPublicPositiveInteger(specID) then
         return nil
     end
 
@@ -448,7 +455,7 @@ function Tracker:CreateOfferRequest(snapshot)
             instance,
             encounter,
             difficulty,
-            snapshot.desiredSpecID
+            specID
         )
     elseif kind == "dungeon" then
         local dungeon = NS:IsPublicPositiveInteger(snapshot.dungeonMapID)
@@ -457,7 +464,7 @@ function Tracker:CreateOfferRequest(snapshot)
         return self:CreateDungeonRequest(
             dungeon,
             snapshot.completionRank,
-            snapshot.desiredSpecID
+            specID
         )
     elseif kind == "worldBoss" then
         local boss = NS:IsPublicPositiveInteger(snapshot.encounterID)
@@ -465,7 +472,7 @@ function Tracker:CreateOfferRequest(snapshot)
 
         return self:CreateWorldBossRequest(
             boss,
-            snapshot.desiredSpecID
+            specID
         )
     end
 
@@ -1295,20 +1302,7 @@ function Tracker:IsObtained(request, itemID)
     ) == true
 end
 
-function Tracker:SetObtained(request, itemID, obtained)
-    if NS:IsSecret(obtained)
-        or not isTrackableRequest(request)
-        or not NS:IsPublicPositiveInteger(itemID)
-    then
-        return false
-    end
-
-    local oldValue = self:IsObtained(request, itemID)
-    local newValue = obtained == true
-    if oldValue == newValue then
-        return true
-    end
-
+local function storeObtained(request, itemID, newValue)
     local method = newValue and "Set" or "ResetPath"
     if request.kind == "raid" then
         if newValue then
@@ -1378,9 +1372,42 @@ function Tracker:SetObtained(request, itemID, obtained)
             itemID
         )
     end
+end
 
-    notifyChanged("obtained", request.trackingKey)
+function Tracker:SetObtained(request, itemID, obtained)
+    if NS:IsSecret(obtained)
+        or not isTrackableRequest(request)
+        or not NS:IsPublicPositiveInteger(itemID)
+    then
+        return false
+    end
+
+    local newValue = obtained == true
+    if self:IsObtained(request, itemID) ~= newValue then
+        storeObtained(request, itemID, newValue)
+        notifyChanged("obtained", request.trackingKey)
+    end
     return true
+end
+
+-- The caller has matched a complete native remaining-items list to this
+-- Journal pool. Publish one change after updating the entire checklist.
+function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
+    local changed = false
+
+    for index = 1, #items do
+        local itemID = items[index].itemID
+        local obtained = remainingItemIDs[itemID] ~= true
+
+        if self:IsObtained(request, itemID) ~= obtained then
+            storeObtained(request, itemID, obtained)
+            changed = true
+        end
+    end
+
+    if changed then
+        notifyChanged("obtained", request.trackingKey)
+    end
 end
 
 local function createResultRequest(snapshot, specID)

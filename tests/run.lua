@@ -503,6 +503,13 @@ local function buildHarness(options)
         return spec and spec.name or "Unknown"
     end
 
+    NS.LootReconciliation = {
+        ObserveOffer = function()
+        end,
+        Cancel = function()
+        end,
+    }
+
     NS.LootTracker = {}
     function NS.LootTracker:RecordBonusRollItem(snapshot, itemLink, specID)
         harness.recordedItems[#harness.recordedItems + 1] = {

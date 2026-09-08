@@ -1148,6 +1148,27 @@ local function currentSnapshot()
     return resolveOffer(currentOffer.raw)
 end
 
+local function observeCurrentLoot(snapshot)
+    if not runtimeEnabled or not snapshot
+        or not currentOffer or currentOffer.rollState
+    then
+        NS.LootReconciliation:Cancel()
+        return
+    end
+
+    local offer = currentOffer
+    NS.LootReconciliation:ObserveOffer(
+        snapshot,
+        frame.PromptFrame.EncounterJournalLinkButton,
+        function()
+            return runtimeEnabled
+                and currentOffer == offer
+                and not offer.rollState
+                and isRawOfferActive(offer.raw)
+        end
+    )
+end
+
 local function confirmArmedToken(token)
     if armedToken ~= token then
         return
@@ -1470,6 +1491,7 @@ function Controller:OnOfferStarted()
 
     local raw = captureRawOffer()
     if not raw then
+        NS.LootReconciliation:Cancel()
         if runtimeEnabled and frame and frame:IsShown() then
             unsafeHidden = true
             GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
@@ -1479,6 +1501,7 @@ function Controller:OnOfferStarted()
     end
 
     if not currentOffer or not rawOffersMatch(currentOffer.raw, raw) then
+        NS.LootReconciliation:Cancel()
         disarm(true, false)
         resultCandidate = nil
         generation = generation + 1
@@ -1520,6 +1543,7 @@ function Controller:OnOfferStarted()
     end
 
     local resolved = resolveOffer(raw)
+    observeCurrentLoot(resolved)
     if not resolved or not resolved.allowed then
         hideCurrentOffer(
             resolved and resolved.reason
@@ -1556,6 +1580,7 @@ function Controller:SetEnabled(enabled)
             and isRawOfferActive(currentOffer.raw))
 
     runtimeEnabled = false
+    NS.LootReconciliation:Cancel()
     resultCandidate = nil
     disarm(true, false)
     refreshSwitchPanel(nil)
@@ -1585,6 +1610,7 @@ function Controller:OnConfigurationChanged()
     end
 
     local resolved = resolveOffer(currentOffer.raw)
+    observeCurrentLoot(resolved)
     if frame:IsShown() and (not resolved or not resolved.allowed) then
         hideCurrentOffer(
             resolved and resolved.reason
@@ -1615,7 +1641,9 @@ function Controller:ShowCurrent()
     if not bonusRollActivated then
         rollButton:Disable()
     end
-    refreshSwitchPanel(resolveOffer(currentOffer.raw))
+    local resolved = resolveOffer(currentOffer.raw)
+    observeCurrentLoot(resolved)
+    refreshSwitchPanel(resolved)
     return true
 end
 
@@ -1651,12 +1679,16 @@ function Controller:GetStatusText()
 end
 
 local function handleLootSpecUpdate(event, unit)
-    if event == "PLAYER_SPECIALIZATION_CHANGED" and unit ~= "player" then
+    if event == "PLAYER_SPECIALIZATION_CHANGED"
+        and (NS:IsSecret(unit) or unit ~= "player")
+    then
         return
     end
 
     disarm(true, true)
-    refreshSwitchPanel(currentSnapshot())
+    local snapshot = currentSnapshot()
+    observeCurrentLoot(snapshot)
+    refreshSwitchPanel(snapshot)
 end
 
 local function handleTimeout(_, spellID, confirmationType)
@@ -1676,6 +1708,7 @@ local function handleTimeout(_, spellID, confirmationType)
         return
     end
     timedOutSpellID = spellID
+    NS.LootReconciliation:Cancel()
     clearChallengeRunForOffer(currentOffer.raw)
     currentOffer.expired = true
 
@@ -1697,6 +1730,7 @@ local function handleTimeout(_, spellID, confirmationType)
 end
 
 local function handleBonusRollStarted()
+    NS.LootReconciliation:Cancel()
     if resultCandidate
         and currentOffer
         and resultCandidate.snapshot.generation == currentOffer.generation
@@ -1718,6 +1752,7 @@ local function handleBonusRollStarted()
 end
 
 local function handleBonusRollFailed()
+    NS.LootReconciliation:Cancel()
     resultCandidate = nil
     if currentOffer then
         currentOffer.rollState = "failed"

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Active bonus-roll reward tooltips now reconcile Obtained checkboxes with
+  Blizzard's remaining-item list for the exact source, difficulty, and actual
+  loot specialization, including a fresh read after changing loot spec.
+  Missing, unrecognized, or unfinished data leaves existing progress intact.
 - Added an Obtained-item checklist beside visible bonus-roll offers. Its header
   identifies the exact difficulty and source, each checkbox describes whether
   it will mark the item obtained or not obtained for that source and loot
