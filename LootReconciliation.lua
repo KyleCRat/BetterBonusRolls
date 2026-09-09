@@ -5,7 +5,7 @@ NS.LootReconciliation = Reconciliation
 
 local RETRY_DELAYS = { 0.25, 0.5, 1, 2 }
 local activeObservation
-local pendingObservations = {}
+local pendingObservation
 local readTimer
 
 local function cancelRead()
@@ -18,7 +18,7 @@ end
 function Reconciliation:Cancel()
     cancelRead()
     activeObservation = nil
-    wipe(pendingObservations)
+    pendingObservation = nil
 end
 
 local function plainText(value)
@@ -97,9 +97,13 @@ local function matchesTooltipContext(observation)
 end
 
 local function reconcileCapturedItems(observation)
+    if pendingObservation ~= observation then
+        return
+    end
+
     local request = observation.request
     if not observation.isCurrent() or not matchesTooltipContext(observation) then
-        pendingObservations[request.trackingKey] = nil
+        pendingObservation = nil
         return
     end
 
@@ -131,7 +135,7 @@ local function reconcileCapturedItems(observation)
         remainingItemIDs[itemID] = true
     end
 
-    pendingObservations[request.trackingKey] = nil
+    pendingObservation = nil
     NS.LootTracker:ReconcileRemainingItems(
         request,
         pool.items,
@@ -143,7 +147,6 @@ local function canReadTooltip(observation)
     return activeObservation == observation
         and observation.isCurrent()
         and matchesTooltipContext(observation)
-        and NS.Catalog:GetEffectiveLootSpecID() == observation.request.specID
 end
 
 local function tryReadTooltip()
@@ -153,8 +156,9 @@ local function tryReadTooltip()
         return
     end
 
-    -- Match the arguments used by Blizzard's reward-icon tooltip. There is
-    -- no spec argument: every read belongs to the actual current loot spec.
+    -- Match Blizzard's reward-icon tooltip. Its API has no spec argument;
+    -- observed tooltips retain the offer's initial spec after a spec change.
+    -- Every read and delayed pool callback must keep that original owner.
     local data = C_TooltipInfo.GetItemByID(
         observation.displayItemID,
         nil,
@@ -175,7 +179,7 @@ local function tryReadTooltip()
     local names = readRemainingNames(data)
     if names then
         observation.remainingNames = names
-        pendingObservations[observation.request.trackingKey] = observation
+        pendingObservation = observation
         reconcileCapturedItems(observation)
         return
     end
@@ -187,7 +191,9 @@ local function tryReadTooltip()
     end
 end
 
-function Reconciliation:ObserveOffer(snapshot, tooltipSource, isCurrent)
+function Reconciliation:ObserveOffer(
+    snapshot, tooltipSource, tooltipSpecID, isCurrent
+)
     if not snapshot then
         self:Cancel()
         return
@@ -199,19 +205,17 @@ function Reconciliation:ObserveOffer(snapshot, tooltipSource, isCurrent)
         self:Cancel()
     end
 
-    if not NS:IsPublicPositiveInteger(snapshot.currentSpecID) then
-        cancelRead()
-        activeObservation = nil
+    if not NS:IsPublicPositiveInteger(tooltipSpecID) then
+        self:Cancel()
         return
     end
 
     local request = NS.LootTracker:CreateOfferRequest(
         snapshot,
-        snapshot.currentSpecID
+        tooltipSpecID
     )
     if not request then
-        cancelRead()
-        activeObservation = nil
+        self:Cancel()
         return
     end
 
@@ -260,7 +264,7 @@ function Reconciliation:ObserveOffer(snapshot, tooltipSource, isCurrent)
         return
     end
 
-    cancelRead()
+    self:Cancel()
     activeObservation = {
         generation = snapshot.generation,
         request = request,
@@ -272,9 +276,8 @@ function Reconciliation:ObserveOffer(snapshot, tooltipSource, isCurrent)
         attempt = 0,
     }
 
-    -- Defer until the next UI update, including after PLAYER_LOOT_SPEC_UPDATED.
-    -- Previously captured names may finish their Journal lookup, but are never
-    -- read again or relabeled as the newly selected specialization.
+    -- Let Blizzard finish populating the tooltip. Later spec changes reuse
+    -- this observation; they cannot retag its names or pending Journal lookup.
     readTimer = C_Timer.NewTimer(0, tryReadTooltip)
 end
 
@@ -283,10 +286,9 @@ NS.LootTracker:RegisterChangedCallback(function(changeType, queryKey)
         return
     end
 
-    for _, observation in pairs(pendingObservations) do
-        if observation.request.queryKey == queryKey then
-            reconcileCapturedItems(observation)
-        end
+    local observation = pendingObservation
+    if observation and observation.request.queryKey == queryKey then
+        reconcileCapturedItems(observation)
     end
 end)
 

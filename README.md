@@ -32,7 +32,9 @@ BetterBonusRolls never automatically spends or permanently declines a bonus roll
 
 Open **Enabled Bonus Roll Loot Tracker** in settings to see items from all your enabled rules, with a total remaining count. This page manages your checklist; use the content pages to change which bosses or dungeons are enabled and which loot specialization to use.
 
-Progress is saved per character, source, difficulty, and loot specialization. Each selectable Mythic+ key level has its own checklist. BetterBonusRolls records item rewards from confirmed rolls and updates checkmarks when it can match Blizzard's remaining-item tooltip to the loot list for your active loot specialization.
+Progress is saved per character, source, difficulty, and loot specialization. Each selectable Mythic+ key level has its own checklist. BetterBonusRolls records awarded items for the loot specialization used for the roll.
+
+Blizzard's remaining-item tooltip can also update your checklist, but only for the loot specialization active when the offer first appeared. Switching specs does not update the new spec's checklist from that tooltip. If the original spec is unknown, such as after reloading with an active offer, only awarded items are recorded automatically.
 
 You can also mark items manually. **Confirmed Obtained** tooltips identify items the addon has verified, and unchecking one asks for confirmation. Later confirmed information takes precedence over manual changes. If loot information cannot finish loading, use **Retry**; loading may change the page shown in the Adventure Guide.
 

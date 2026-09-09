@@ -1167,6 +1167,7 @@ local function observeCurrentLoot(snapshot)
     NS.LootReconciliation:ObserveOffer(
         snapshot,
         frame.PromptFrame.EncounterJournalLinkButton,
+        offer.tooltipSpecID,
         function()
             return runtimeEnabled
                 and currentOffer == offer
@@ -1523,6 +1524,9 @@ function Controller:OnOfferStarted()
             hidden = false,
             expired = false,
             delveTier = delveTier,
+            -- Only a fresh SPELL_CONFIRMATION_PROMPT supplies tooltipSpecID.
+            -- A restored offer's original tooltip specialization is unknown.
+            tooltipSpecCaptured = false,
         }
         unsafeHidden = false
         timedOutSpellID = nil
@@ -1710,6 +1714,54 @@ function Controller:GetStatusText()
     local sourceName = resolved and resolved.sourceName or "unknown source"
     local visibility = frame:IsShown() and "shown" or "hidden"
     return mode .. "; " .. sourceName .. " is " .. visibility
+end
+
+local function handleSpellConfirmationPrompt(
+    _, spellID, confirmationType, _text, duration,
+    _currencyID, _currencyCost, difficultyID
+)
+    if NS:IsSecret(confirmationType)
+        or confirmationType ~= Enum.ConfirmationPromptUIType.BonusRoll
+        or not NS:IsPublicPositiveInteger(spellID)
+        or not NS:IsPublicPositiveInteger(difficultyID)
+        or not isPublicNumber(duration) or duration <= 0
+    then
+        return
+    end
+
+    local now = getPublicTimestamp()
+    if not now then
+        return
+    end
+
+    -- Capture before any deferred work or player spec change. Blizzard also
+    -- opens recovered prompts on PLAYER_ENTERING_WORLD, without this event.
+    local tooltipSpecID = GetLootSpecialization()
+    if not NS:IsSecret(tooltipSpecID) and tooltipSpecID == 0 then
+        tooltipSpecID = NS.Catalog:GetActiveSpecID()
+    end
+    if not NS:IsPublicPositiveInteger(tooltipSpecID) then
+        tooltipSpecID = nil
+    end
+    local endTime = now + duration
+
+    -- Let Blizzard populate the frame regardless of event-handler order.
+    -- Match the fresh prompt before attaching its immutable tooltip owner.
+    C_Timer.After(0, function()
+        local offer = currentOffer
+        if not offer or offer.tooltipSpecCaptured or offer.rollState
+            or not sameValue(offer.raw.spellID, spellID)
+            or not sameValue(offer.raw.difficultyID, difficultyID)
+            or not sameValue(offer.raw.endTime, endTime)
+            or not isRawOfferActive(offer.raw)
+        then
+            return
+        end
+
+        offer.tooltipSpecCaptured = true
+        offer.tooltipSpecID = tooltipSpecID
+        observeCurrentLoot(currentSnapshot())
+    end)
 end
 
 local function handleLootSpecUpdate(event, unit)
@@ -1999,6 +2051,7 @@ NS:RegisterInitializer(function()
     NS:RegisterEvent("ADDON_LOADED", handleAddonLoaded)
     NS:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED", handleLootSpecUpdate)
     NS:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", handleLootSpecUpdate)
+    NS:RegisterEvent("SPELL_CONFIRMATION_PROMPT", handleSpellConfirmationPrompt)
     NS:RegisterEvent("SPELL_CONFIRMATION_TIMEOUT", handleTimeout)
     NS:RegisterEvent("BONUS_ROLL_STARTED", handleBonusRollStarted)
     NS:RegisterEvent("BONUS_ROLL_FAILED", handleBonusRollFailed)

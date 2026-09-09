@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Remaining-item tooltips now update only the loot specialization active when
+  the bonus-roll offer first appeared. Changing loot spec no longer risks
+  applying an unchanged tooltip to the new spec's checklist. Awarded items
+  still update the specialization used for the roll.
+- Tooltip reconciliation is skipped for recovered offers whose original loot
+  specialization is unknown, including after a UI reload.
+
 ## [12.1.0-2] - 2026-09-08
 
 ### Added
