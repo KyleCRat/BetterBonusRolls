@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Added opt-in, character-specific development mode with chat diagnostics for
+  bonus-roll tooltips, loot-specialization changes, and obtained-item tracking.
+  Diagnostics also capture Prey quest context, pending offers, and offers
+  reappearing after zone transitions.
+  Developer previews can now be enabled without editing addon files or reloading.
+
+### Fixed
+
+- Prey offers now use the Prey rule instead of being mistaken for Normal raid
+  encounters. Detection uses the active Prey quest and an outdoor offer with
+  no Journal source, without depending on reward-cache names or item IDs.
+  The source remains attached to the offer after its quest leaves the log.
+- Tooltip reconciliation now stops for the active offer after loading-screen
+  zone changes, preventing a regenerated tooltip from updating the wrong specialization's
+  Obtained history. Reissued prompts cannot restart it; source rules, loot-spec
+  controls, and actual bonus-roll reward tracking remain available.
+  Zone transitions and changed offer snapshots still cancel pending Roll
+  confirmations and require another Blizzard Roll-button click.
+
 ## [12.1.0-3] - 2026-09-09
 
 ### Fixed

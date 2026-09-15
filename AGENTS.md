@@ -20,6 +20,31 @@
 
 ## Verification
 
+### Development diagnostics
+
+- Hidden commands: `/bbr dev` toggles development mode; `/bbr dev on` and
+  `/bbr dev off` set it explicitly. It defaults off and persists per character.
+- Development mode enables `/bbr preview` (`/bbr p`) without reloading. Turning
+  it off closes the preview and stops diagnostic captures. It does not enable
+  bonus-roll filtering or authorize any roll.
+- Diagnostics print only to local chat; use the existing chat-copy interface.
+  No log buffer or saved log is retained. Keep command usage out of the README
+  and ordinary help/settings.
+- Compare `reconciliation`, `diagnostic API`, and `native hover` tooltip lines.
+  Hover the reward icon before/after changing specs to capture Blizzard's shown
+  tooltip alongside the separate API queries. Repeated text reports unchanged.
+- Diagnostic reads must never be passed to reconciliation or change its owner.
+  Secret values print as markers, never through a recursive table dump.
+- A world transition invalidates the active offer's tooltip owner and cancels
+  tooltip reconciliation for the rest of that offer. Reissued prompts must not
+  restore it; diagnostic reads and actual bonus-roll reward tracking remain separate.
+- Prey diagnostics include active quest changes, quest turn-in/removal,
+  pending confirmation records, UI map IDs, and world transitions. A recent
+  Prey quest ID is transient diagnostic context, not an offer-classification
+  signal. `offer identity replaced` logs the previous owner and deadline.
+
+### Checks
+
 - Run Lua syntax checks when `luac` is available.
 - Run `lua tests/run.lua` when a Lua 5.1-compatible interpreter is available.
 - Run the static safety scan in `tests/static-safety.ps1`.

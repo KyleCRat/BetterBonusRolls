@@ -15,7 +15,12 @@ local function cancelRead()
     end
 end
 
-function Reconciliation:Cancel()
+function Reconciliation:Cancel(reason)
+    if activeObservation then
+        NS.Development:Log("reconciliation cancelled",
+            "trackingKey", activeObservation.request.trackingKey,
+            "reason", reason or "offer context cleared")
+    end
     cancelRead()
     activeObservation = nil
     pendingObservation = nil
@@ -33,12 +38,14 @@ end
 
 local function readRemainingNames(data)
     if NS:IsSecret(data) or type(data) ~= "table" then
+        NS.Development:Log("remaining list unavailable", "reason", "missing or restricted tooltip data")
         return nil
     end
 
     local lines = data.lines
     local heading = plainText(PUNCH_LIST_ITEM_CACHE_TOOLTIP)
     if NS:IsSecret(lines) or type(lines) ~= "table" or not heading then
+        NS.Development:Log("remaining list unavailable", "reason", "missing lines or localized heading")
         return nil
     end
 
@@ -49,11 +56,13 @@ local function readRemainingNames(data)
     for index = 1, #lines do
         local line = lines[index]
         if NS:IsSecret(line) or type(line) ~= "table" then
+            NS.Development:Log("remaining list unavailable", "reason", "missing or restricted line", "line", index)
             return nil
         end
 
         local text = plainText(line.leftText)
         if not text then
+            NS.Development:Log("remaining list unavailable", "reason", "missing or restricted line text", "line", index)
             return nil
         end
 
@@ -62,6 +71,8 @@ local function readRemainingNames(data)
         elseif foundHeading and text ~= "" then
             local name = text:match("^%-%s+(.+)$")
             if not name or seen[name] then
+                NS.Development:Log("remaining list rejected", "reason", "unexpected or duplicate entry",
+                    "line", index, "text", text)
                 return nil
             end
             seen[name] = true
@@ -71,6 +82,8 @@ local function readRemainingNames(data)
 
     -- A missing/empty list is not evidence that every item was obtained.
     if not foundHeading or #names == 0 then
+        NS.Development:Log("remaining list unavailable", "headingFound", foundHeading,
+            "entries", #names, "reason", "empty list is not evidence of all items obtained")
         return nil
     end
 
@@ -103,12 +116,16 @@ local function reconcileCapturedItems(observation)
 
     local request = observation.request
     if not observation.isCurrent() or not matchesTooltipContext(observation) then
+        NS.Development:Log("reconciliation skipped", "trackingKey", request.trackingKey,
+            "reason", "offer ended or tooltip context changed")
         pendingObservation = nil
         return
     end
 
     local pool = NS.LootTracker:GetPool(request)
     if pool.status ~= "ready" then
+        NS.Development:Log("reconciliation waiting", "trackingKey", request.trackingKey,
+            "poolStatus", pool.status, "message", pool.message)
         return
     end
 
@@ -120,6 +137,8 @@ local function reconcileCapturedItems(observation)
         local itemName = C_Item.GetItemInfo(item.itemID)
         local name = plainText(itemName)
         if not name or name == "" or itemIDByName[name] then
+            NS.Development:Log("reconciliation skipped", "trackingKey", request.trackingKey,
+                "reason", "uncached, restricted, or duplicate item name", "itemID", item.itemID)
             return
         end
         itemIDByName[name] = item.itemID
@@ -130,12 +149,18 @@ local function reconcileCapturedItems(observation)
         local itemID = itemIDByName[observation.remainingNames[index]]
         if not itemID then
             -- Never infer obtained items from a different or incomplete pool.
+            NS.Development:Log("reconciliation skipped", "trackingKey", request.trackingKey,
+                "reason", "tooltip item not found in Journal pool",
+                "name", observation.remainingNames[index])
             return
         end
         remainingItemIDs[itemID] = true
     end
 
     pendingObservation = nil
+    NS.Development:Log("reconciliation matched", "trackingKey", request.trackingKey,
+        "specID", request.specID, "poolItems", #pool.items,
+        "remainingItems", #observation.remainingNames)
     NS.LootTracker:ReconcileRemainingItems(
         request,
         pool.items,
@@ -153,18 +178,27 @@ local function tryReadTooltip()
     readTimer = nil
     local observation = activeObservation
     if not observation or not canReadTooltip(observation) then
+        if observation then
+            NS.Development:Log("reconciliation read skipped", "reason", "offer or tooltip context changed")
+        end
         return
     end
 
     -- Match Blizzard's reward-icon tooltip. Its API has no spec argument;
-    -- observed tooltips retain the offer's initial spec after a spec change.
-    -- Every read and delayed pool callback must keep that original owner.
+    -- spec changes alone retain the observed initial list, but zoning can
+    -- regenerate it. Keep the initial owner until the controller invalidates
+    -- it and cancels both reads and pending pool work on a world transition.
+    NS.Development:Log("reconciliation read", "trackingKey", observation.request.trackingKey,
+        "tooltipSpecID", observation.request.specID, "attempt", observation.attempt,
+        "displayItemID", observation.displayItemID, "itemContext", observation.itemContext,
+        "treasureContextLevel", observation.treasureContextLevel)
     local data = C_TooltipInfo.GetItemByID(
         observation.displayItemID,
         nil,
         observation.itemContext,
         observation.treasureContextLevel
     )
+    NS.Development:LogTooltip("reconciliation", data)
     if not canReadTooltip(observation) then
         return
     end
@@ -187,7 +221,12 @@ local function tryReadTooltip()
     observation.attempt = observation.attempt + 1
     local delay = RETRY_DELAYS[observation.attempt]
     if delay and not readTimer then
+        NS.Development:Log("reconciliation retry", "delay", delay,
+            "attempt", observation.attempt)
         readTimer = C_Timer.NewTimer(delay, tryReadTooltip)
+    elseif not delay then
+        NS.Development:Log("reconciliation retries exhausted",
+            "trackingKey", observation.request.trackingKey)
     end
 end
 
@@ -195,18 +234,19 @@ function Reconciliation:ObserveOffer(
     snapshot, tooltipSource, tooltipSpecID, isCurrent
 )
     if not snapshot then
-        self:Cancel()
+        self:Cancel("no current offer snapshot")
         return
     end
 
     if activeObservation
         and activeObservation.generation ~= snapshot.generation
     then
-        self:Cancel()
+        self:Cancel("new offer generation")
     end
 
     if not NS:IsPublicPositiveInteger(tooltipSpecID) then
-        self:Cancel()
+        NS.Development:Log("reconciliation skipped", "reason", "original tooltip specialization unknown")
+        self:Cancel("original tooltip specialization unknown")
         return
     end
 
@@ -215,7 +255,9 @@ function Reconciliation:ObserveOffer(
         tooltipSpecID
     )
     if not request then
-        self:Cancel()
+        NS.Development:Log("reconciliation skipped", "reason", "no trackable pool for source and spec",
+            "tooltipSpecID", tooltipSpecID, "kind", snapshot.kind)
+        self:Cancel("no trackable pool")
         return
     end
 
@@ -226,18 +268,23 @@ function Reconciliation:ObserveOffer(
         or NS:IsSecret(itemContext)
         or NS:IsSecret(treasureContextLevel)
     then
+        NS.Development:Log("reconciliation skipped", "reason", "missing or restricted tooltip context",
+            "displayItemID", displayItemID, "itemContext", itemContext,
+            "treasureContextLevel", treasureContextLevel)
         return
     end
     if itemContext ~= nil
         and (type(itemContext) ~= "number"
             or itemContext < 0 or itemContext % 1 ~= 0)
     then
+        NS.Development:Log("reconciliation skipped", "reason", "invalid item context", "value", itemContext)
         return
     end
     if treasureContextLevel ~= nil
         and (type(treasureContextLevel) ~= "number"
             or treasureContextLevel < 0 or treasureContextLevel % 1 ~= 0)
     then
+        NS.Development:Log("reconciliation skipped", "reason", "invalid treasure context", "value", treasureContextLevel)
         return
     end
     if treasureContextLevel == 0 then
@@ -252,6 +299,8 @@ function Reconciliation:ObserveOffer(
                 treasureContextLevel
             ) ~= request.difficultyRank)
     then
+        NS.Development:Log("reconciliation skipped", "reason", "key level does not match tracking difficulty",
+            "treasureContextLevel", treasureContextLevel, "difficultyRank", request.difficultyRank)
         return
     end
 
@@ -261,10 +310,12 @@ function Reconciliation:ObserveOffer(
         and activeObservation.itemContext == itemContext
         and activeObservation.treasureContextLevel == treasureContextLevel
     then
+        NS.Development:Log("reconciliation observation reused", "trackingKey", request.trackingKey,
+            "tooltipSpecID", tooltipSpecID, "currentSpecID", snapshot.currentSpecID)
         return
     end
 
-    self:Cancel()
+    self:Cancel("observation replaced")
     activeObservation = {
         generation = snapshot.generation,
         request = request,

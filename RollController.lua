@@ -31,6 +31,10 @@ local LOOT_SPEC_PANEL_HEIGHT = 76
 local LOOT_SPEC_BUTTON_SIZE = 34
 local LOOT_SPEC_ICON_SIZE = 22
 local PERSISTED_OFFER_EXPIRY_GRACE = 5
+-- Native time() + remaining duration can round a redisplayed offer by one
+-- second. This tolerance preserves source context and an owner that has not
+-- been invalidated by zoning, never Roll tokens.
+local OFFER_REISSUE_TIME_TOLERANCE = 1
 local CHALLENGE_RUN_MAX_AGE = 60 * 60
 local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
 local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -44,6 +48,7 @@ local SNAPSHOT_KEYS = {
     "instanceID",
     "encounterID",
     "difficultyID",
+    "preyQuestID",
     "dungeonMapID",
     "challengeMapID",
     "challengeLevel",
@@ -135,6 +140,41 @@ local function copyRawOffer(raw)
     }
 end
 
+local function createTooltipContext(displayItemID, itemContext, treasureContextLevel)
+    if not NS:IsPublicPositiveInteger(displayItemID)
+        or NS:IsSecret(itemContext) or NS:IsSecret(treasureContextLevel)
+    then
+        return nil
+    end
+    if itemContext ~= nil
+        and (type(itemContext) ~= "number" or itemContext < 0 or itemContext % 1 ~= 0)
+    then
+        return nil
+    end
+    if treasureContextLevel ~= nil
+        and (type(treasureContextLevel) ~= "number"
+            or treasureContextLevel < 0 or treasureContextLevel % 1 ~= 0)
+    then
+        return nil
+    end
+    if treasureContextLevel == 0 then
+        treasureContextLevel = nil
+    end
+
+    return {
+        displayItemID = displayItemID,
+        itemContext = itemContext,
+        treasureContextLevel = treasureContextLevel,
+    }
+end
+
+local function tooltipContextsMatch(left, right)
+    return left and right
+        and sameValue(left.displayItemID, right.displayItemID)
+        and sameValue(left.itemContext, right.itemContext)
+        and sameValue(left.treasureContextLevel, right.treasureContextLevel)
+end
+
 local function captureRawOffer()
     if not frame then
         return nil
@@ -171,6 +211,30 @@ local function captureRawOffer()
         encounterID = frame.encounterID,
         difficultyID = frame.difficultyID,
     }
+end
+
+local function capturePreyQuest(raw)
+    -- Prey currently uses a raid difficulty, but has no Journal source. An
+    -- active hunt must not override a real boss, dungeon, or Delve offer.
+    if NS:IsPublicPositiveInteger(raw.instanceID)
+        or NS:IsPublicPositiveInteger(raw.encounterID)
+        or NS.Catalog:IsDungeonDifficulty(raw.difficultyID)
+        or raw.difficultyID == NS.Catalog.Difficulty.DELVE
+    then
+        return nil
+    end
+
+    local _, instanceType = GetInstanceInfo()
+    if NS:IsSecret(instanceType) or instanceType ~= "none" then
+        return nil
+    end
+
+    local questID = C_QuestLog.GetActivePreyQuest()
+    if NS:IsPublicPositiveInteger(questID) then
+        return questID
+    end
+
+    return nil
 end
 
 local function isRawOfferActive(raw)
@@ -841,7 +905,7 @@ local function resolveDelveOffer()
     return result
 end
 
-local function resolveWorldOffer(raw)
+local function resolveWorldBossOffer(raw)
     local boss = raw.encounterID
         and NS.Catalog.worldBossByEncounter[raw.encounterID]
 
@@ -883,16 +947,16 @@ local function resolveWorldOffer(raw)
         return result
     end
 
-    if NS:IsPublicPositiveInteger(raw.encounterID) then
-        return {
-            kind = "worldBoss",
-            configured = false,
-            allowed = false,
-            reason = "the world-boss encounter is not in the current-season catalog",
-            sourceName = "Unknown World Boss",
-        }
-    end
+    return {
+        kind = "worldBoss",
+        configured = false,
+        allowed = false,
+        reason = "the world-boss encounter is not in the current-season catalog",
+        sourceName = "Unknown World Boss",
+    }
+end
 
+local function resolvePreyOffer()
     local rule = getContentRule("world", false)
     if not rule then
         return {
@@ -972,12 +1036,14 @@ local function resolveOffer(raw)
     end
 
     local result
-    if NS.Catalog:IsDungeonDifficulty(raw.difficultyID) then
+    if currentOffer and currentOffer.preyQuestID then
+        result = resolvePreyOffer()
+    elseif NS.Catalog:IsDungeonDifficulty(raw.difficultyID) then
         result = resolveDungeonOffer(raw)
     elseif raw.difficultyID == NS.Catalog.Difficulty.DELVE then
         result = resolveDelveOffer()
     elseif raw.difficultyID == NS.Catalog.Difficulty.WORLD_BOSS then
-        result = resolveWorldOffer(raw)
+        result = resolveWorldBossOffer(raw)
     else
         result = resolveRaidOffer(raw)
     end
@@ -987,6 +1053,7 @@ local function resolveOffer(raw)
     result.endTime = raw.endTime
     result.instanceID = raw.instanceID
     result.encounterID = raw.encounterID
+    result.preyQuestID = currentOffer and currentOffer.preyQuestID or nil
     result.difficultyID = NS.Catalog:CanonicalDifficultyID(
         raw.difficultyID
     )
@@ -1156,6 +1223,7 @@ local function currentSnapshot()
 end
 
 local function observeCurrentLoot(snapshot)
+    NS.Development:LogSnapshot(snapshot)
     if not runtimeEnabled or not snapshot
         or not currentOffer or currentOffer.rollState
     then
@@ -1307,6 +1375,9 @@ local function handleSwitchButtonClick(self)
         return
     end
 
+    NS.Development:Log("spec change requested", "origin", "sidecar",
+        "selection", desiredLootSpecID, "targetSpec", desiredSpecID,
+        "previousSpec", snapshot.currentSpecID)
     SetLootSpecialization(desiredLootSpecID)
     refreshSwitchPanel(currentSnapshot())
 end
@@ -1452,6 +1523,7 @@ local function install()
     hooksecurefunc("BonusRollFrame_StartBonusRoll", function()
         Controller:OnOfferStarted()
     end)
+    NS.Development:AttachTooltip(frame.PromptFrame.EncounterJournalLinkButton)
 
     installed = true
     return true
@@ -1508,7 +1580,62 @@ function Controller:OnOfferStarted()
         return
     end
 
-    if not currentOffer or not rawOffersMatch(currentOffer.raw, raw) then
+    local source = frame.PromptFrame.EncounterJournalLinkButton
+    local tooltipContext = createTooltipContext(
+        source.displayItemID, source.itemContext, source.treasureContextLevel
+    )
+    local sameTooltipContext = currentOffer
+        and tooltipContextsMatch(currentOffer.tooltipContext, tooltipContext)
+    local tooltipContextChanged = currentOffer
+        and (currentOffer.tooltipContext or tooltipContext) and not sameTooltipContext
+
+    if not currentOffer or not rawOffersMatch(currentOffer.raw, raw)
+        or tooltipContextChanged
+    then
+        local preyQuestID = capturePreyQuest(raw)
+        local tooltipSpecID
+        local tooltipSpecCaptured = false
+        local tooltipOriginalEndTime = raw.endTime
+        local now = getPublicTimestamp()
+        -- A still-pending offer from the same source may be a redisplay.
+        -- Unknown cache data/deadline continuity must not recapture today's
+        -- loot spec and relabel an older tooltip.
+        if currentOffer and not currentOffer.rollState and not currentOffer.expired
+            and (not now or now < currentOffer.raw.endTime)
+            and sameValue(currentOffer.raw.spellID, raw.spellID)
+            and sameValue(currentOffer.raw.instanceID, raw.instanceID)
+            and sameValue(currentOffer.raw.encounterID, raw.encounterID)
+            and sameValue(currentOffer.raw.difficultyID, raw.difficultyID)
+            and (sameTooltipContext or not currentOffer.tooltipContext or not tooltipContext)
+        then
+            tooltipSpecCaptured = true
+            tooltipOriginalEndTime = currentOffer.tooltipOriginalEndTime
+            if now and sameTooltipContext
+                and math.abs(raw.endTime - tooltipOriginalEndTime) <= OFFER_REISSUE_TIME_TOLERANCE
+            then
+                -- Keep the initial source even after the hunt leaves the
+                -- quest log. Cache equality identifies this reissue only;
+                -- no particular cache ID is required for Prey detection.
+                preyQuestID = currentOffer.preyQuestID
+                if currentOffer.tooltipSpecCaptured then
+                    tooltipSpecID = currentOffer.tooltipSpecID
+                end
+            end
+            NS.Development:Log("tooltip owner on reissued offer",
+                "status", tooltipSpecID and "preserved" or "unknown; reconciliation skipped",
+                "specID", tooltipSpecID, "originalEndTime", tooltipOriginalEndTime,
+                "incomingEndTime", raw.endTime)
+        end
+
+        NS.Development:Log("offer identity replaced",
+            "previousGeneration", currentOffer and currentOffer.generation,
+            "previousEndTime", currentOffer and currentOffer.raw.endTime,
+            "incomingEndTime", raw.endTime,
+            "previousTooltipSpecID", currentOffer and currentOffer.tooltipSpecID,
+            "previousSpellID", currentOffer and currentOffer.raw.spellID,
+            "previousInstanceID", currentOffer and currentOffer.raw.instanceID,
+            "previousEncounterID", currentOffer and currentOffer.raw.encounterID,
+            "previousDifficultyID", currentOffer and currentOffer.raw.difficultyID)
         NS.LootReconciliation:Cancel()
         disarm(true, false)
         resultCandidate = nil
@@ -1524,12 +1651,20 @@ function Controller:OnOfferStarted()
             hidden = false,
             expired = false,
             delveTier = delveTier,
-            -- Only a fresh SPELL_CONFIRMATION_PROMPT supplies tooltipSpecID.
-            -- A restored offer's original tooltip specialization is unknown.
-            tooltipSpecCaptured = false,
+            preyQuestID = preyQuestID,
+            tooltipContext = tooltipContext,
+            tooltipOriginalEndTime = tooltipOriginalEndTime,
+            tooltipSpecID = tooltipSpecID,
+            -- true with a nil spec locks uncertain or post-zone tooltips to unknown.
+            tooltipSpecCaptured = tooltipSpecCaptured,
         }
         unsafeHidden = false
         timedOutSpellID = nil
+        if preyQuestID then
+            NS.Development:Log("prey offer classified", "questID", preyQuestID,
+                "difficultyID", raw.difficultyID,
+                "journalInstanceID", raw.instanceID, "encounterID", raw.encounterID)
+        end
     else
         currentOffer.raw = raw
         if raw.difficultyID == NS.Catalog.Difficulty.DELVE
@@ -1543,6 +1678,7 @@ function Controller:OnOfferStarted()
 
     bonusRollActivated = true
 
+    NS.Development:StartCapture("offer opened or recovered")
     if not runtimeEnabled then
         return
     end
@@ -1701,6 +1837,25 @@ function Controller:IsEnabled()
     return runtimeEnabled
 end
 
+-- Public diagnostic snapshot only; never expose native callbacks or tokens.
+-- Do not resolve rules here: logging must not bind or update a cached run.
+function Controller:GetDevelopmentContext()
+    if not currentOffer then
+        return nil
+    end
+
+    return {
+        generation = currentOffer.generation,
+        raw = copyRawOffer(currentOffer.raw),
+        active = not currentOffer.rollState and isRawOfferActive(currentOffer.raw),
+        hidden = currentOffer.hidden,
+        rollState = currentOffer.rollState,
+        enabled = runtimeEnabled,
+        tooltipSpecID = currentOffer.tooltipSpecID,
+        tooltipSpecCaptured = currentOffer.tooltipSpecCaptured,
+    }
+end
+
 function Controller:GetStatusText()
     local mode = runtimeEnabled and "enabled" or "disabled"
     if unsafeHidden then
@@ -1718,8 +1873,13 @@ end
 
 local function handleSpellConfirmationPrompt(
     _, spellID, confirmationType, _text, duration,
-    _currencyID, _currencyCost, difficultyID
+    currencyID, currencyCost, difficultyID, displayItemID, itemContext, treasureContextLevel
 )
+    NS.Development:Log("SPELL_CONFIRMATION_PROMPT", "spellID", spellID,
+        "type", confirmationType, "duration", duration, "currencyID", currencyID,
+        "currencyCost", currencyCost, "difficultyID", difficultyID,
+        "displayItemID", displayItemID, "itemContext", itemContext,
+        "treasureContextLevel", treasureContextLevel)
     if NS:IsSecret(confirmationType)
         or confirmationType ~= Enum.ConfirmationPromptUIType.BonusRoll
         or not NS:IsPublicPositiveInteger(spellID)
@@ -1734,8 +1894,8 @@ local function handleSpellConfirmationPrompt(
         return
     end
 
-    -- Capture before any deferred work or player spec change. Blizzard also
-    -- opens recovered prompts on PLAYER_ENTERING_WORLD, without this event.
+    -- Read the spec before deferred work, but do not attach it to a recognized
+    -- or uncertain redisplay: prompt events can repeat after a portal.
     local tooltipSpecID = GetLootSpecialization()
     if not NS:IsSecret(tooltipSpecID) and tooltipSpecID == 0 then
         tooltipSpecID = NS.Catalog:GetActiveSpecID()
@@ -1744,22 +1904,40 @@ local function handleSpellConfirmationPrompt(
         tooltipSpecID = nil
     end
     local endTime = now + duration
+    local tooltipContext = createTooltipContext(displayItemID, itemContext, treasureContextLevel)
+    NS.Development:Log("prompt loot specialization", "specID", tooltipSpecID,
+        "expectedEndTime", endTime)
 
     -- Let Blizzard populate the frame regardless of event-handler order.
-    -- Match the fresh prompt before attaching its immutable tooltip owner.
+    -- Match the fresh prompt before attaching its initial tooltip owner.
     C_Timer.After(0, function()
         local offer = currentOffer
-        if not offer or offer.tooltipSpecCaptured or offer.rollState
+        if not offer or offer.rollState
             or not sameValue(offer.raw.spellID, spellID)
             or not sameValue(offer.raw.difficultyID, difficultyID)
             or not sameValue(offer.raw.endTime, endTime)
+            or not tooltipContextsMatch(offer.tooltipContext, tooltipContext)
             or not isRawOfferActive(offer.raw)
         then
+            NS.Development:Log("tooltip owner not attached", "expectedSpellID", spellID,
+                "expectedDifficulty", difficultyID, "expectedEndTime", endTime,
+                "actualEndTime", offer and offer.raw.endTime,
+                "alreadyCaptured", offer and offer.tooltipSpecCaptured,
+                "rollState", offer and offer.rollState)
+            return
+        end
+
+        if offer.tooltipSpecCaptured then
+            NS.Development:Log("tooltip owner unchanged by repeated prompt",
+                "generation", offer.generation, "tooltipSpecID", offer.tooltipSpecID,
+                "promptSpecID", tooltipSpecID)
             return
         end
 
         offer.tooltipSpecCaptured = true
         offer.tooltipSpecID = tooltipSpecID
+        NS.Development:Log("tooltip owner attached", "generation", offer.generation,
+            "specID", tooltipSpecID)
         observeCurrentLoot(currentSnapshot())
     end)
 end
@@ -1858,6 +2036,11 @@ local function handleBonusRollResult(_, typeIdentifier, itemLink,
         or not currentOffer
         or resultCandidate.snapshot.generation ~= currentOffer.generation
     then
+        NS.Development:Log("reward tracking skipped",
+            "reason", "no matching started roll",
+            "candidateGeneration", resultCandidate and resultCandidate.snapshot.generation,
+            "offerGeneration", currentOffer and currentOffer.generation,
+            "started", resultCandidate and resultCandidate.started)
         return
     end
     if NS:IsSecret(typeIdentifier)
@@ -1867,6 +2050,8 @@ local function handleBonusRollResult(_, typeIdentifier, itemLink,
         or type(typeIdentifier) ~= "string"
         or type(isSecondaryResult) ~= "boolean"
     then
+        NS.Development:Log("reward tracking skipped",
+            "reason", "restricted or invalid result payload")
         resultCandidate = nil
         currentOffer.rollState = "result"
         return
@@ -1877,6 +2062,9 @@ local function handleBonusRollResult(_, typeIdentifier, itemLink,
     if actualSpecID == 0 then
         actualSpecID = snapshot.currentSpecID
     end
+    NS.Development:Log("reward matched to offer", "offerGeneration", snapshot.generation,
+        "source", snapshot.sourceName, "reportedSpec", specID,
+        "actualSpec", actualSpecID, "specAtConfirmation", snapshot.currentSpecID)
 
     if typeIdentifier == "item"
         and type(itemLink) == "string"
@@ -2048,6 +2236,21 @@ NS:RegisterInitializer(function()
         rememberActiveDelveTier()
     end)
     NS:RegisterEvent("PLAYER_ENTERING_WORLD", reconcileActiveChallenge)
+    NS:RegisterEvent("PLAYER_LEAVING_WORLD", function()
+        disarm(true, false)
+        NS.LootReconciliation:Cancel("world transition")
+        if currentOffer then
+            local previousTooltipSpecID = currentOffer.tooltipSpecID
+            -- Zoning can regenerate this offer's tooltip for a different spec.
+            -- Lock it to unknown so queued/reissued prompts cannot resume
+            -- reconciliation. Source rules and actual roll rewards are separate.
+            currentOffer.tooltipSpecID = nil
+            currentOffer.tooltipSpecCaptured = true
+            NS.Development:Log("tooltip reconciliation disabled",
+                "reason", "world transition", "previousTooltipSpecID", previousTooltipSpecID,
+                "generation", currentOffer.generation)
+        end
+    end)
     NS:RegisterEvent("ADDON_LOADED", handleAddonLoaded)
     NS:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED", handleLootSpecUpdate)
     NS:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", handleLootSpecUpdate)

@@ -119,6 +119,15 @@ local function handleCommand(message)
         return
     end
 
+    -- Deliberately absent from normal help and settings.
+    if input == "dev" then
+        NS.Development:SetEnabled(not NS.Development:IsEnabled())
+        return
+    elseif input == "dev on" or input == "dev off" then
+        NS.Development:SetEnabled(input == "dev on")
+        return
+    end
+
     for index = 1, #commands do
         local command = commands[index]
         if isAvailable(command) and matches(command, input) then

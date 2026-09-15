@@ -37,6 +37,7 @@ NS.RuleLimits = {
 local DEFAULTS = {
     schema = CURRENT_SCHEMA,
     enabled = false,
+    developmentMode = false,
     minimap = {
         hide = false,
         minimapPos = 225,

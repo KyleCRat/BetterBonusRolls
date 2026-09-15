@@ -1315,7 +1315,7 @@ function Tracker:IsConfirmedObtained(request, itemID)
     return record ~= nil and record.confirmedObtained == true
 end
 
-local function storeObtained(request, itemID, obtained, confirmedObtained)
+local function storeObtained(request, itemID, obtained, confirmedObtained, source)
     local previous = getObtainedRecord(request, itemID)
     local wasObtained = previous ~= nil and previous.obtained == true
     local wasConfirmed = previous ~= nil and previous.confirmedObtained == true
@@ -1365,6 +1365,11 @@ local function storeObtained(request, itemID, obtained, confirmedObtained)
         )
     end
 
+    NS.Development:Log("obtained flags changed", "source", source,
+        "trackingKey", request.trackingKey, "itemID", itemID,
+        "specID", request.specID, "wasObtained", wasObtained,
+        "obtained", obtained, "wasConfirmed", wasConfirmed,
+        "confirmed", confirmedObtained)
     return true
 end
 
@@ -1381,7 +1386,8 @@ function Tracker:SetObtained(request, itemID, obtained)
         request,
         itemID,
         obtained == true,
-        self:IsConfirmedObtained(request, itemID)
+        self:IsConfirmedObtained(request, itemID),
+        "manual"
     ) then
         notifyChanged("obtained", request.trackingKey)
     end
@@ -1396,7 +1402,7 @@ function Tracker:ConfirmObtained(request, itemID)
         return false
     end
 
-    if storeObtained(request, itemID, true, true) then
+    if storeObtained(request, itemID, true, true, "confirmed item") then
         notifyChanged("obtained", request.trackingKey)
     end
 
@@ -1413,7 +1419,7 @@ function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
         local obtained = remainingItemIDs[itemID] ~= true
 
         -- Fresh native evidence wins over either kind of manual change.
-        if storeObtained(request, itemID, obtained, obtained) then
+        if storeObtained(request, itemID, obtained, obtained, "tooltip") then
             changed = true
         end
     end
@@ -1421,6 +1427,8 @@ function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
     if changed then
         notifyChanged("obtained", request.trackingKey)
     end
+    NS.Development:Log("reconciliation applied", "trackingKey", request.trackingKey,
+        "items", #items, "flagsChanged", changed)
 end
 
 local function createResultRequest(snapshot, specID)
@@ -1502,23 +1510,39 @@ function Tracker:RecordBonusRollItem(snapshot, itemLink, specID)
         or not C_Item
         or not C_Item.GetItemIDForItemInfo
     then
+        NS.Development:Log("reward tracking skipped", "reason", "invalid or restricted reward item/spec")
         return nil
     end
 
     local itemID = C_Item.GetItemIDForItemInfo(itemLink)
     if not NS:IsPublicPositiveInteger(itemID) then
+        NS.Development:Log("reward tracking skipped", "reason", "item ID unavailable", "itemLink", itemLink)
         return nil
     end
 
     local request = createResultRequest(snapshot, specID)
     if not request then
+        NS.Development:Log("reward tracking skipped", "reason", "untrackable source",
+            "itemID", itemID, "specID", specID)
         return nil
     end
 
     local item = Item:CreateFromItemID(itemID)
+    if NS.Development:IsEnabled() then
+        NS.Development:Log("reward item data requested", "itemID", itemID,
+            "specID", specID, "trackingKey", request.trackingKey,
+            "offerGeneration", snapshot.generation,
+            "cached", C_Item.IsItemDataCachedByID(itemID))
+    end
     item:ContinueOnItemLoad(function()
         if isBonusRollCandidate(itemID, specID) then
-            Tracker:ConfirmObtained(request, itemID)
+            local recorded = Tracker:ConfirmObtained(request, itemID)
+            NS.Development:Log("reward history updated", "itemID", itemID,
+                "specID", specID, "trackingKey", request.trackingKey,
+                "offerGeneration", snapshot.generation, "recorded", recorded)
+        else
+            NS.Development:Log("reward tracking skipped", "itemID", itemID,
+                "reason", "loaded item is not bonus-rollable for this spec")
         end
     end)
 

@@ -20,6 +20,7 @@ Libs\LibModernSettings\embed.xml
 
 Core.lua
 Migrations.lua
+Development.lua
 PixelPerfect.lua
 Catalog.lua
 LootTracker.lua

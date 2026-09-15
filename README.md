@@ -34,7 +34,7 @@ Open **Enabled Bonus Roll Loot Tracker** in settings to see items from all your 
 
 Progress is saved per character, source, difficulty, and loot specialization. Each selectable Mythic+ key level has its own checklist. BetterBonusRolls records awarded items for the loot specialization used for the roll.
 
-Blizzard's remaining-item tooltip can also update your checklist, but only for the loot specialization active when the offer first appeared. Switching specs does not update the new spec's checklist from that tooltip. If the original spec is unknown, such as after reloading with an active offer, only awarded items are recorded automatically.
+Blizzard's remaining-item tooltip can also update your checklist, but only for the loot specialization active when the offer first appeared. Switching specs does not update the new spec's checklist from that tooltip. If the tooltip's specialization is unknown, such as after reloading or a loading-screen zone change with an active offer, only awarded items are recorded automatically for that offer.
 
 You can also mark items manually. **Confirmed Obtained** tooltips identify items the addon has verified, and unchecking one asks for confirmation. Later confirmed information takes precedence over manual changes. If loot information cannot finish loading, use **Retry**; loading may change the page shown in the Adventure Guide.
 

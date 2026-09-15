@@ -1,8 +1,5 @@
 local _, NS = ...
 
--- Developer-only visual test mode. Keep this false in release builds.
-local ENABLE_DEV_PREVIEW = false
-
 local Preview = {}
 NS.Preview = Preview
 
@@ -123,6 +120,8 @@ local function handleButtonClick(self)
         return
     end
 
+    NS.Development:Log("spec change requested", "origin", "preview",
+        "selection", desiredLootSpecID, "targetSpec", desiredSpecID)
     SetLootSpecialization(desiredLootSpecID)
     refreshPanel()
     NS:Print("Loot specialization change requested for " .. spec.name
@@ -193,7 +192,12 @@ local function createPreviewFrame()
 end
 
 local function handleLootSpecUpdate(event, unit)
-    if event == "PLAYER_SPECIALIZATION_CHANGED" and unit ~= "player" then
+    if not NS.Development:IsEnabled() then
+        return
+    end
+    if event == "PLAYER_SPECIALIZATION_CHANGED"
+        and (NS:IsSecret(unit) or unit ~= "player")
+    then
         return
     end
 
@@ -201,7 +205,13 @@ local function handleLootSpecUpdate(event, unit)
 end
 
 function Preview:IsEnabled()
-    return ENABLE_DEV_PREVIEW
+    return NS.Development:IsEnabled()
+end
+
+function Preview:Hide()
+    if frame and frame:IsShown() then
+        closePreview()
+    end
 end
 
 local function addLootCandidate(candidates, request, lootSpecID)
@@ -314,7 +324,7 @@ local function getPreviewLootCandidate()
 end
 
 function Preview:Toggle()
-    if not ENABLE_DEV_PREVIEW then
+    if not self:IsEnabled() then
         return false
     end
 
@@ -351,10 +361,6 @@ function Preview:Toggle()
 end
 
 NS:RegisterInitializer(function()
-    if not ENABLE_DEV_PREVIEW then
-        return
-    end
-
     NS:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED", handleLootSpecUpdate)
     NS:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", handleLootSpecUpdate)
 end)
