@@ -10,6 +10,11 @@
   reappearing after zone transitions.
   Developer previews can now be enabled without editing addon files or reloading.
 
+### Changed
+
+- Updated LibModernSettings to 1.7.0 for improved settings layout, dropdown
+  refresh behavior, and compatibility between embedded library copies.
+
 ### Fixed
 
 - Prey offers now use the Prey rule instead of being mistaken for Normal raid
