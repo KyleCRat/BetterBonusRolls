@@ -3,6 +3,10 @@ local _, NS = ...
 local Reconciliation = {}
 NS.LootReconciliation = Reconciliation
 
+-- Keep the implementation for future investigation, but do not infer history
+-- from cache tooltips: they can show already-obtained items or partial lists.
+-- Re-enable only after their personal remaining-loot semantics are verified.
+local TOOLTIP_RECONCILIATION_ENABLED = false
 local RETRY_DELAYS = { 0.25, 0.5, 1, 2 }
 local activeObservation
 local pendingObservation
@@ -233,6 +237,12 @@ end
 function Reconciliation:ObserveOffer(
     snapshot, tooltipSource, tooltipSpecID, isCurrent
 )
+    if not TOOLTIP_RECONCILIATION_ENABLED then
+        self:Cancel("tooltip reconciliation disabled")
+        NS.Development:Log("reconciliation skipped", "reason", "tooltip reconciliation disabled")
+        return
+    end
+
     if not snapshot then
         self:Cancel("no current offer snapshot")
         return

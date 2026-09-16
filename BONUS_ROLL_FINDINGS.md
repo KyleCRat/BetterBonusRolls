@@ -4,6 +4,11 @@ Reference notes from user-reported in-game testing for Midnight Season 2
 (Interface 120100). Observed results and working assumptions are kept separate.
 Outstanding verification tasks belong in [TODO.md](TODO.md).
 
+Tooltip-based checklist reconciliation is currently disabled. Its implementation
+is retained for investigation; only actual bonus-roll rewards and manual edits
+update Obtained history. Earlier tooltip ownership safeguards below remain in
+place but do not establish that the tooltip represents personal remaining loot.
+
 ## Eligibility and rewards
 
 | Content | Finding | Evidence status |
@@ -130,6 +135,49 @@ a recovered offer without original context also skips tooltip reconciliation.
 Actual awarded-item tracking remains independent and uses the roll's result
 spec; a distinct new offer can capture its own initial tooltip owner normally.
 
+### Heroic Ula'tek with Restoration selected before the offer
+
+- The player had already bonus-rolled Aqirbane Reliquary (268265) and Awoken
+  Dreadfang Cuirass (271876); Jan'thrazet, the Soul Fang (271092) was missing.
+  For the test, the dagger was manually checked and the Reliquary unchecked.
+  The Cuirass remained checked and confirmed.
+- At 21:30:02, the offer correctly identified Heroic Ula'tek, difficulty 15,
+  Journal instance 1320, encounter 2895. Both the selected loot spec and the
+  captured tooltip owner were Restoration (264). The tracking key was
+  `raid:1320:2895:15:264`.
+- Cache 278284, item context 5, treasure context level 4 listed all three
+  items. API queries and native hovers agreed, with the full list still shown
+  at 21:31:27, about 85 seconds after the prompt. There was no spec switch or
+  world transition to explain the mismatch.
+- Reconciliation treated those entries as three remaining items. It cleared
+  the deliberately checked dagger and also incorrectly cleared the Cuirass's
+  real Obtained and Confirmed Obtained flags. The Reliquary stayed unchecked.
+  A parsed `remainingItems` count is BBR's interpretation, not a Blizzard
+  guarantee that the list excludes previously obtained rewards.
+- At 21:31:29, the actual roll awarded the dagger with reported spec 264.
+  BBR correctly recorded it as Obtained and Confirmed Obtained for Heroic
+  Ula'tek / Restoration and printed the used-roll message. No unused-roll
+  expiration message appeared, despite `SPELL_CONFIRMATION_TIMEOUT` firing.
+
+This contradicts the assumption that a correctly owned, settled cache tooltip
+is authoritative personal knockout history. The dagger award is consistent
+with separate server-side knockout tracking, but one award does not prove the
+server's selection algorithm. More retry time would not fix the observed
+stable full-pool list; ignoring only confirmed-item clears would still allow
+partial lists to create false obtained flags.
+
+All tooltip-based history writes are therefore disabled, including in
+development mode. The reconciliation code and independent diagnostic API/native
+hover captures are retained. Disabling it preserves existing saved records; it
+does not automatically reconstruct records overwritten by earlier tooltips.
+
+The retained reconciliation write path now refuses to uncheck an item or clear
+its confirmation when `confirmedObtained` is already true. Existing saves do
+not distinguish observed-roll confirmations from older tooltip inferences, so
+this conservatively protects all confirmed records. Explicit manual unchecking
+still works and retains the confirmation evidence. This safeguard does not
+make tooltip reconciliation reliable or re-enable it.
+
 ## Current design decisions
 
 - Dungeon minimum selectors offer +2 through +10, with +10 as the default.
@@ -140,3 +188,6 @@ spec; a distinct new offer can capture its own initial tooltip owner normally.
 - Dungeon obtained-item history remains separate for each selectable key level.
   These offers and reward tooltips do not establish whether different key
   levels share Blizzard's obtained-item history.
+- Obtained history is updated only by actual bonus-roll rewards and manual
+  edits. Tooltip reconciliation remains dormant until reliable personal
+  remaining-loot semantics can be demonstrated and re-enabling is approved.

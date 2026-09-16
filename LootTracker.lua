@@ -1409,8 +1409,9 @@ function Tracker:ConfirmObtained(request, itemID)
     return true
 end
 
--- The caller has matched a complete native remaining-items list to this
--- Journal pool. Publish one change after updating the entire checklist.
+-- Dormant while tooltip reconciliation is disabled. A name-matching tooltip
+-- is not proof of a complete personal remaining-items list; that assumption
+-- must be verified before re-enabling the caller in LootReconciliation.
 function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
     local changed = false
 
@@ -1418,8 +1419,14 @@ function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
         local itemID = items[index].itemID
         local obtained = remainingItemIDs[itemID] ~= true
 
-        -- Fresh native evidence wins over either kind of manual change.
-        if storeObtained(request, itemID, obtained, obtained, "tooltip") then
+        -- A tooltip cannot revoke confirmed evidence. Older saves do not
+        -- distinguish observed rolls from tooltip-inferred confirmations, so
+        -- protect every confirmed record, including a manual uncheck override.
+        if not obtained and self:IsConfirmedObtained(request, itemID) then
+            NS.Development:Log("reconciliation preserved confirmed item",
+                "trackingKey", request.trackingKey, "itemID", itemID,
+                "specID", request.specID)
+        elseif storeObtained(request, itemID, obtained, obtained, "tooltip") then
             changed = true
         end
     end

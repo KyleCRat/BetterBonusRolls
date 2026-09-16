@@ -30,7 +30,17 @@
 - Diagnostics print only to local chat; use the existing chat-copy interface.
   No log buffer or saved log is retained. Keep command usage out of the README
   and ordinary help/settings.
-- Compare `reconciliation`, `diagnostic API`, and `native hover` tooltip lines.
+- Tooltip reconciliation is disabled in `LootReconciliation.lua`; retain its
+  implementation for investigation, but do not re-enable it without explicit
+  approval and evidence of reliable personal remaining-loot semantics.
+  Development mode must not enable tooltip-based history writes. Actual
+  bonus-roll rewards and manual checklist changes remain independent.
+- The retained reconciliation write path must not uncheck an already-confirmed
+  item or clear its confirmation based on tooltip contents. Existing saves do
+  not distinguish confirmation sources; protect all confirmed records.
+  Explicit manual unchecking remains available and retains that evidence.
+- Compare `diagnostic API` and `native hover` tooltip lines. The retained
+  reconciliation path does not read or apply tooltips while disabled.
   Hover the reward icon before/after changing specs to capture Blizzard's shown
   tooltip alongside the separate API queries. Repeated text reports unchanged.
 - Diagnostic reads must never be passed to reconciliation or change its owner.
