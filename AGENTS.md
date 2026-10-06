@@ -1,7 +1,7 @@
 # BetterBonusRolls development guidance
 
-- Target only Mainline WoW Interface `120100` and Lua 5.1.
-- Verify uncertain APIs against the local BlizzardInterfaceCode export for build `12.1.0.69497`.
+- Target only Mainline WoW Interface `120105` and Lua 5.1.
+- Verify uncertain APIs against the local BlizzardInterfaceCode export matching the target client build.
 - Keep all persisted settings character-specific in `BetterBonusRollsDB` through LibSimpleDB.
 - Keep LibModernSettings and LibSimpleDB pinned git submodules; embed LibStub locally.
 - Preserve Dungeon Journal and current-season ordering instead of sorting labels alphabetically.

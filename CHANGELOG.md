@@ -1,5 +1,9 @@
 # Changelog
 
+## [12.1.5-5] - 2026-10-06
+
+- Updated for WoW 12.1.5.
+
 ## [12.1.0-4] - 2026-09-16
 
 ### Added
@@ -31,14 +35,3 @@
   reissued prompts cannot restore it. Source rules and loot-spec controls remain available.
   Zone transitions and changed offer snapshots still cancel pending Roll
   confirmations and require another Blizzard Roll-button click.
-
-## [12.1.0-3] - 2026-09-09
-
-### Fixed
-
-- Remaining-item tooltips now update only the loot specialization active when
-  the bonus-roll offer first appeared. Changing loot spec no longer risks
-  applying an unchanged tooltip to the new spec's checklist. Awarded items
-  still update the specialization used for the roll.
-- Tooltip reconciliation is skipped for recovered offers whose original loot
-  specialization is unknown, including after a UI reload.

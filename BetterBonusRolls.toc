@@ -1,10 +1,10 @@
-## Interface: 120100
+## Interface: 120100, 120105
 ## Title: BetterBonusRolls
 ## Notes: Safely filters bonus-roll offers and confirms every roll.
 ## IconTexture: Interface\AddOns\BetterBonusRolls\ICON.tga
 ## AddonCompartmentFunc: BetterBonusRolls_OnAddonCompartmentClick
 ## Author: Yvairel
-## Version: 12.1.0-4
+## Version: 12.1.5-5
 ## SavedVariablesPerCharacter: BetterBonusRollsDB
 ## OptionalDeps: BonusRollConfirm, BonusRollGate
 ## Category-enUS: Loot
