@@ -39,6 +39,7 @@ local CHALLENGE_RUN_MAX_AGE = 60 * 60
 local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
 local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local delveState = {}
+local delveWorldTransition = false
 
 local SNAPSHOT_KEYS = {
     "generation",
@@ -292,27 +293,104 @@ local function resolveLootSpecSelection(selection)
     return nil
 end
 
-local function getActiveDelveTier()
-    if not C_DelvesUI or not C_DelvesUI.GetActiveDelveTier then
+local function getDelveWidgetTier()
+    -- The scenario tracker uses GetStepInfo's twelfth return for its widgets.
+    -- Discover the current header instead of pinning a Delve/widget ID or
+    -- inferring the tier from a reward cache's item level or context.
+    local widgetSetID = select(12, C_Scenario.GetStepInfo())
+    if not NS:IsPublicPositiveInteger(widgetSetID) then
         return nil
     end
 
-    local ok, tierInfo = pcall(C_DelvesUI.GetActiveDelveTier)
-    if not ok or NS:IsSecret(tierInfo) or type(tierInfo) ~= "table" then
+    local widgets = C_UIWidgetManager.GetAllWidgetsBySetID(widgetSetID)
+    if NS:IsSecret(widgets) or type(widgets) ~= "table" then
         return nil
     end
 
-    if NS:IsPublicPositiveInteger(tierInfo.tier) then
-        return tierInfo.tier
+    local tier
+    local headerWidgetID
+    for _, widget in ipairs(widgets) do
+        if not NS:IsSecret(widget) and type(widget) == "table"
+            and NS:IsPublicPositiveInteger(widget.widgetID)
+            and sameValue(widget.widgetType, Enum.UIWidgetVisualizationType.ScenarioHeaderDelves)
+        then
+            local info = C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo(widget.widgetID)
+            if not NS:IsSecret(info) and type(info) == "table"
+                and sameValue(info.shownState, Enum.WidgetShownState.Shown)
+            then
+                local text = info.tierText
+                if NS:IsSecret(text) or type(text) ~= "string" then
+                    return nil
+                end
+                -- Blizzard renders tierText directly. Only a complete numeric
+                -- label is evidence; do not extract digits from arbitrary text.
+                local digits = text:match("^%s*(%d+)%s*$")
+                local value = digits and tonumber(digits)
+                if not NS:IsPublicPositiveInteger(value) or (tier and tier ~= value) then
+                    return nil
+                end
+                tier = value
+                headerWidgetID = widget.widgetID
+            end
+        end
     end
 
-    return nil
+    return tier, "scenario widget", widgetSetID, headerWidgetID
 end
 
-local function rememberActiveDelveTier()
-    local tier = getActiveDelveTier()
+local function getActiveDelveTier()
+    local ok, tierInfo = pcall(C_DelvesUI.GetActiveDelveTier)
+    if ok and not NS:IsSecret(tierInfo) and type(tierInfo) == "table"
+        and NS:IsPublicPositiveInteger(tierInfo.tier)
+    then
+        return tierInfo.tier, "active Delve API"
+    end
+
+    -- GetActiveDelveTier can return the default tier=0 record even inside an
+    -- active Delve. The visible scenario header still supplies its real tier.
+    return getDelveWidgetTier()
+end
+
+local function rememberActiveDelveTier(reason)
+    if delveWorldTransition then
+        return nil
+    end
+
+    local _, instanceType, difficultyID, _, _, _, _, gameMapID = GetInstanceInfo()
+    if not sameValue(instanceType, "scenario")
+        or not sameValue(difficultyID, NS.Catalog.Difficulty.DELVE)
+        or not NS:IsPublicPositiveInteger(gameMapID)
+    then
+        if delveState.gameMapID then
+            delveState = {}
+        end
+        return nil
+    end
+    if delveState.gameMapID ~= gameMapID then
+        delveState = { gameMapID = gameMapID }
+    end
+
+    local tier, source, widgetSetID, widgetID = getActiveDelveTier()
     if tier then
+        if tier ~= delveState.activeTier or source ~= delveState.source then
+            NS.Development:Log("delve tier captured", "tier", tier, "source", source,
+                "reason", reason, "gameMapID", gameMapID,
+                "widgetSetID", widgetSetID, "widgetID", widgetID)
+        end
         delveState.activeTier = tier
+        delveState.source = source
+    end
+
+    -- Completion may remove the header or clear the party API before the
+    -- reward prompt arrives. Retain only this instance visit's verified tier.
+    return delveState.activeTier
+end
+
+local function handleDelveWidgetUpdate(event, widget)
+    if not NS:IsSecret(widget) and type(widget) == "table"
+        and sameValue(widget.widgetType, Enum.UIWidgetVisualizationType.ScenarioHeaderDelves)
+    then
+        rememberActiveDelveTier(event)
     end
 end
 
@@ -1630,6 +1708,7 @@ function Controller:OnOfferStarted()
         local tooltipOriginalEndTime = raw.endTime
         local hidden = false
         local hiddenForMissingChallenge = false
+        local delveTier
         local now = getPublicTimestamp()
         -- A still-pending offer from the same source may be a redisplay.
         -- Unknown cache data/deadline continuity must not recapture today's
@@ -1649,6 +1728,7 @@ function Controller:OnOfferStarted()
             then
                 hidden = currentOffer.hidden
                 hiddenForMissingChallenge = currentOffer.hiddenForMissingChallenge
+                delveTier = currentOffer.delveTier
                 if sameTooltipContext then
                     -- Keep the initial source even after the hunt leaves the
                     -- quest log. Cache equality identifies this reissue only;
@@ -1678,11 +1758,10 @@ function Controller:OnOfferStarted()
         disarm(true, false)
         resultCandidate = nil
         generation = generation + 1
-        local delveTier
         if raw.difficultyID == NS.Catalog.Difficulty.DELVE then
-            delveTier = getActiveDelveTier() or delveState.activeTier
+            delveTier = delveTier or rememberActiveDelveTier("offer opened")
         end
-        delveState.activeTier = nil
+        delveState = {}
         currentOffer = {
             generation = generation,
             raw = raw,
@@ -1709,9 +1788,8 @@ function Controller:OnOfferStarted()
         if raw.difficultyID == NS.Catalog.Difficulty.DELVE
             and not currentOffer.delveTier
         then
-            currentOffer.delveTier = getActiveDelveTier()
-                or delveState.activeTier
-            delveState.activeTier = nil
+            currentOffer.delveTier = rememberActiveDelveTier("offer recovered")
+            delveState = {}
         end
     end
 
@@ -2281,10 +2359,16 @@ NS:RegisterInitializer(function()
     NS:RegisterEvent("PLAYER_LOGIN", function()
         reconcileActiveChallenge()
         install()
-        rememberActiveDelveTier()
+        rememberActiveDelveTier("PLAYER_LOGIN")
     end)
-    NS:RegisterEvent("PLAYER_ENTERING_WORLD", reconcileActiveChallenge)
+    NS:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+        delveWorldTransition = false
+        reconcileActiveChallenge()
+        rememberActiveDelveTier("PLAYER_ENTERING_WORLD")
+    end)
     NS:RegisterEvent("PLAYER_LEAVING_WORLD", function()
+        delveWorldTransition = true
+        delveState = {}
         disarm(true, false)
         NS.LootReconciliation:Cancel("world transition")
         if currentOffer then
@@ -2312,4 +2396,8 @@ NS:RegisterInitializer(function()
     NS:RegisterEvent("CHALLENGE_MODE_START", handleChallengeStart)
     NS:RegisterEvent("CHALLENGE_MODE_COMPLETED", handleChallengeCompleted)
     NS:RegisterEvent("ACTIVE_DELVE_DATA_UPDATE", rememberActiveDelveTier)
+    NS:RegisterEvent("SCENARIO_UPDATE", rememberActiveDelveTier)
+    NS:RegisterEvent("SCENARIO_COMPLETED", rememberActiveDelveTier)
+    NS:RegisterEvent("UPDATE_ALL_UI_WIDGETS", rememberActiveDelveTier)
+    NS:RegisterEvent("UPDATE_UI_WIDGET", handleDelveWidgetUpdate)
 end)
