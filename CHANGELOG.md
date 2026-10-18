@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Bonus-roll offers hidden by Pass, `/bbr hide`, or filtering now stay hidden
+  through Blizzard's periodic refresh and same-offer zone redisplays. Use
+  `/bbr show` to restore a hidden offer while it is still active.
+
 ## [12.1.5-5] - 2026-10-06
 
 - Updated for WoW 12.1.5.

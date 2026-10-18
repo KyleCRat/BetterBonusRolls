@@ -32,8 +32,8 @@ local LOOT_SPEC_BUTTON_SIZE = 34
 local LOOT_SPEC_ICON_SIZE = 22
 local PERSISTED_OFFER_EXPIRY_GRACE = 5
 -- Native time() + remaining duration can round a redisplayed offer by one
--- second. This tolerance preserves source context and an owner that has not
--- been invalidated by zoning, never Roll tokens.
+-- second. This tolerance preserves visibility, source context and an owner
+-- that has not been invalidated by zoning, never Roll tokens.
 local OFFER_REISSUE_TIME_TOLERANCE = 1
 local CHALLENGE_RUN_MAX_AGE = 60 * 60
 local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
@@ -1514,6 +1514,38 @@ local function install()
     end
 
     createSwitchPanel()
+    frame:HookScript("OnShow", function()
+        if not runtimeEnabled then
+            return
+        end
+
+        local raw = captureRawOffer()
+        if unsafeHidden and not raw then
+            frame:Hide()
+            return
+        end
+        if not currentOffer or not currentOffer.hidden
+            or not rawOffersMatch(currentOffer.raw, raw)
+        then
+            return
+        end
+
+        local source = frame.PromptFrame.EncounterJournalLinkButton
+        local tooltipContext = createTooltipContext(
+            source.displayItemID, source.itemContext, source.treasureContextLevel
+        )
+        if currentOffer.tooltipContext and tooltipContext
+            and not tooltipContextsMatch(currentOffer.tooltipContext, tooltipContext)
+        then
+            return
+        end
+
+        -- Build 70448 periodically calls Show() on pending prompts. Keep our
+        -- hide decision without cancelling Blizzard's ticker or the offer.
+        -- Do not re-enter GroupLootContainer layout from an OnShow callback;
+        -- the start hook handles container membership after native setup.
+        frame:Hide()
+    end)
     frame:HookScript("OnHide", function()
         if runtimeEnabled then
             disarm(true, false)
@@ -1596,6 +1628,8 @@ function Controller:OnOfferStarted()
         local tooltipSpecID
         local tooltipSpecCaptured = false
         local tooltipOriginalEndTime = raw.endTime
+        local hidden = false
+        local hiddenForMissingChallenge = false
         local now = getPublicTimestamp()
         -- A still-pending offer from the same source may be a redisplay.
         -- Unknown cache data/deadline continuity must not recapture today's
@@ -1610,15 +1644,19 @@ function Controller:OnOfferStarted()
         then
             tooltipSpecCaptured = true
             tooltipOriginalEndTime = currentOffer.tooltipOriginalEndTime
-            if now and sameTooltipContext
+            if now
                 and math.abs(raw.endTime - tooltipOriginalEndTime) <= OFFER_REISSUE_TIME_TOLERANCE
             then
-                -- Keep the initial source even after the hunt leaves the
-                -- quest log. Cache equality identifies this reissue only;
-                -- no particular cache ID is required for Prey detection.
-                preyQuestID = currentOffer.preyQuestID
-                if currentOffer.tooltipSpecCaptured then
-                    tooltipSpecID = currentOffer.tooltipSpecID
+                hidden = currentOffer.hidden
+                hiddenForMissingChallenge = currentOffer.hiddenForMissingChallenge
+                if sameTooltipContext then
+                    -- Keep the initial source even after the hunt leaves the
+                    -- quest log. Cache equality identifies this reissue only;
+                    -- no particular cache ID is required for Prey detection.
+                    preyQuestID = currentOffer.preyQuestID
+                    if currentOffer.tooltipSpecCaptured then
+                        tooltipSpecID = currentOffer.tooltipSpecID
+                    end
                 end
             end
             NS.Development:Log("tooltip owner on reissued offer",
@@ -1648,7 +1686,8 @@ function Controller:OnOfferStarted()
         currentOffer = {
             generation = generation,
             raw = raw,
-            hidden = false,
+            hidden = hidden,
+            hiddenForMissingChallenge = hiddenForMissingChallenge,
             expired = false,
             delveTier = delveTier,
             preyQuestID = preyQuestID,
@@ -1691,6 +1730,15 @@ function Controller:OnOfferStarted()
 
     local resolved = resolveOffer(raw)
     observeCurrentLoot(resolved)
+    if currentOffer.hidden then
+        -- Reissued prompts must not undo Pass, /bbr hide, or filtering. Keep
+        -- the existing recovery policy too: a manual hide cannot become an
+        -- automatic Mythic+ recovery merely because Blizzard redisplayed it.
+        disarm(true, false)
+        GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
+        refreshSwitchPanel(nil)
+        return
+    end
     if not resolved or not resolved.allowed then
         hideCurrentOffer(
             resolved and resolved.reason
