@@ -22,7 +22,7 @@ While BetterBonusRolls is enabled:
 - If the configured loot specialization is not active, a **Change Loot Spec** button appears beside the roll. It changes only your loot specialization and never uses the roll.
 - If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
 - A checklist beside the offer shows its bonus-rollable items and which ones you have obtained.
-- Clicking Blizzard's **No** button hides the offer without declining it. BetterBonusRolls prints a reminder that `/bbr show` can restore it while the offer remains active.
+- Clicking Blizzard's **No** button hides the offer without declining it. It stays hidden through Blizzard's periodic refreshes and zone redisplays. BetterBonusRolls prints a reminder that `/bbr show` can restore it while the offer remains active.
 - When a bonus roll awards a tracked item, its matching entry is automatically marked **Obtained** for that source, difficulty, and loot specialization.
 - Once the server offer expires, it can no longer be restored.
 
