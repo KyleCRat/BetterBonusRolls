@@ -1,0 +1,177 @@
+# Reviewed external names used by owned addon Lua and its existing test harness.
+# These declarations check names, not WoW member signatures or secret values.
+base: lua51
+globals:
+  assert:
+    args:
+      - type: any
+      - type: string
+        required: false
+  BetterBonusRollsDB:
+    any: true
+  BetterBonusRolls_OnAddonCompartmentClick:
+    any: true
+  BonusRollFrame:
+    any: true
+  BonusRollFrame_StartBonusRoll:
+    any: true
+  C_AddOns:
+    any: true
+  C_ChallengeMode:
+    any: true
+  C_DelvesUI:
+    any: true
+  C_EncounterJournal:
+    any: true
+  C_Item:
+    any: true
+  C_Map:
+    any: true
+  C_QuestLog:
+    any: true
+  C_Scenario:
+    any: true
+  C_Timer:
+    any: true
+  C_TooltipInfo:
+    any: true
+  C_UIWidgetManager:
+    any: true
+  CopyTable:
+    any: true
+  CreateFrame:
+    any: true
+  DEFAULT_CHAT_FRAME:
+    any: true
+  DifficultyUtil:
+    any: true
+  EJ_ContentTab_SelectAppropriateInstanceTab:
+    any: true
+  EJ_GetDifficulty:
+    any: true
+  EJ_GetEncounterInfoByIndex:
+    any: true
+  EJ_GetInstanceByIndex:
+    any: true
+  EJ_GetLootFilter:
+    any: true
+  EJ_GetNumLoot:
+    any: true
+  EJ_GetNumTiers:
+    any: true
+  EJ_GetTierInfo:
+    any: true
+  EJ_IsValidInstanceDifficulty:
+    any: true
+  EJ_SelectInstance:
+    any: true
+  EJ_SelectTier:
+    any: true
+  EJ_SetDifficulty:
+    any: true
+  EJ_SetLootFilter:
+    any: true
+  EncounterJournal:
+    any: true
+  EncounterJournal_DisplayEncounter:
+    any: true
+  EncounterJournal_DisplayInstance:
+    any: true
+  EncounterJournal_OnFilterChanged:
+    any: true
+  Enum:
+    any: true
+  GRAY_FONT_COLOR:
+    any: true
+  GameFontHighlight:
+    any: true
+  GameTooltip:
+    any: true
+  GameTooltip_Hide:
+    any: true
+  GetBuildInfo:
+    any: true
+  GetDifficultyInfo:
+    any: true
+  GetInstanceInfo:
+    any: true
+  GetJournalInfoForSpellConfirmation:
+    any: true
+  GetLootSpecialization:
+    any: true
+  GetNumSpecializations:
+    any: true
+  GetSpecialization:
+    any: true
+  GetSpecializationInfo:
+    any: true
+  GetSpecializationInfoByID:
+    any: true
+  GetSpecializationInfoForSpecID:
+    any: true
+  GetSpellConfirmationPromptsInfo:
+    any: true
+  GetSubZoneText:
+    any: true
+  GetTime:
+    any: true
+  GetZoneText:
+    any: true
+  GroupLootContainer:
+    any: true
+  GroupLootContainer_AddFrame:
+    any: true
+  GroupLootContainer_RemoveFrame:
+    any: true
+  HIGHLIGHT_FONT_COLOR:
+    any: true
+  HandleModifiedItemClick:
+    any: true
+  InCombatLockdown:
+    any: true
+  Item:
+    any: true
+  LibStub:
+    any: true
+  PUNCH_LIST_ITEM_CACHE_TOOLTIP:
+    any: true
+  PixelUtil:
+    any: true
+  SLASH_BETTERBONUSROLLS1:
+    any: true
+  SLASH_BETTERBONUSROLLS2:
+    any: true
+  SetLootSpecialization:
+    any: true
+  Settings:
+    any: true
+  SettingsPanel:
+    any: true
+  SlashCmdList:
+    any: true
+  StaticPopupDialogs:
+    any: true
+  StaticPopup_Hide:
+    any: true
+  StaticPopup_IsCustomGenericConfirmationShown:
+    any: true
+  StaticPopup_Show:
+    any: true
+  StaticPopup_ShowCustomGenericConfirmation:
+    any: true
+  UIParent:
+    any: true
+  UnitClass:
+    any: true
+  date:
+    any: true
+  geterrorhandler:
+    any: true
+  hooksecurefunc:
+    any: true
+  issecretvalue:
+    any: true
+  time:
+    any: true
+  wipe:
+    any: true

@@ -55,6 +55,25 @@
 
 ### Checks
 
+- Style baseline: StyLua 2.5.2 and Selene 0.31.0. Configuration is prepared,
+  but the initial formatting/lint migration has not been run because neither
+  executable was available during setup. Do not report style compliance until
+  the checks pass; do not install tooling without explicit permission.
+- Use Lua 5.1, UTF-8/LF, four spaces, and the formatter's 80-column guide.
+  Keep nonempty functions/callbacks and loops multiline. Only simple
+  single-branch conditionals may collapse. Review naming and logical spacing
+  even when formatting and lint checks pass.
+- Run `stylua --check .` and `selene .` with zero findings. Apply formatting
+  with `stylua --verify .` when completing the initial migration. Owned addon
+  Lua and existing tests are included; LibStub and LibDBIcon remain upstream
+  vendors. Development-only configuration is excluded from release packages.
+- LibModernSettings and LibSimpleDB are pinned maintained-library submodules.
+  They still need standalone style configuration/migration in their own
+  repositories; do not rewrite or advance their pins as an addon-only cleanup.
+  After those repositories adopt the baseline, run both checks from each
+  library root as well. Parent Selene excludes them for separate checking;
+  parent StyLua does not silently exclude them. Until then, migration remains
+  incomplete and checks must not be described as an all-library style pass.
 - Run Lua syntax checks when `luac` is available.
 - Run `lua tests/run.lua` when a Lua 5.1-compatible interpreter is available.
 - Run the static safety scan in `tests/static-safety.ps1`.

@@ -670,6 +670,22 @@ local function buildOutdoorContentPage(page)
     addDynamicTable(layout, root, tableView, 8)
 end
 
+local function hasEnabledRaidDifficulty(instance, difficultyID)
+    for index = 1, #instance.encounters do
+        local specID = NS.DB:Get(
+            "raidRules",
+            instance.id,
+            instance.encounters[index].id,
+            difficultyID
+        )
+        if isValidSpecSelection(specID) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function createRaidDifficultyTable(parent, width, instance, difficulty)
     local tableView = ModernSettings:CreateSettingsTable(
         parent,
@@ -824,7 +840,8 @@ local function buildRaidPage(page, instance)
     for difficultyIndex = 1, #difficulties do
         local difficulty = difficulties[difficultyIndex]
         local group = {
-            collapsed = difficultyIndex ~= 1,
+            difficultyID = difficulty.id,
+            collapsed = true,
         }
         local header = ModernSettings:CreateExpandableHeader(groupsFrame, {
             width = root:GetWidth(),
@@ -880,7 +897,34 @@ local function buildRaidPage(page, instance)
         end)
     end
 
-    refreshGroupLayout()
+    local function expandEnabledDifficulties()
+        local anyEnabled = false
+        for index = 1, #groups do
+            local group = groups[index]
+            local enabled = hasEnabledRaidDifficulty(
+                instance,
+                group.difficultyID
+            )
+            group.collapsed = not enabled
+            anyEnabled = anyEnabled or enabled
+        end
+
+        -- Preserve catalog order and the existing top-difficulty fallback.
+        if not anyEnabled and groups[1] then
+            groups[1].collapsed = false
+        end
+        for index = 1, #groups do
+            local group = groups[index]
+            group.header:SetExpanded(not group.collapsed)
+        end
+
+        refreshGroupLayout()
+    end
+
+    -- Apply defaults when the page opens, not when a rule or loot spec changes:
+    -- manually expanded/collapsed groups must not jump while editing the page.
+    page:HookScript("OnShow", expandEnabledDifficulties)
+    expandEnabledDifficulties()
 end
 
 function SettingsUI:RefreshGeneralControls()

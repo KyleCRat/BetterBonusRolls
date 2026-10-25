@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Raid and Lair settings pages now open every difficulty with an enabled boss.
+  If none are enabled, only the top difficulty opens. Manual expansion and
+  collapse remain available while viewing the page.
+
 ## [12.1.5-6] - 2026-10-18
 
 ### Fixed

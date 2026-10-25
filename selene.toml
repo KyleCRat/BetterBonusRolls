@@ -1,0 +1,16 @@
+std = "wow"
+exclude = [
+    "Libs/LibStub/**",
+    "Libs/LibDBIcon-1.0/**",
+    # Pinned maintained libraries are checked from their own repository roots.
+    "Libs/LibModernSettings/**",
+    "Libs/LibSimpleDB/**",
+]
+
+[lints]
+global_usage = "allow"
+multiple_statements = "deny"
+
+[config]
+multiple_statements = { one_line_if = "allow" }
+shadowing = { ignore_pattern = "^(self$|_)" }

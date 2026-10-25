@@ -16,6 +16,8 @@ ignore:
   - AGENTS.md
   - TODO.md
   - BONUS_ROLL_FINDINGS.md
+  - selene.toml
+  - wow.yml
   - ICON.png
   - tests
   - "Libs/LibModernSettings/tests"
