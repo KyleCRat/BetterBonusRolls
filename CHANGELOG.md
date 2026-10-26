@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- In-game update highlights and full notes through the Changelog settings page
+  and shared `/changelog` window. New-release notices can be disabled, with
+  notification preferences and read status saved per character.
+
 ### Changed
 
 - Raid and Lair settings pages now open every difficulty with an enabled boss.

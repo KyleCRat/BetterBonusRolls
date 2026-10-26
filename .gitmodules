@@ -1,6 +1,9 @@
 [submodule "Libs/LibModernSettings"]
-	path = Libs/LibModernSettings
+	path = Libs/LibModernSettings-1.0
 	url = https://github.com/KyleCRat/LibModernSettings.git
 [submodule "Libs/LibSimpleDB"]
 	path = Libs/LibSimpleDB
 	url = https://github.com/KyleCRat/LibSimpleDB.git
+[submodule "Libs/LibChangelog-1.0"]
+	path = Libs/LibChangelog-1.0
+	url = git@github.com:KyleCRat/LibChangelog.git

@@ -3,8 +3,10 @@ exclude = [
     "Libs/LibStub/**",
     "Libs/LibDBIcon-1.0/**",
     # Pinned maintained libraries are checked from their own repository roots.
-    "Libs/LibModernSettings/**",
+    "Libs/LibModernSettings-1.0/**",
     "Libs/LibSimpleDB/**",
+    "Libs/LibChangelog-1.0/**",
+    "Changelog/ReleaseNotes.lua",
 ]
 
 [lints]

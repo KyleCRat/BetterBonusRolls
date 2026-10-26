@@ -1,3 +1,6 @@
 # Preserve upstream vendor formatting. Maintained libraries use their own policy.
 Libs/LibStub/**
 Libs/LibDBIcon-1.0/**
+
+# Generated release artifact; preserve the library generator's output.
+Changelog/ReleaseNotes.lua

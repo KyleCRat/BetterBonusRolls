@@ -5,12 +5,15 @@ manual-changelog:
   markup-type: markdown
 
 externals:
-  Libs/LibModernSettings:
+  Libs/LibModernSettings-1.0:
     url: https://github.com/KyleCRat/LibModernSettings.git
-    tag: 1.7.0
+    tag: 1.10.0
   Libs/LibSimpleDB:
     url: https://github.com/KyleCRat/LibSimpleDB.git
     tag: 2.0.0
+  Libs/LibChangelog-1.0:
+    url: https://github.com/KyleCRat/LibChangelog.git
+    tag: 1.0.1
 
 ignore:
   - AGENTS.md
@@ -20,6 +23,13 @@ ignore:
   - wow.yml
   - ICON.png
   - tests
-  - "Libs/LibModernSettings/tests"
+  - "Libs/LibModernSettings-1.0/tests"
+  - "Libs/LibModernSettings-1.0/Media/Textures/common-button-tertiary-square-mask.afphoto"
   - "Libs/LibSimpleDB/benchmarks"
   - "Libs/LibSimpleDB/tests"
+  - "Libs/LibChangelog-1.0/AGENTS.md"
+  - "Libs/LibChangelog-1.0/selene.toml"
+  - "Libs/LibChangelog-1.0/wow.yml"
+  - "Libs/LibChangelog-1.0/tests"
+  - "Libs/LibChangelog-1.0/tools"
+  - "Libs/LibChangelog-1.0/examples"

@@ -16,7 +16,8 @@ Libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua
 Libs\LibSimpleDB\embed.xml
-Libs\LibModernSettings\embed.xml
+Libs\LibModernSettings-1.0\embed.xml
+Libs\LibChangelog-1.0\embed.xml
 
 Core.lua
 Migrations.lua
@@ -31,6 +32,9 @@ RollController.lua
 Preview.lua
 LootSettings.lua
 LootTrackerSettings.lua
+Changelog\ReleaseNotes.lua
+Changelog\Highlights.lua
+Changelog\Changelog.lua
 Settings.lua
 Launcher.lua
 Commands.lua

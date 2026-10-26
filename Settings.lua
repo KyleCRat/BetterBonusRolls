@@ -1027,6 +1027,18 @@ function SettingsUI:Register()
         }
     end
 
+    local changelogPage = NS.Changelog:CreateSettingsPage(measurementFrame())
+    local changelogCategory = Settings.RegisterCanvasLayoutSubcategory(
+        category,
+        changelogPage,
+        "Changelog"
+    )
+    destinations[#destinations + 1] = {
+        label = "Changelog",
+        description = "Read update highlights and full notes, and choose whether to show new-release notices on login.",
+        category = changelogCategory,
+    }
+
     buildGeneralPage(generalPage, destinations)
     Settings.RegisterAddOnCategory(category)
     self.category = category

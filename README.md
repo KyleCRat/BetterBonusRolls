@@ -51,6 +51,14 @@ Bonus-rollable item lists are available for raids, Lairs, current-season dungeon
 
 ## Commands
 
+Open **Changelog** in settings to read update highlights and full notes. Use
+`/changelog` to browse updates from all addons using the shared changelog window.
+On the Changelog page, turn off **Show changelog for BetterBonusRolls on login**
+to disable automatic new-release notices; manual browsing remains available.
+The preference and read status are saved per character, independently of whether
+bonus-roll filtering is enabled. Unreleased previews are available manually and
+never trigger automatic notices.
+
 | Command | Aliases | Action |
 | --- | --- | --- |
 | `/bbr` or `/bbr settings` | `s`, `config`, `c` | Open settings. |
@@ -60,6 +68,7 @@ Bonus-rollable item lists are available for raids, Lairs, current-season dungeon
 | `/bbr disable` | `d` | Disable BetterBonusRolls and restore Blizzard's normal behavior. |
 | `/bbr status` | `st` | Show addon and active-offer status. |
 | `/bbr help` | `?` | Show command help. |
+| `/changelog` | — | Browse the latest notes from all participating addons. |
 
 `/betterbonusrolls` can be used in place of `/bbr`.
 

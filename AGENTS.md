@@ -3,7 +3,11 @@
 - Target only Mainline WoW Interface `120105` and Lua 5.1.
 - Verify uncertain APIs against the local BlizzardInterfaceCode export matching the target client build.
 - Keep all persisted settings character-specific in `BetterBonusRollsDB` through LibSimpleDB.
-- Keep LibModernSettings and LibSimpleDB pinned git submodules; embed LibStub locally.
+- Keep LibModernSettings, LibSimpleDB, and LibChangelog pinned git submodules;
+  embed LibStub locally. Align submodule commits with released `.pkgmeta` tags.
+- LibChangelog 1.0.1 requires LibModernSettings 1.10.0 or newer. Keep LMS at
+  `Libs/LibModernSettings-1.0`, including its Media directory, so its embedded
+  texture paths resolve without another addon providing the library.
 - Preserve Dungeon Journal and current-season ordering instead of sorting labels alphabetically.
 - Treat secret values as opaque. Test them with `issecretvalue` before comparison, formatting, indexing, arithmetic, or branching.
 
@@ -17,6 +21,30 @@
 - Consume the one-shot authorization before invoking the captured native Roll callback.
 - Disarm on cancel, Escape, timeout, frame hide, new offer, loot-spec change, rule change, disable, or any snapshot mismatch.
 - A mismatch never auto-reopens confirmation; require another Blizzard Roll-button click.
+
+## In-game changelog
+
+- `Changelog/Changelog.lua` registers after database initialization, independently
+  of bonus-roll filtering. Store `autoShow` and `acknowledgedVersion` through
+  `NS.DB` under `changelog`; BBR intentionally uses character-specific storage
+  rather than the library's suggested account-wide namespace.
+- LibChangelog owns the shared `/changelog` command, notification timing and
+  acknowledgement. Do not add another popup queue or copy its UI. Highlight
+  actions may navigate to existing settings; they must not roll or decline.
+- Keep `CHANGELOG.md`'s Unreleased section current during development.
+  `Changelog/ReleaseNotes.lua` is a generated release snapshot. After its initial
+  integration preview, leave it unchanged until explicit release preparation.
+  Do not hand-edit it or run its generator/check on every development change.
+- During release preparation, finalize the changelog and corresponding
+  `Changelog/Highlights.lua` entry under the same version as the TOC, then run:
+
+  ```powershell
+  lua Libs/LibChangelog-1.0/tools/generate.lua CHANGELOG.md Changelog/ReleaseNotes.lua VERSION
+  lua Libs/LibChangelog-1.0/tools/generate.lua CHANGELOG.md Changelog/ReleaseNotes.lua VERSION --check
+  ```
+
+  Replace `VERSION` with the finalized release version. Unreleased snapshots
+  are manual-preview only; do not relabel one as a released version at runtime.
 
 ## Verification
 
@@ -74,6 +102,10 @@
   library root as well. Parent Selene excludes them for separate checking;
   parent StyLua does not silently exclude them. Until then, migration remains
   incomplete and checks must not be described as an all-library style pass.
+- LibChangelog carries its own style configuration. Run its style checks from
+  `Libs/LibChangelog-1.0` separately, plus
+  `lua tests/run.lua ../LibStub/LibStub.lua`. The generated release snapshot is
+  excluded from addon style checks, not from Lua syntax and load-order checks.
 - Run Lua syntax checks when `luac` is available.
 - Run `lua tests/run.lua` when a Lua 5.1-compatible interpreter is available.
 - Run the static safety scan in `tests/static-safety.ps1`.
