@@ -43,9 +43,7 @@ local DUNGEON_THRESHOLD_LABELS = {
     [DUNGEON_RANK.MYTHIC_0] = "Mythic",
 }
 
-for level = MYTHIC_PLUS_KEY_LEVEL.MINIMUM,
-    MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED
-do
+for level = MYTHIC_PLUS_KEY_LEVEL.MINIMUM, MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED do
     local rank = DUNGEON_RANK.MYTHIC_PLUS_2
         + (level - MYTHIC_PLUS_KEY_LEVEL.MINIMUM)
     DUNGEON_THRESHOLD_LABELS[rank] = "+" .. level
@@ -96,9 +94,7 @@ local retryTimer
 local retryStep = 1
 
 local function ensureEncounterJournal()
-    if EJ_GetNumTiers and EJ_GetInstanceByIndex then
-        return
-    end
+    if EJ_GetNumTiers and EJ_GetInstanceByIndex then return end
 
     C_AddOns.LoadAddOn("Blizzard_EncounterJournal")
 
@@ -109,9 +105,7 @@ end
 
 local function hasSelectedInstanceDifficulty(difficultyID)
     if C_EncounterJournal and C_EncounterJournal.InstanceHasDifficultyID then
-        local result = C_EncounterJournal.InstanceHasDifficultyID(
-            difficultyID
-        )
+        local result = C_EncounterJournal.InstanceHasDifficultyID(difficultyID)
         if result ~= nil and not NS:IsSecret(result) then
             return result == true
         end
@@ -123,12 +117,9 @@ end
 
 local function collectDifficulties()
     local difficulties = {}
-    local hasWorld = hasSelectedInstanceDifficulty(
-        Catalog.Difficulty.WORLD
-    )
-    local hasFlexibleMythic = hasSelectedInstanceDifficulty(
-        Catalog.Difficulty.FLEX_MYTHIC
-    )
+    local hasWorld = hasSelectedInstanceDifficulty(Catalog.Difficulty.WORLD)
+    local hasFlexibleMythic =
+        hasSelectedInstanceDifficulty(Catalog.Difficulty.FLEX_MYTHIC)
 
     for index = 1, #DIFFICULTY_ORDER do
         local definition = DIFFICULTY_ORDER[index]
@@ -136,7 +127,8 @@ local function collectDifficulties()
 
         if definition.id == Catalog.Difficulty.RAID_FINDER and hasWorld then
             include = false
-        elseif definition.id == Catalog.Difficulty.MYTHIC
+        elseif
+            definition.id == Catalog.Difficulty.MYTHIC
             and hasFlexibleMythic
         then
             include = true
@@ -147,9 +139,9 @@ local function collectDifficulties()
                 id = definition.id,
                 label = definition.label,
                 journalDifficultyID = definition.id
-                    == Catalog.Difficulty.MYTHIC
-                    and hasFlexibleMythic
-                    and Catalog.Difficulty.FLEX_MYTHIC
+                            == Catalog.Difficulty.MYTHIC
+                        and hasFlexibleMythic
+                        and Catalog.Difficulty.FLEX_MYTHIC
                     or definition.id,
             }
         end
@@ -186,18 +178,13 @@ local function collectEncounters(instanceID)
     local index = 1
 
     while true do
-        local name, _, encounterID = EJ_GetEncounterInfoByIndex(
-            index,
-            instanceID
-        )
-        if NS:IsSecret(encounterID) then
-            break
-        end
-        if not encounterID then
-            break
-        end
+        local name, _, encounterID =
+            EJ_GetEncounterInfoByIndex(index, instanceID)
+        if NS:IsSecret(encounterID) then break end
+        if not encounterID then break end
 
-        if not NS:IsSecret(name)
+        if
+            not NS:IsSecret(name)
             and type(name) == "string"
             and NS:IsPublicPositiveInteger(encounterID)
             and not encounterByID[encounterID]
@@ -220,9 +207,7 @@ local function collectEncounters(instanceID)
 end
 
 local function getPublicInstanceName(name, instanceID)
-    if not NS:IsSecret(name) and type(name) == "string" then
-        return name
-    end
+    if not NS:IsSecret(name) and type(name) == "string" then return name end
 
     return "Instance " .. instanceID
 end
@@ -253,7 +238,8 @@ local function collectWorldBosses(target, instanceID, difficulties)
                 instanceID = instanceID,
                 difficultyID = difficulty and difficulty.id or nil,
                 journalDifficultyID = difficulty
-                    and difficulty.journalDifficultyID or nil,
+                        and difficulty.journalDifficultyID
+                    or nil,
             }
             target.worldBosses[#target.worldBosses + 1] = boss
             target.worldBossByEncounter[boss.id] = boss
@@ -267,27 +253,20 @@ local function collectRaidLikeInstances(target, isRaidList, seen, tierName)
     while true do
         local instanceID, name, _, _, _, _, _, dungeonAreaMapID =
             EJ_GetInstanceByIndex(index, isRaidList)
-        if NS:IsSecret(instanceID) then
-            break
-        end
-        if not instanceID then
-            break
-        end
+        if NS:IsSecret(instanceID) then break end
+        if not instanceID then break end
 
         if NS:IsPublicPositiveInteger(instanceID) then
             EJ_SelectInstance(instanceID)
             local instanceName = getPublicInstanceName(name, instanceID)
             local difficulties = collectDifficulties()
 
-            if isRaidList
+            if
+                isRaidList
                 and isWorldBossInstance(name, dungeonAreaMapID, tierName)
                 and not seen[instanceID]
             then
-                collectWorldBosses(
-                    target,
-                    instanceID,
-                    difficulties
-                )
+                collectWorldBosses(target, instanceID, difficulties)
                 seen[instanceID] = true
             else
                 if #difficulties > 0 and not seen[instanceID] then
@@ -325,7 +304,11 @@ local function buildRaids(target)
     ensureEncounterJournal()
 
     local tierCount = EJ_GetNumTiers() or 0
-    if NS:IsSecret(tierCount) or type(tierCount) ~= "number" or tierCount < 1 then
+    if
+        NS:IsSecret(tierCount)
+        or type(tierCount) ~= "number"
+        or tierCount < 1
+    then
         return false
     end
 
@@ -345,10 +328,7 @@ local function buildDungeons(target)
     end
 
     local mapTable = C_ChallengeMode.GetMapTable()
-    if NS:IsSecret(mapTable)
-        or type(mapTable) ~= "table"
-        or #mapTable == 0
-    then
+    if NS:IsSecret(mapTable) or type(mapTable) ~= "table" or #mapTable == 0 then
         return false
     end
 
@@ -356,7 +336,8 @@ local function buildDungeons(target)
     ensureEncounterJournal()
 
     local tierCount = EJ_GetNumTiers() or 0
-    if NS:IsSecret(tierCount)
+    if
+        NS:IsSecret(tierCount)
         or type(tierCount) ~= "number"
         or tierCount < 1
     then
@@ -367,12 +348,8 @@ local function buildDungeons(target)
     local journalIndex = 1
     while true do
         local instanceID = EJ_GetInstanceByIndex(journalIndex, false)
-        if NS:IsSecret(instanceID) then
-            return false
-        end
-        if not instanceID then
-            break
-        end
+        if NS:IsSecret(instanceID) then return false end
+        if not instanceID then break end
         if NS:IsPublicPositiveInteger(instanceID) then
             journalOrder[instanceID] = journalIndex
         end
@@ -381,14 +358,13 @@ local function buildDungeons(target)
 
     for index = 1, #mapTable do
         local challengeMapID = mapTable[index]
-        if not NS:IsPublicPositiveInteger(challengeMapID) then
-            return false
-        end
+        if not NS:IsPublicPositiveInteger(challengeMapID) then return false end
 
         local name, _, _, _, _, gameMapID =
             C_ChallengeMode.GetMapUIInfo(challengeMapID)
 
-        if NS:IsSecret(name)
+        if
+            NS:IsSecret(name)
             or type(name) ~= "string"
             or not NS:IsPublicPositiveInteger(gameMapID)
         then
@@ -415,9 +391,7 @@ local function buildDungeons(target)
     table.sort(target.dungeons, function(left, right)
         local leftOrder = journalOrder[left.journalInstanceID] or 100000
         local rightOrder = journalOrder[right.journalInstanceID] or 100000
-        if leftOrder ~= rightOrder then
-            return leftOrder < rightOrder
-        end
+        if leftOrder ~= rightOrder then return leftOrder < rightOrder end
         return left.challengeOrder < right.challengeOrder
     end)
 
@@ -429,14 +403,10 @@ local function buildDungeons(target)
         dungeon.defaultMinimumDifficulty =
             NS.RuleDefaults.dungeonMinimumDifficulty
 
-        local matches = target.dungeonByInstance[
-            dungeon.journalInstanceID
-        ]
+        local matches = target.dungeonByInstance[dungeon.journalInstanceID]
         if not matches then
             matches = {}
-            target.dungeonByInstance[
-                dungeon.journalInstanceID
-            ] = matches
+            target.dungeonByInstance[dungeon.journalInstanceID] = matches
         end
         matches[#matches + 1] = dungeon
     end
@@ -452,7 +422,8 @@ local function buildSpecs(target)
 
     for index = 1, count do
         local specID, name, _, icon = GetSpecializationInfo(index)
-        if NS:IsPublicPositiveInteger(specID)
+        if
+            NS:IsPublicPositiveInteger(specID)
             and not NS:IsSecret(name)
             and type(name) == "string"
         then
@@ -485,9 +456,7 @@ end
 
 local function runReadyCallback(callback)
     local ok, err = pcall(callback)
-    if not ok then
-        geterrorhandler()(err)
-    end
+    if not ok then geterrorhandler()(err) end
 end
 
 local function notifyReadyCallbacks()
@@ -515,12 +484,11 @@ function Catalog:WhenReady(callback)
 end
 
 function Catalog:Build()
-    if self:IsReady() then
-        return true
-    end
+    if self:IsReady() then return true end
 
     local candidate = createCatalogData()
-    if not buildSpecs(candidate)
+    if
+        not buildSpecs(candidate)
         or not buildRaids(candidate)
         or not buildDungeons(candidate)
     then
@@ -543,17 +511,11 @@ function Catalog:Build()
 end
 
 function Catalog:EnsureReady()
-    if self:Build() then
-        return true
-    end
-    if retryTimer then
-        return false
-    end
+    if self:Build() then return true end
+    if retryTimer then return false end
 
     local delay = CATALOG_RETRY_DELAYS[retryStep]
-    if retryStep < #CATALOG_RETRY_DELAYS then
-        retryStep = retryStep + 1
-    end
+    if retryStep < #CATALOG_RETRY_DELAYS then retryStep = retryStep + 1 end
 
     retryTimer = C_Timer.NewTimer(delay, function()
         retryTimer = nil
@@ -572,9 +534,7 @@ end
 function Catalog:GetDifficultyName(difficultyID)
     difficultyID = self:CanonicalDifficultyID(difficultyID)
     local label = DIFFICULTY_LABELS[difficultyID]
-    if label then
-        return label
-    end
+    if label then return label end
 
     local clientLabel = GetDifficultyInfo(difficultyID)
     if not NS:IsSecret(clientLabel) and type(clientLabel) == "string" then
@@ -586,7 +546,8 @@ end
 
 function Catalog:GetRaidDifficultiesHardestFirst(instance)
     local ordered = {}
-    if type(instance) ~= "table"
+    if
+        type(instance) ~= "table"
         or type(instance.difficultyByID) ~= "table"
     then
         return ordered
@@ -596,16 +557,15 @@ function Catalog:GetRaidDifficultiesHardestFirst(instance)
         local difficultyID = RAID_DIFFICULTY_DISPLAY_ORDER[index]
         local difficulty = instance.difficultyByID[difficultyID]
 
-        if difficulty then
-            ordered[#ordered + 1] = difficulty
-        end
+        if difficulty then ordered[#ordered + 1] = difficulty end
     end
 
     return ordered
 end
 
 function Catalog:GetDungeonThresholdChoices(dungeon)
-    if NS:IsSecret(dungeon)
+    if
+        NS:IsSecret(dungeon)
         or type(dungeon) ~= "table"
         or type(dungeon.thresholdChoices) ~= "table"
     then
@@ -616,7 +576,8 @@ function Catalog:GetDungeonThresholdChoices(dungeon)
 end
 
 function Catalog:GetDungeonThreshold(dungeon, rank)
-    if NS:IsSecret(dungeon)
+    if
+        NS:IsSecret(dungeon)
         or type(dungeon) ~= "table"
         or type(dungeon.thresholdByValue) ~= "table"
         or not NS:IsPublicPositiveInteger(rank)
@@ -632,11 +593,10 @@ function Catalog:IsDungeonThresholdAvailable(dungeon, rank)
 end
 
 function Catalog:GetDungeonDefaultThreshold(dungeon)
-    if NS:IsSecret(dungeon)
+    if
+        NS:IsSecret(dungeon)
         or type(dungeon) ~= "table"
-        or not NS:IsPublicPositiveInteger(
-            dungeon.defaultMinimumDifficulty
-        )
+        or not NS:IsPublicPositiveInteger(dungeon.defaultMinimumDifficulty)
     then
         return NS.RuleDefaults.dungeonMinimumDifficulty
     end
@@ -646,17 +606,13 @@ end
 
 function Catalog:NormalizeDungeonThreshold(dungeon, rank)
     local choices = self:GetDungeonThresholdChoices(dungeon)
-    if #choices == 0 then
-        return nil
-    end
+    if #choices == 0 then return nil end
     if not NS:IsPublicPositiveInteger(rank) then
         return self:GetDungeonDefaultThreshold(dungeon)
     end
 
     for index = 1, #choices do
-        if choices[index].value >= rank then
-            return choices[index].value
-        end
+        if choices[index].value >= rank then return choices[index].value end
     end
 
     return choices[#choices].value
@@ -673,14 +629,13 @@ function Catalog:GetDungeonCompletionRank(difficultyID, challengeLevel)
         return DUNGEON_RANK.HEROIC
     elseif difficultyID == self.Difficulty.DUNGEON_MYTHIC then
         return DUNGEON_RANK.MYTHIC_0
-    elseif difficultyID == self.Difficulty.MYTHIC_PLUS
+    elseif
+        difficultyID == self.Difficulty.MYTHIC_PLUS
         and NS:IsPublicPositiveInteger(challengeLevel)
         and challengeLevel >= MYTHIC_PLUS_KEY_LEVEL.MINIMUM
     then
-        local level = math.min(
-            challengeLevel,
-            MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED
-        )
+        local level =
+            math.min(challengeLevel, MYTHIC_PLUS_KEY_LEVEL.MAXIMUM_TRACKED)
         return DUNGEON_RANK.MYTHIC_PLUS_2
             + (level - MYTHIC_PLUS_KEY_LEVEL.MINIMUM)
     end
@@ -697,38 +652,28 @@ end
 
 function Catalog:GetActiveSpecID()
     local activeIndex = GetSpecialization()
-    if not NS:IsPublicPositiveInteger(activeIndex) then
-        return nil
-    end
+    if not NS:IsPublicPositiveInteger(activeIndex) then return nil end
 
     local specID = GetSpecializationInfo(activeIndex)
-    if NS:IsPublicPositiveInteger(specID) then
-        return specID
-    end
+    if NS:IsPublicPositiveInteger(specID) then return specID end
 
     return nil
 end
 
 function Catalog:GetEffectiveLootSpecID()
     local lootSpecID = GetLootSpecialization()
-    if NS:IsPublicPositiveInteger(lootSpecID) then
-        return lootSpecID
-    end
+    if NS:IsPublicPositiveInteger(lootSpecID) then return lootSpecID end
 
     return self:GetActiveSpecID()
 end
 
 function Catalog:GetSpecName(specID)
     local spec = self.specByID[specID]
-    if spec then
-        return spec.name
-    end
+    if spec then return spec.name end
 
     if NS:IsPublicPositiveInteger(specID) then
         local _, name = GetSpecializationInfoByID(specID)
-        if not NS:IsSecret(name) and type(name) == "string" then
-            return name
-        end
+        if not NS:IsSecret(name) and type(name) == "string" then return name end
     end
 
     return "Unknown"
@@ -738,8 +683,9 @@ function Catalog:GetSpecChoices()
     local choices = {}
     local currentSpecID = self:GetActiveSpecID()
     local currentSpec = currentSpecID and self.specByID[currentSpecID]
-    local currentLabel = currentSpec and "Current Spec ("
-        .. currentSpec.name .. ")" or "Current Spec"
+    local currentLabel = currentSpec
+            and "Current Spec (" .. currentSpec.name .. ")"
+        or "Current Spec"
 
     choices[#choices + 1] = {
         value = 0,

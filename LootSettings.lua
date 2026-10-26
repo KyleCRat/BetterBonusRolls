@@ -58,13 +58,7 @@ local function createItemRow(panel, index)
     if index % 2 == 0 then
         local stripe = itemRow:CreateTexture(nil, "BACKGROUND")
 
-        stripe:SetPoint(
-            "TOPLEFT",
-            itemRow,
-            "TOPLEFT",
-            -(DETAILS_INSET - 1),
-            0
-        )
+        stripe:SetPoint("TOPLEFT", itemRow, "TOPLEFT", -(DETAILS_INSET - 1), 0)
         stripe:SetPoint(
             "BOTTOMRIGHT",
             itemRow,
@@ -82,13 +76,7 @@ local function createItemRow(panel, index)
 
     local linkButton = CreateFrame("Button", nil, itemRow)
 
-    linkButton:SetPoint(
-        "TOPLEFT",
-        itemRow,
-        "TOPLEFT",
-        ITEM_LINK_LEFT_INSET,
-        0
-    )
+    linkButton:SetPoint("TOPLEFT", itemRow, "TOPLEFT", ITEM_LINK_LEFT_INSET, 0)
     linkButton:SetPoint("BOTTOMRIGHT", itemRow, "BOTTOMRIGHT", 0, 0)
 
     local icon = linkButton:CreateTexture(nil, "ARTWORK")
@@ -98,11 +86,8 @@ local function createItemRow(panel, index)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     linkButton.icon = icon
 
-    local linkText = linkButton:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontHighlight"
-    )
+    local linkText =
+        linkButton:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 
     linkText:SetPoint("LEFT", icon, "RIGHT", ITEM_TEXT_GAP, 0)
     linkText:SetPoint("RIGHT", linkButton, "RIGHT", -4, 0)
@@ -128,9 +113,7 @@ local function createItemRow(panel, index)
         if NS:IsSecret(link) or type(link) ~= "string" or link == "" then
             return
         end
-        if HandleModifiedItemClick then
-            HandleModifiedItemClick(link)
-        end
+        if HandleModifiedItemClick then HandleModifiedItemClick(link) end
     end)
     itemRow.linkButton = linkButton
 
@@ -171,9 +154,7 @@ local function setPanelHeight(tracked, contentRows)
 
     tracked.lootPanel:SetHeight(detailsHeight)
     tracked.row:SetHeight(
-        tracked.lootBaseHeight
-        + detailsHeight
-        + DETAILS_BOTTOM_MARGIN
+        tracked.lootBaseHeight + detailsHeight + DETAILS_BOTTOM_MARGIN
     )
 end
 
@@ -194,8 +175,7 @@ local function renderStatus(tracked, message, retryable, preserveHeight)
         "TOPRIGHT",
         panel,
         "TOPRIGHT",
-        retryable
-            and -(DETAILS_INSET + RETRY_BUTTON_WIDTH + STATUS_RETRY_GAP)
+        retryable and -(DETAILS_INSET + RETRY_BUTTON_WIDTH + STATUS_RETRY_GAP)
             or -DETAILS_INSET,
         -DETAILS_HEADER_HEIGHT
     )
@@ -206,10 +186,7 @@ local function renderStatus(tracked, message, retryable, preserveHeight)
     else
         panel.retryButton:Hide()
     end
-    setPanelHeight(
-        tracked,
-        preserveHeight and tracked.lootContentRows or 1
-    )
+    setPanelHeight(tracked, preserveHeight and tracked.lootContentRows or 1)
 end
 
 local function renderItems(tracked, request, items)
@@ -223,22 +200,15 @@ local function renderItems(tracked, request, items)
     for index = 1, #items do
         local item = items[index]
         local itemRow = acquireItemRow(panel, index)
-        local obtained = NS.ObtainedCheckbox:Update(
-            itemRow.checkbox,
-            request,
-            item
-        )
+        local obtained =
+            NS.ObtainedCheckbox:Update(itemRow.checkbox, request, item)
 
         ModernSettings:HideOwnedTooltip(itemRow.linkButton)
 
-        if not obtained then
-            remaining = remaining + 1
-        end
+        if not obtained then remaining = remaining + 1 end
 
         itemRow.linkButton.itemLink = item.link
-        itemRow.linkButton.icon:SetTexture(
-            item.icon or UNKNOWN_ITEM_ICON
-        )
+        itemRow.linkButton.icon:SetTexture(item.icon or UNKNOWN_ITEM_ICON)
         itemRow.linkButton.icon:SetDesaturated(obtained)
         itemRow.linkButton.linkText:SetText(item.link)
         itemRow.linkButton.linkText:SetAlpha(obtained and 0.55 or 1)
@@ -247,8 +217,12 @@ local function renderItems(tracked, request, items)
 
     hideUnusedItemRows(panel, #items + 1)
     panel.summaryText:SetText(
-        specName .. " loot specialization - "
-        .. remaining .. " remaining / " .. #items .. " total"
+        specName
+            .. " loot specialization - "
+            .. remaining
+            .. " remaining / "
+            .. #items
+            .. " total"
     )
 
     tracked.lootContentRows = #items
@@ -256,9 +230,7 @@ local function renderItems(tracked, request, items)
 end
 
 local function renderTrackedRow(tracked)
-    if not tracked.lootExpanded then
-        return
-    end
+    if not tracked.lootExpanded then return end
 
     local request = tracked.getLootRequest()
     tracked.lootQueryKey = request and request.queryKey or nil
@@ -277,13 +249,10 @@ local function renderTrackedRow(tracked)
 
     -- The first Journal read runs on the next tick. Keep the current panel
     -- untouched unless that immediate attempt confirms data is still loading.
-    if pool.status == "pending" then
-        return
-    end
+    if pool.status == "pending" then return end
 
     tracked.lootPanel.summaryText:SetText(
-        NS.Catalog:GetSpecName(request.specID)
-        .. " loot specialization"
+        NS.Catalog:GetSpecName(request.specID) .. " loot specialization"
     )
     if pool.status ~= "ready" then
         renderStatus(
@@ -301,9 +270,7 @@ end
 local function setExpanded(tracked, expanded)
     expanded = expanded == true and tracked.isEnabled()
     if tracked.lootExpanded == expanded then
-        if expanded then
-            renderTrackedRow(tracked)
-        end
+        if expanded then renderTrackedRow(tracked) end
         return
     end
 
@@ -372,11 +339,8 @@ function LootSettings:Attach(row, tracked)
         1
     )
 
-    local summaryText = panel:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontHighlightSmall"
-    )
+    local summaryText =
+        panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 
     summaryText:SetPoint(
         "TOPLEFT",
@@ -391,11 +355,8 @@ function LootSettings:Attach(row, tracked)
     summaryText:SetMaxLines(1)
     panel.summaryText = summaryText
 
-    local obtainedHeader = panel:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontNormalSmall"
-    )
+    local obtainedHeader =
+        panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 
     obtainedHeader:SetPoint(
         "TOP",
@@ -406,11 +367,8 @@ function LootSettings:Attach(row, tracked)
     )
     obtainedHeader:SetText("Obtained")
 
-    local statusText = panel:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontDisableSmall"
-    )
+    local statusText =
+        panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 
     statusText:SetPoint(
         "TOPLEFT",
@@ -464,9 +422,7 @@ function LootSettings:Attach(row, tracked)
 end
 
 function LootSettings:Refresh(tracked)
-    if not tracked.itemsControl then
-        return
-    end
+    if not tracked.itemsControl then return end
 
     local enabled = tracked.isEnabled()
 
@@ -485,10 +441,12 @@ NS.LootTracker:RegisterChangedCallback(function(changeType, key)
     for index = 1, #LootSettings.trackedRows do
         local tracked = LootSettings.trackedRows[index]
 
-        if tracked.lootExpanded
-            and ((changeType == "pool" and tracked.lootQueryKey == key)
-                or (changeType == "obtained"
-                    and tracked.lootTrackingKey == key))
+        if
+            tracked.lootExpanded
+            and (
+                (changeType == "pool" and tracked.lootQueryKey == key)
+                or (changeType == "obtained" and tracked.lootTrackingKey == key)
+            )
         then
             renderTrackedRow(tracked)
         end

@@ -27,13 +27,12 @@ local journalPumpTimer
 
 local function reportError(message)
     if NS:IsSecret(message) then
-        message = "BetterBonusRolls encountered a restricted loot-tracking error."
+        message =
+            "BetterBonusRolls encountered a restricted loot-tracking error."
     end
 
     local handler = geterrorhandler and geterrorhandler()
-    if handler then
-        handler(message)
-    end
+    if handler then handler(message) end
 end
 
 local function isPublicString(value)
@@ -42,21 +41,16 @@ end
 
 local function getPlayerClassID()
     local _, _, classID = UnitClass("player")
-    if NS:IsPublicPositiveInteger(classID) then
-        return classID
-    end
+    if NS:IsPublicPositiveInteger(classID) then return classID end
 
     return nil
 end
 
 local function resolveConcreteSpecID(selection)
-    if NS:IsSecret(selection) then
-        return nil
-    end
-    if selection == 0 then
-        return NS.Catalog:GetActiveSpecID()
-    end
-    if NS:IsPublicPositiveInteger(selection)
+    if NS:IsSecret(selection) then return nil end
+    if selection == 0 then return NS.Catalog:GetActiveSpecID() end
+    if
+        NS:IsPublicPositiveInteger(selection)
         and NS.Catalog.specByID[selection]
     then
         return selection
@@ -67,19 +61,19 @@ end
 
 local function notifyChanged(changeType, key)
     for index = 1, #changedCallbacks do
-        local ok, message = pcall(
-            changedCallbacks[index],
-            changeType,
-            key
-        )
-        if not ok then
-            reportError(message)
-        end
+        local ok, message = pcall(changedCallbacks[index], changeType, key)
+        if not ok then reportError(message) end
     end
 end
 
-local function makeRaidKeys(instanceID, encounterID, difficultyID, specID,
-    journalDifficultyID, classID)
+local function makeRaidKeys(
+    instanceID,
+    encounterID,
+    difficultyID,
+    specID,
+    journalDifficultyID,
+    classID
+)
     local trackingKey = table.concat({
         "raid",
         instanceID,
@@ -99,8 +93,14 @@ local function makeRaidKeys(instanceID, encounterID, difficultyID, specID,
     }
 end
 
-local function makeDungeonKeys(mapID, difficultyRank, specID, instanceID,
-    journalDifficultyID, classID)
+local function makeDungeonKeys(
+    mapID,
+    difficultyRank,
+    specID,
+    instanceID,
+    journalDifficultyID,
+    classID
+)
     local trackingKey = table.concat({
         "dungeon",
         mapID,
@@ -122,8 +122,13 @@ local function makeDungeonKeys(mapID, difficultyRank, specID, instanceID,
     }
 end
 
-local function makeWorldBossKeys(encounterID, specID, instanceID,
-    journalDifficultyID, classID)
+local function makeWorldBossKeys(
+    encounterID,
+    specID,
+    instanceID,
+    journalDifficultyID,
+    classID
+)
     local trackingKey = table.concat({
         "worldBoss",
         encounterID,
@@ -143,7 +148,8 @@ local function makeWorldBossKeys(encounterID, specID, instanceID,
 end
 
 function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
-    if NS:IsSecret(instance)
+    if
+        NS:IsSecret(instance)
         or NS:IsSecret(encounter)
         or NS:IsSecret(difficulty)
         or type(instance) ~= "table"
@@ -160,7 +166,8 @@ function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
     local specID = resolveConcreteSpecID(selection)
     local classID = getPlayerClassID()
 
-    if not NS:IsPublicPositiveInteger(instanceID)
+    if
+        not NS:IsPublicPositiveInteger(instanceID)
         or not NS:IsPublicPositiveInteger(encounterID)
         or not NS:IsPublicPositiveInteger(difficultyID)
         or not NS:IsPublicPositiveInteger(journalDifficultyID)
@@ -179,11 +186,9 @@ function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
         classID
     )
 
-    local difficultyName = isPublicString(difficulty.label)
-        and difficulty.label
+    local difficultyName = isPublicString(difficulty.label) and difficulty.label
         or NS.Catalog:GetDifficultyName(difficultyID)
-    local encounterName = isPublicString(encounter.name)
-        and encounter.name
+    local encounterName = isPublicString(encounter.name) and encounter.name
         or "Encounter " .. encounterID
 
     return {
@@ -203,22 +208,18 @@ function Tracker:CreateRaidRequest(instance, encounter, difficulty, selection)
 end
 
 function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
-    if NS:IsSecret(dungeon) or type(dungeon) ~= "table" then
-        return nil
-    end
+    if NS:IsSecret(dungeon) or type(dungeon) ~= "table" then return nil end
 
     local mapID = dungeon.id
     local instanceID = dungeon.journalInstanceID
     local specID = resolveConcreteSpecID(selection)
     local classID = getPlayerClassID()
-    local threshold = NS.Catalog:GetDungeonThreshold(
-        dungeon,
-        minimumDifficulty
-    )
-    local journalDifficultyID = threshold
-        and threshold.journalDifficultyID or nil
+    local threshold = NS.Catalog:GetDungeonThreshold(dungeon, minimumDifficulty)
+    local journalDifficultyID = threshold and threshold.journalDifficultyID
+        or nil
 
-    if not NS:IsPublicPositiveInteger(mapID)
+    if
+        not NS:IsPublicPositiveInteger(mapID)
         or not NS:IsPublicPositiveInteger(instanceID)
         or not NS:IsPublicPositiveInteger(specID)
         or not NS:IsPublicPositiveInteger(classID)
@@ -236,10 +237,9 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
         classID
     )
 
-    local sourceName = isPublicString(dungeon.name)
-        and dungeon.name or "Dungeon " .. mapID
-    local difficultyName = isPublicString(threshold.label)
-        and threshold.label
+    local sourceName = isPublicString(dungeon.name) and dungeon.name
+        or "Dungeon " .. mapID
+    local difficultyName = isPublicString(threshold.label) and threshold.label
         or NS.Catalog:GetDungeonThresholdLabel(minimumDifficulty)
 
     return {
@@ -259,9 +259,7 @@ function Tracker:CreateDungeonRequest(dungeon, minimumDifficulty, selection)
 end
 
 function Tracker:CreateWorldBossRequest(boss, selection)
-    if NS:IsSecret(boss) or type(boss) ~= "table" then
-        return nil
-    end
+    if NS:IsSecret(boss) or type(boss) ~= "table" then return nil end
 
     local encounterID = boss.id
     local instanceID = boss.instanceID
@@ -269,7 +267,8 @@ function Tracker:CreateWorldBossRequest(boss, selection)
     local specID = resolveConcreteSpecID(selection)
     local classID = getPlayerClassID()
 
-    if not NS:IsPublicPositiveInteger(encounterID)
+    if
+        not NS:IsPublicPositiveInteger(encounterID)
         or not NS:IsPublicPositiveInteger(instanceID)
         or not NS:IsPublicPositiveInteger(journalDifficultyID)
         or not NS:IsPublicPositiveInteger(specID)
@@ -286,10 +285,11 @@ function Tracker:CreateWorldBossRequest(boss, selection)
         classID
     )
 
-    local sourceName = isPublicString(boss.name)
-        and boss.name or "World Boss " .. encounterID
+    local sourceName = isPublicString(boss.name) and boss.name
+        or "World Boss " .. encounterID
     local difficultyID = NS:IsPublicPositiveInteger(boss.difficultyID)
-        and boss.difficultyID or journalDifficultyID
+            and boss.difficultyID
+        or journalDifficultyID
     local difficultyName = NS.Catalog:GetDifficultyName(difficultyID)
 
     return {
@@ -308,9 +308,7 @@ function Tracker:CreateWorldBossRequest(boss, selection)
 end
 
 local function addEnabledLootRequest(requests, request, selection)
-    if not request then
-        return
-    end
+    if not request then return end
 
     requests[#requests + 1] = {
         request = request,
@@ -323,9 +321,8 @@ function Tracker:CollectEnabledLootRequests()
 
     for instanceIndex = 1, #NS.Catalog.raids do
         local instance = NS.Catalog.raids[instanceIndex]
-        local difficulties = NS.Catalog:GetRaidDifficultiesHardestFirst(
-            instance
-        )
+        local difficulties =
+            NS.Catalog:GetRaidDifficultiesHardestFirst(instance)
 
         for difficultyIndex = 1, #difficulties do
             local difficulty = difficulties[difficultyIndex]
@@ -355,24 +352,14 @@ function Tracker:CollectEnabledLootRequests()
 
     for dungeonIndex = 1, #NS.Catalog.dungeons do
         local dungeon = NS.Catalog.dungeons[dungeonIndex]
-        local selection = NS.DB:Get(
-            "dungeonRules",
-            dungeon.id,
-            "specializationID"
-        )
-        local minimumDifficulty = NS.DB:Get(
-            "dungeonRules",
-            dungeon.id,
-            "minimumDifficulty"
-        )
+        local selection =
+            NS.DB:Get("dungeonRules", dungeon.id, "specializationID")
+        local minimumDifficulty =
+            NS.DB:Get("dungeonRules", dungeon.id, "minimumDifficulty")
 
         addEnabledLootRequest(
             requests,
-            self:CreateDungeonRequest(
-                dungeon,
-                minimumDifficulty,
-                selection
-            ),
+            self:CreateDungeonRequest(dungeon, minimumDifficulty, selection),
             selection
         )
     end
@@ -397,24 +384,19 @@ function Tracker:CollectEnabledLootRequests()
 end
 
 function Tracker:CreateOfferRequest(snapshot, specID)
-    if NS:IsSecret(snapshot)
+    if
+        NS:IsSecret(snapshot)
         or type(snapshot) ~= "table"
         or NS:IsSecret(specID)
     then
         return nil
     end
 
-    if specID == nil then
-        specID = snapshot.desiredSpecID
-    end
-    if not NS:IsPublicPositiveInteger(specID) then
-        return nil
-    end
+    if specID == nil then specID = snapshot.desiredSpecID end
+    if not NS:IsPublicPositiveInteger(specID) then return nil end
 
     local kind = snapshot.kind
-    if NS:IsSecret(kind) or type(kind) ~= "string" then
-        return nil
-    end
+    if NS:IsSecret(kind) or type(kind) ~= "string" then return nil end
 
     if kind == "raid" then
         if not NS:IsPublicPositiveInteger(snapshot.difficultyID) then
@@ -422,25 +404,22 @@ function Tracker:CreateOfferRequest(snapshot, specID)
         end
 
         local instance = NS:IsPublicPositiveInteger(snapshot.instanceID)
-            and NS.Catalog.raidByInstance[snapshot.instanceID] or nil
+                and NS.Catalog.raidByInstance[snapshot.instanceID]
+            or nil
         local encounter = instance
-            and NS:IsPublicPositiveInteger(snapshot.encounterID)
-            and instance.encounterByID[snapshot.encounterID] or nil
-        local difficultyID = NS.Catalog:CanonicalDifficultyID(
-            snapshot.difficultyID
-        )
-        local difficulty = instance
-            and instance.difficultyByID[difficultyID] or nil
+                and NS:IsPublicPositiveInteger(snapshot.encounterID)
+                and instance.encounterByID[snapshot.encounterID]
+            or nil
+        local difficultyID =
+            NS.Catalog:CanonicalDifficultyID(snapshot.difficultyID)
+        local difficulty = instance and instance.difficultyByID[difficultyID]
+            or nil
 
-        return self:CreateRaidRequest(
-            instance,
-            encounter,
-            difficulty,
-            specID
-        )
+        return self:CreateRaidRequest(instance, encounter, difficulty, specID)
     elseif kind == "dungeon" then
         local dungeon = NS:IsPublicPositiveInteger(snapshot.dungeonMapID)
-            and NS.Catalog.dungeonByMap[snapshot.dungeonMapID] or nil
+                and NS.Catalog.dungeonByMap[snapshot.dungeonMapID]
+            or nil
 
         return self:CreateDungeonRequest(
             dungeon,
@@ -449,12 +428,10 @@ function Tracker:CreateOfferRequest(snapshot, specID)
         )
     elseif kind == "worldBoss" then
         local boss = NS:IsPublicPositiveInteger(snapshot.encounterID)
-            and NS.Catalog.worldBossByEncounter[snapshot.encounterID] or nil
+                and NS.Catalog.worldBossByEncounter[snapshot.encounterID]
+            or nil
 
-        return self:CreateWorldBossRequest(
-            boss,
-            specID
-        )
+        return self:CreateWorldBossRequest(boss, specID)
     end
 
     return nil
@@ -473,9 +450,7 @@ end
 local function getPublicTime()
     local now = GetTime()
 
-    if NS:IsSecret(now) or type(now) ~= "number" then
-        return 0
-    end
+    if NS:IsSecret(now) or type(now) ~= "number" then return 0 end
 
     return now
 end
@@ -488,9 +463,7 @@ local function cancelItemRetryTimer()
 
     itemRetryTimer = nil
     itemRetryDueAt = nil
-    if timer and type(timer.Cancel) == "function" then
-        timer:Cancel()
-    end
+    if timer and type(timer.Cancel) == "function" then timer:Cancel() end
 end
 
 local function scheduleItemRetryTimer()
@@ -499,9 +472,7 @@ local function scheduleItemRetryTimer()
     for _, pending in pairs(pendingItems) do
         local dueAt = pending.nextRetryAt
 
-        if type(dueAt) == "number"
-            and (not earliest or dueAt < earliest)
-        then
+        if type(dueAt) == "number" and (not earliest or dueAt < earliest) then
             earliest = dueAt
         end
     end
@@ -510,10 +481,7 @@ local function scheduleItemRetryTimer()
         cancelItemRetryTimer()
         return
     end
-    if itemRetryTimer
-        and itemRetryDueAt
-        and itemRetryDueAt <= earliest
-    then
+    if itemRetryTimer and itemRetryDueAt and itemRetryDueAt <= earliest then
         return
     end
 
@@ -532,9 +500,7 @@ end
 local function completePendingItem(itemID, success)
     local pending = pendingItems[itemID]
 
-    if not pending then
-        return
-    end
+    if not pending then return end
 
     pendingItems[itemID] = nil
     if success == true then
@@ -547,9 +513,7 @@ local function completePendingItem(itemID, success)
         queueJobRefresh(job)
     end
 
-    if not next(pendingItems) then
-        cancelItemRetryTimer()
-    end
+    if not next(pendingItems) then cancelItemRetryTimer() end
 end
 
 processPendingItems = function()
@@ -574,11 +538,9 @@ processPendingItems = function()
             elseif pending.retryStep <= #RETRY_DELAYS then
                 pending.retryStep = pending.retryStep + 1
                 if pending.retryStep <= #RETRY_DELAYS then
-                    pending.nextRetryAt = now
-                        + RETRY_DELAYS[pending.retryStep]
+                    pending.nextRetryAt = now + RETRY_DELAYS[pending.retryStep]
                 else
-                    pending.nextRetryAt = now
-                        + ITEM_LOAD_FINAL_SETTLE_DELAY
+                    pending.nextRetryAt = now + ITEM_LOAD_FINAL_SETTLE_DELAY
                 end
                 C_Item.RequestLoadItemDataByID(itemID)
             else
@@ -591,13 +553,17 @@ processPendingItems = function()
 end
 
 local function addPendingItem(itemID, job)
-    if failedItems[itemID]
+    if
+        failedItems[itemID]
         or not C_Item
         or type(C_Item.RequestLoadItemDataByID) ~= "function"
     then
-        if NS:IsPublicPositiveInteger(itemID)
-            and (not C_Item
-                or type(C_Item.RequestLoadItemDataByID) ~= "function")
+        if
+            NS:IsPublicPositiveInteger(itemID)
+            and (
+                not C_Item
+                or type(C_Item.RequestLoadItemDataByID) ~= "function"
+            )
         then
             failedItems[itemID] = true
         end
@@ -619,9 +585,7 @@ local function addPendingItem(itemID, job)
         -- Install the pending entry before requesting because the result
         -- event can fire synchronously.
         C_Item.RequestLoadItemDataByID(itemID)
-        if pendingItems[itemID] then
-            scheduleItemRetryTimer()
-        end
+        if pendingItems[itemID] then scheduleItemRetryTimer() end
     else
         pending.waiters[job] = true
         scheduleItemRetryTimer()
@@ -631,15 +595,16 @@ local function addPendingItem(itemID, job)
 end
 
 local function getItemIcon(itemID, journalIcon)
-    if not NS:IsSecret(journalIcon)
-        and (type(journalIcon) == "number"
-            or type(journalIcon) == "string")
+    if
+        not NS:IsSecret(journalIcon)
+        and (type(journalIcon) == "number" or type(journalIcon) == "string")
     then
         return journalIcon
     end
 
     local icon = C_Item.GetItemIconByID(itemID)
-    if not NS:IsSecret(icon)
+    if
+        not NS:IsSecret(icon)
         and (type(icon) == "number" or type(icon) == "string")
     then
         return icon
@@ -654,24 +619,19 @@ local function getItemName(itemID, journalName)
     end
 
     local itemName = C_Item.GetItemInfo(itemID)
-    if isPublicString(itemName) and itemName ~= "" then
-        return itemName
-    end
+    if isPublicString(itemName) and itemName ~= "" then return itemName end
 
     return "Item " .. itemID
 end
 
 local function hasExplicitSpecialization(itemID, specID)
     local specs = C_Item.GetItemSpecInfo(itemID)
-    if NS:IsSecret(specs) or type(specs) ~= "table" then
-        return false
-    end
+    if NS:IsSecret(specs) or type(specs) ~= "table" then return false end
 
     for _, candidateSpecID in pairs(specs) do
-        if NS:IsSecret(candidateSpecID) then
-            return false
-        end
-        if NS:IsPublicPositiveInteger(candidateSpecID)
+        if NS:IsSecret(candidateSpecID) then return false end
+        if
+            NS:IsPublicPositiveInteger(candidateSpecID)
             and candidateSpecID == specID
         then
             return true
@@ -687,33 +647,24 @@ local function isBonusRollCandidate(itemID, specID)
     local decor = C_Item.IsDecorItem(itemID)
     local curio = C_Item.IsCurioItem(itemID)
 
-    if NS:IsSecret(equippable)
+    if
+        NS:IsSecret(equippable)
         or NS:IsSecret(cosmetic)
         or NS:IsSecret(decor)
         or NS:IsSecret(curio)
     then
         return false
     end
-    if cosmetic == true or decor == true or curio == true then
-        return false
-    end
-    if equippable == true then
-        return true
-    end
+    if cosmetic == true or decor == true or curio == true then return false end
+    if equippable == true then return true end
 
     return hasExplicitSpecialization(itemID, specID)
 end
 
 local function isExpectedEncounter(job, encounterID)
-    if NS:IsSecret(encounterID) then
-        return false
-    end
-    if encounterID == nil then
-        return true
-    end
-    if not NS:IsPublicPositiveInteger(encounterID) then
-        return false
-    end
+    if NS:IsSecret(encounterID) then return false end
+    if encounterID == nil then return true end
+    if not NS:IsPublicPositiveInteger(encounterID) then return false end
     local request = job.request
     if request.kind == "dungeon" then
         return job.encounterIDs[encounterID] == true
@@ -734,9 +685,7 @@ local function collectJournalItem(info, job, items, seen)
     if not NS:IsPublicPositiveInteger(itemID) then
         return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
-    if seen[itemID] then
-        return ITEM_COLLECTION_STATUS.COMPLETE
-    end
+    if seen[itemID] then return ITEM_COLLECTION_STATUS.COMPLETE end
     seen[itemID] = true
 
     if C_Item and C_Item.IsItemDataCachedByID then
@@ -763,9 +712,7 @@ local function collectJournalItem(info, job, items, seen)
     end
 
     local link = info.link
-    if NS:IsSecret(link) then
-        return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
-    end
+    if NS:IsSecret(link) then return ITEM_COLLECTION_STATUS.JOURNAL_PENDING end
     if type(link) ~= "string" or link == "" then
         return ITEM_COLLECTION_STATUS.JOURNAL_PENDING
     end
@@ -781,18 +728,14 @@ local function collectJournalItem(info, job, items, seen)
 end
 
 local function refreshDungeonEncounterIDs(job)
-    if job.request.kind ~= "dungeon" then
-        return
-    end
+    if job.request.kind ~= "dungeon" then return end
 
     wipe(job.encounterIDs)
     local index = 1
     while true do
         local _, _, encounterID = EJ_GetEncounterInfoByIndex(index)
 
-        if NS:IsSecret(encounterID) or encounterID == nil then
-            return
-        end
+        if NS:IsSecret(encounterID) or encounterID == nil then return end
         if NS:IsPublicPositiveInteger(encounterID) then
             job.encounterIDs[encounterID] = true
         end
@@ -821,9 +764,7 @@ local function applyJournalRequest(request)
         EncounterJournal_OnFilterChanged(EncounterJournal)
     end)
 
-    if not ok then
-        reportError(message)
-    end
+    if not ok then reportError(message) end
 
     return ok
 end
@@ -840,7 +781,8 @@ local function readSelectedJournal(job)
     local ok, message = pcall(function()
         local selectedInstanceID = EncounterJournal.instanceID
         local selectedEncounterID = EncounterJournal.encounterID
-        if NS:IsSecret(selectedInstanceID)
+        if
+            NS:IsSecret(selectedInstanceID)
             or NS:IsSecret(selectedEncounterID)
             or selectedInstanceID ~= request.instanceID
             or selectedEncounterID ~= request.encounterID
@@ -850,7 +792,8 @@ local function readSelectedJournal(job)
         end
 
         local difficultyID = EJ_GetDifficulty()
-        if NS:IsSecret(difficultyID)
+        if
+            NS:IsSecret(difficultyID)
             or not NS:IsPublicPositiveInteger(difficultyID)
         then
             journalPending = true
@@ -862,10 +805,9 @@ local function readSelectedJournal(job)
         local selectedBaseDifficultyID =
             C_EncounterJournal.GetBaseDifficultyID(difficultyID)
         local requestedBaseDifficultyID =
-            C_EncounterJournal.GetBaseDifficultyID(
-                request.journalDifficultyID
-            )
-        if NS:IsSecret(selectedBaseDifficultyID)
+            C_EncounterJournal.GetBaseDifficultyID(request.journalDifficultyID)
+        if
+            NS:IsSecret(selectedBaseDifficultyID)
             or NS:IsSecret(requestedBaseDifficultyID)
             or not NS:IsPublicPositiveInteger(selectedBaseDifficultyID)
             or not NS:IsPublicPositiveInteger(requestedBaseDifficultyID)
@@ -876,7 +818,8 @@ local function readSelectedJournal(job)
         end
 
         local filterClassID, filterSpecID = EJ_GetLootFilter()
-        if NS:IsSecret(filterClassID)
+        if
+            NS:IsSecret(filterClassID)
             or NS:IsSecret(filterSpecID)
             or filterClassID ~= request.classID
             or filterSpecID ~= request.specID
@@ -890,34 +833,30 @@ local function readSelectedJournal(job)
         refreshDungeonEncounterIDs(job)
 
         local count = EJ_GetNumLoot()
-        if NS:IsSecret(count)
+        if
+            NS:IsSecret(count)
             or type(count) ~= "number"
             or count < 0
             or count % 1 ~= 0
         then
             error("Encounter Journal returned an invalid loot count")
         end
-        if count == 0 then
-            journalPending = true
-        end
+        if count == 0 then journalPending = true end
 
         for index = 1, count do
             local info = C_EncounterJournal.GetLootInfoByIndex(index)
-            local collectionStatus = collectJournalItem(
-                info,
-                job,
-                items,
-                seen
-            )
+            local collectionStatus = collectJournalItem(info, job, items, seen)
 
             if collectionStatus == ITEM_COLLECTION_STATUS.ITEM_PENDING then
                 itemPending = true
-            elseif collectionStatus
+            elseif
+                collectionStatus
                 == ITEM_COLLECTION_STATUS.JOURNAL_PENDING
             then
                 journalPending = true
             end
-            if not NS:IsSecret(info)
+            if
+                not NS:IsSecret(info)
                 and type(info) == "table"
                 and NS:IsPublicPositiveInteger(info.itemID)
                 and failedItems[info.itemID]
@@ -941,8 +880,7 @@ local function readSelectedJournal(job)
         return {
             status = "loading",
             items = items,
-            message = journalPending
-                and "Loading Encounter Journal loot..."
+            message = journalPending and "Loading Encounter Journal loot..."
                 or "Loading item information...",
             journalPending = journalPending,
             failedItemIDs = failedItemIDs,
@@ -974,7 +912,8 @@ local function readSelectedJournal(job)
 end
 
 local function isPoolRequest(request)
-    if NS:IsSecret(request)
+    if
+        NS:IsSecret(request)
         or type(request) ~= "table"
         or not isPublicString(request.queryKey)
     then
@@ -988,27 +927,20 @@ local function cancelJournalRetryTimer()
     local timer = journalRetryTimer
 
     journalRetryTimer = nil
-    if timer and type(timer.Cancel) == "function" then
-        timer:Cancel()
-    end
+    if timer and type(timer.Cancel) == "function" then timer:Cancel() end
 end
 
 local startNextJournalJob
 local processActiveJournalJob
 
 local function scheduleJournalPump()
-    if activeJournalJob
-        or journalPumpTimer
-        or #journalQueue == 0
-    then
+    if activeJournalJob or journalPumpTimer or #journalQueue == 0 then
         return
     end
 
     journalPumpTimer = C_Timer.NewTimer(0, function()
         journalPumpTimer = nil
-        if not activeJournalJob then
-            startNextJournalJob()
-        end
+        if not activeJournalJob then startNextJournalJob() end
     end)
 end
 
@@ -1016,9 +948,7 @@ local function scheduleActiveJournalAttempt(job, delay)
     cancelJournalRetryTimer()
     journalRetryTimer = C_Timer.NewTimer(delay, function()
         journalRetryTimer = nil
-        if activeJournalJob == job then
-            processActiveJournalJob(job)
-        end
+        if activeJournalJob == job then processActiveJournalJob(job) end
     end)
 end
 
@@ -1030,17 +960,13 @@ local function releaseJob(job)
     -- the same item keep their subscriptions and existing retry deadlines.
     for itemID, pending in pairs(pendingItems) do
         pending.waiters[job] = nil
-        if not next(pending.waiters) then
-            pendingItems[itemID] = nil
-        end
+        if not next(pending.waiters) then pendingItems[itemID] = nil end
     end
     scheduleItemRetryTimer()
 end
 
 local function finishActiveJournalJob(job, result)
-    if activeJournalJob ~= job then
-        return
-    end
+    if activeJournalJob ~= job then return end
 
     activeJournalJob = nil
     cancelJournalRetryTimer()
@@ -1068,9 +994,7 @@ processActiveJournalJob = function(job)
 
     -- Item events may allow an early read, but an incomplete early read must
     -- not consume another retry or move an already scheduled deadline.
-    if journalRetryTimer then
-        return
-    end
+    if journalRetryTimer then return end
 
     if job.retryStep >= #RETRY_DELAYS then
         result = {
@@ -1085,17 +1009,12 @@ processActiveJournalJob = function(job)
     end
 
     job.retryStep = job.retryStep + 1
-    scheduleActiveJournalAttempt(
-        job,
-        RETRY_DELAYS[job.retryStep]
-    )
+    scheduleActiveJournalAttempt(job, RETRY_DELAYS[job.retryStep])
 end
 
 startNextJournalJob = function()
     local job = table.remove(journalQueue, 1)
-    if not job then
-        return
-    end
+    if not job then return end
 
     local request = job.request
     activeJournalJob = job
@@ -1130,15 +1049,11 @@ startNextJournalJob = function()
     -- Warm Journal data is commonly available synchronously. Read it now;
     -- RETRY_DELAYS are fallbacks only for data that is still cold.
     processActiveJournalJob(job)
-    if activeJournalJob == job then
-        notifyChanged("pool", request.queryKey)
-    end
+    if activeJournalJob == job then notifyChanged("pool", request.queryKey) end
 end
 
 local function enqueueJournalJob(request)
-    if jobsByQueryKey[request.queryKey] then
-        return
-    end
+    if jobsByQueryKey[request.queryKey] then return end
 
     -- The request describes the lookup and is never mutated by the loader.
     -- Only the job owns discovered encounters, retries, and lifecycle state.
@@ -1173,9 +1088,7 @@ local function flushJobRefreshes()
 end
 
 queueJobRefresh = function(job)
-    if jobsByQueryKey[job.request.queryKey] ~= job then
-        return
-    end
+    if jobsByQueryKey[job.request.queryKey] ~= job then return end
 
     -- ITEM_DATA_LOAD_RESULT can fire inside RequestLoadItemDataByID. Resume
     -- after that read has unwound, and coalesce items belonging to one job.
@@ -1195,9 +1108,7 @@ function Tracker:GetPool(request)
     end
 
     local cached = poolCache[request.queryKey]
-    if cached then
-        return cached
-    end
+    if cached then return cached end
 
     local waiting = activeJournalJob ~= nil
         or journalPumpTimer ~= nil
@@ -1214,9 +1125,7 @@ function Tracker:GetPool(request)
 end
 
 function Tracker:RetryPool(request)
-    if not isPoolRequest(request) then
-        return false
-    end
+    if not isPoolRequest(request) then return false end
 
     local queryKey = request.queryKey
     if jobsByQueryKey[queryKey] then
@@ -1242,7 +1151,8 @@ function Tracker:RetryPool(request)
 end
 
 local function isTrackableRequest(request)
-    if NS:IsSecret(request)
+    if
+        NS:IsSecret(request)
         or type(request) ~= "table"
         or not NS:IsPublicPositiveInteger(request.specID)
     then
@@ -1250,9 +1160,7 @@ local function isTrackableRequest(request)
     end
 
     local kind = request.kind
-    if NS:IsSecret(kind) or type(kind) ~= "string" then
-        return false
-    end
+    if NS:IsSecret(kind) or type(kind) ~= "string" then return false end
 
     if kind == "raid" then
         return NS:IsPublicPositiveInteger(request.instanceID)
@@ -1269,7 +1177,8 @@ local function isTrackableRequest(request)
 end
 
 local function getObtainedRecord(request, itemID)
-    if not isTrackableRequest(request)
+    if
+        not isTrackableRequest(request)
         or not NS:IsPublicPositiveInteger(itemID)
     then
         return nil
@@ -1315,7 +1224,13 @@ function Tracker:IsConfirmedObtained(request, itemID)
     return record ~= nil and record.confirmedObtained == true
 end
 
-local function storeObtained(request, itemID, obtained, confirmedObtained, source)
+local function storeObtained(
+    request,
+    itemID,
+    obtained,
+    confirmedObtained,
+    source
+)
     local previous = getObtainedRecord(request, itemID)
     local wasObtained = previous ~= nil and previous.obtained == true
     local wasConfirmed = previous ~= nil and previous.confirmedObtained == true
@@ -1365,16 +1280,31 @@ local function storeObtained(request, itemID, obtained, confirmedObtained, sourc
         )
     end
 
-    NS.Development:Log("obtained flags changed", "source", source,
-        "trackingKey", request.trackingKey, "itemID", itemID,
-        "specID", request.specID, "wasObtained", wasObtained,
-        "obtained", obtained, "wasConfirmed", wasConfirmed,
-        "confirmed", confirmedObtained)
+    NS.Development:Log(
+        "obtained flags changed",
+        "source",
+        source,
+        "trackingKey",
+        request.trackingKey,
+        "itemID",
+        itemID,
+        "specID",
+        request.specID,
+        "wasObtained",
+        wasObtained,
+        "obtained",
+        obtained,
+        "wasConfirmed",
+        wasConfirmed,
+        "confirmed",
+        confirmedObtained
+    )
     return true
 end
 
 function Tracker:SetObtained(request, itemID, obtained)
-    if NS:IsSecret(obtained)
+    if
+        NS:IsSecret(obtained)
         or not isTrackableRequest(request)
         or not NS:IsPublicPositiveInteger(itemID)
     then
@@ -1382,13 +1312,15 @@ function Tracker:SetObtained(request, itemID, obtained)
     end
 
     -- Manual changes affect the checklist, not the evidence behind it.
-    if storeObtained(
-        request,
-        itemID,
-        obtained == true,
-        self:IsConfirmedObtained(request, itemID),
-        "manual"
-    ) then
+    if
+        storeObtained(
+            request,
+            itemID,
+            obtained == true,
+            self:IsConfirmedObtained(request, itemID),
+            "manual"
+        )
+    then
         notifyChanged("obtained", request.trackingKey)
     end
 
@@ -1396,7 +1328,8 @@ function Tracker:SetObtained(request, itemID, obtained)
 end
 
 function Tracker:ConfirmObtained(request, itemID)
-    if not isTrackableRequest(request)
+    if
+        not isTrackableRequest(request)
         or not NS:IsPublicPositiveInteger(itemID)
     then
         return false
@@ -1423,23 +1356,37 @@ function Tracker:ReconcileRemainingItems(request, items, remainingItemIDs)
         -- distinguish observed rolls from tooltip-inferred confirmations, so
         -- protect every confirmed record, including a manual uncheck override.
         if not obtained and self:IsConfirmedObtained(request, itemID) then
-            NS.Development:Log("reconciliation preserved confirmed item",
-                "trackingKey", request.trackingKey, "itemID", itemID,
-                "specID", request.specID)
-        elseif storeObtained(request, itemID, obtained, obtained, "tooltip") then
+            NS.Development:Log(
+                "reconciliation preserved confirmed item",
+                "trackingKey",
+                request.trackingKey,
+                "itemID",
+                itemID,
+                "specID",
+                request.specID
+            )
+        elseif
+            storeObtained(request, itemID, obtained, obtained, "tooltip")
+        then
             changed = true
         end
     end
 
-    if changed then
-        notifyChanged("obtained", request.trackingKey)
-    end
-    NS.Development:Log("reconciliation applied", "trackingKey", request.trackingKey,
-        "items", #items, "flagsChanged", changed)
+    if changed then notifyChanged("obtained", request.trackingKey) end
+    NS.Development:Log(
+        "reconciliation applied",
+        "trackingKey",
+        request.trackingKey,
+        "items",
+        #items,
+        "flagsChanged",
+        changed
+    )
 end
 
 local function createResultRequest(snapshot, specID)
-    if NS:IsSecret(snapshot)
+    if
+        NS:IsSecret(snapshot)
         or type(snapshot) ~= "table"
         or not NS:IsPublicPositiveInteger(specID)
     then
@@ -1447,11 +1394,10 @@ local function createResultRequest(snapshot, specID)
     end
 
     local kind = snapshot.kind
-    if NS:IsSecret(kind) or type(kind) ~= "string" then
-        return nil
-    end
+    if NS:IsSecret(kind) or type(kind) ~= "string" then return nil end
 
-    if kind == "raid"
+    if
+        kind == "raid"
         and NS:IsPublicPositiveInteger(snapshot.instanceID)
         and NS:IsPublicPositiveInteger(snapshot.encounterID)
         and NS:IsPublicPositiveInteger(snapshot.difficultyID)
@@ -1472,7 +1418,8 @@ local function createResultRequest(snapshot, specID)
             specID = specID,
             trackingKey = trackingKey,
         }
-    elseif kind == "dungeon"
+    elseif
+        kind == "dungeon"
         and NS:IsPublicPositiveInteger(snapshot.dungeonMapID)
         and NS:IsPublicPositiveInteger(snapshot.completionRank)
     then
@@ -1490,7 +1437,8 @@ local function createResultRequest(snapshot, specID)
             specID = specID,
             trackingKey = trackingKey,
         }
-    elseif kind == "worldBoss"
+    elseif
+        kind == "worldBoss"
         and NS:IsPublicPositiveInteger(snapshot.encounterID)
     then
         local trackingKey = table.concat({
@@ -1511,45 +1459,87 @@ local function createResultRequest(snapshot, specID)
 end
 
 function Tracker:RecordBonusRollItem(snapshot, itemLink, specID)
-    if not isPublicString(itemLink)
+    if
+        not isPublicString(itemLink)
         or itemLink == ""
         or not NS:IsPublicPositiveInteger(specID)
         or not C_Item
         or not C_Item.GetItemIDForItemInfo
     then
-        NS.Development:Log("reward tracking skipped", "reason", "invalid or restricted reward item/spec")
+        NS.Development:Log(
+            "reward tracking skipped",
+            "reason",
+            "invalid or restricted reward item/spec"
+        )
         return nil
     end
 
     local itemID = C_Item.GetItemIDForItemInfo(itemLink)
     if not NS:IsPublicPositiveInteger(itemID) then
-        NS.Development:Log("reward tracking skipped", "reason", "item ID unavailable", "itemLink", itemLink)
+        NS.Development:Log(
+            "reward tracking skipped",
+            "reason",
+            "item ID unavailable",
+            "itemLink",
+            itemLink
+        )
         return nil
     end
 
     local request = createResultRequest(snapshot, specID)
     if not request then
-        NS.Development:Log("reward tracking skipped", "reason", "untrackable source",
-            "itemID", itemID, "specID", specID)
+        NS.Development:Log(
+            "reward tracking skipped",
+            "reason",
+            "untrackable source",
+            "itemID",
+            itemID,
+            "specID",
+            specID
+        )
         return nil
     end
 
     local item = Item:CreateFromItemID(itemID)
     if NS.Development:IsEnabled() then
-        NS.Development:Log("reward item data requested", "itemID", itemID,
-            "specID", specID, "trackingKey", request.trackingKey,
-            "offerGeneration", snapshot.generation,
-            "cached", C_Item.IsItemDataCachedByID(itemID))
+        NS.Development:Log(
+            "reward item data requested",
+            "itemID",
+            itemID,
+            "specID",
+            specID,
+            "trackingKey",
+            request.trackingKey,
+            "offerGeneration",
+            snapshot.generation,
+            "cached",
+            C_Item.IsItemDataCachedByID(itemID)
+        )
     end
     item:ContinueOnItemLoad(function()
         if isBonusRollCandidate(itemID, specID) then
             local recorded = Tracker:ConfirmObtained(request, itemID)
-            NS.Development:Log("reward history updated", "itemID", itemID,
-                "specID", specID, "trackingKey", request.trackingKey,
-                "offerGeneration", snapshot.generation, "recorded", recorded)
+            NS.Development:Log(
+                "reward history updated",
+                "itemID",
+                itemID,
+                "specID",
+                specID,
+                "trackingKey",
+                request.trackingKey,
+                "offerGeneration",
+                snapshot.generation,
+                "recorded",
+                recorded
+            )
         else
-            NS.Development:Log("reward tracking skipped", "itemID", itemID,
-                "reason", "loaded item is not bonus-rollable for this spec")
+            NS.Development:Log(
+                "reward tracking skipped",
+                "itemID",
+                itemID,
+                "reason",
+                "loaded item is not bonus-rollable for this spec"
+            )
         end
     end)
 
@@ -1562,20 +1552,17 @@ function Tracker:RegisterChangedCallback(callback)
 end
 
 local function handleItemInfoReceived(_, itemID, success)
-    if not NS:IsPublicPositiveInteger(itemID)
+    if
+        not NS:IsPublicPositiveInteger(itemID)
         or NS:IsSecret(success)
         or type(success) ~= "boolean"
     then
         return
     end
 
-    if not pendingItems[itemID] then
-        return
-    end
+    if not pendingItems[itemID] then return end
 
-    if success == true then
-        completePendingItem(itemID, true)
-    end
+    if success == true then completePendingItem(itemID, true) end
 end
 
 NS:RegisterInitializer(function()

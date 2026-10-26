@@ -27,9 +27,7 @@ local RAID_DIFFICULTY_ICON_ATLAS = {
 local ITEMS_COLUMN_WIDTH = 34
 local ITEMS_GAP_WIDTH = 8
 local DELVE_TIER_CHOICES = {}
-for tier = NS.RuleLimits.delveMinimumTier.minimum,
-    NS.RuleLimits.delveMinimumTier.maximum
-do
+for tier = NS.RuleLimits.delveMinimumTier.minimum, NS.RuleLimits.delveMinimumTier.maximum do
     DELVE_TIER_CHOICES[#DELVE_TIER_CHOICES + 1] = {
         value = tier,
         label = "Tier " .. tier,
@@ -54,9 +52,7 @@ end
 
 local function getSpecChoicesForRow(tracked)
     local choices = NS.Catalog:GetSpecChoices()
-    if not tracked.isEnabled() then
-        return { DISABLED_SPEC_CHOICE }
-    end
+    if not tracked.isEnabled() then return { DISABLED_SPEC_CHOICE } end
 
     return choices
 end
@@ -71,10 +67,7 @@ local function refreshTrackedRow(tracked)
 
     local specID = tracked.getSpec()
     tracked.specControl:SetValue(enabled and specID or DISABLED_SPEC_VALUE)
-    tracked.specControl:SetControlEnabled(
-        enabled,
-        DISABLED_RULE_TOOLTIP
-    )
+    tracked.specControl:SetControlEnabled(enabled, DISABLED_RULE_TOOLTIP)
 
     if tracked.thresholdControl then
         tracked.thresholdControl:SetValue(
@@ -118,9 +111,7 @@ local function addRuleControls(row, tableView, tracked, thresholdChoices)
             choices = thresholdChoices,
             value = tracked.defaultThreshold,
             onChanged = function(value)
-                if tracked.isEnabled() then
-                    tracked.setThreshold(value)
-                end
+                if tracked.isEnabled() then tracked.setThreshold(value) end
                 refreshTrackedRow(tracked)
             end,
         })
@@ -143,9 +134,7 @@ local function addRuleControls(row, tableView, tracked, thresholdChoices)
         end,
     })
 
-    if tracked.getLootRequest then
-        NS.LootSettings:Attach(row, tracked)
-    end
+    if tracked.getLootRequest then NS.LootSettings:Attach(row, tracked) end
 
     trackRuleRow(tracked)
 end
@@ -232,9 +221,7 @@ local function buildGeneralPage(page, destinations)
         value = NS.DB:Get("enabled"),
         tooltip = "Enable filtering, safe hiding, loot-specialization guidance, and roll confirmation for this character.",
         onChanged = function(value)
-            if not NS:SetEnabled(value) then
-                enabledControl:SetValue(false)
-            end
+            if not NS:SetEnabled(value) then enabledControl:SetValue(false) end
         end,
     })
     SettingsUI.enabledControl = enabledControl
@@ -286,21 +273,18 @@ local function buildDungeonPage(page)
         return
     end
 
-    local tableView = ModernSettings:CreateSettingsTable(
-        layout:GetContent(),
-        {
-            width = root:GetWidth(),
-            columns = {
-                { key = "enable", width = 46 },
-                { key = "items", width = ITEMS_COLUMN_WIDTH },
-                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
-                { key = "dungeon", weight = 1, justifyH = "LEFT" },
-                { key = "minimum", width = 130 },
-                { key = "gap", width = 8 },
-                { key = "spec", width = 230 },
-            },
-        }
-    )
+    local tableView = ModernSettings:CreateSettingsTable(layout:GetContent(), {
+        width = root:GetWidth(),
+        columns = {
+            { key = "enable", width = 46 },
+            { key = "items", width = ITEMS_COLUMN_WIDTH },
+            { key = "itemsGap", width = ITEMS_GAP_WIDTH },
+            { key = "dungeon", weight = 1, justifyH = "LEFT" },
+            { key = "minimum", width = 130 },
+            { key = "gap", width = 8 },
+            { key = "spec", width = 230 },
+        },
+    })
     tableView:AddHeaderText("enable", "Enable")
     tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("dungeon", "Dungeon", { justifyH = "LEFT" })
@@ -309,29 +293,19 @@ local function buildDungeonPage(page)
 
     for index = 1, #NS.Catalog.dungeons do
         local dungeon = NS.Catalog.dungeons[index]
-        local thresholdChoices =
-            NS.Catalog:GetDungeonThresholdChoices(dungeon)
-        local defaultThreshold =
-            NS.Catalog:GetDungeonDefaultThreshold(dungeon)
-        local storedSpec = NS.DB:Get(
-            "dungeonRules",
-            dungeon.id,
-            "specializationID"
-        )
+        local thresholdChoices = NS.Catalog:GetDungeonThresholdChoices(dungeon)
+        local defaultThreshold = NS.Catalog:GetDungeonDefaultThreshold(dungeon)
+        local storedSpec =
+            NS.DB:Get("dungeonRules", dungeon.id, "specializationID")
 
         if isValidSpecSelection(storedSpec) then
-            local storedThreshold = NS.DB:Get(
-                "dungeonRules",
-                dungeon.id,
-                "minimumDifficulty"
-            )
+            local storedThreshold =
+                NS.DB:Get("dungeonRules", dungeon.id, "minimumDifficulty")
             local normalizedThreshold =
-                NS.Catalog:NormalizeDungeonThreshold(
-                    dungeon,
-                    storedThreshold
-                )
+                NS.Catalog:NormalizeDungeonThreshold(dungeon, storedThreshold)
 
-            if normalizedThreshold
+            if
+                normalizedThreshold
                 and normalizedThreshold ~= storedThreshold
             then
                 NS.DB:Set(
@@ -344,25 +318,16 @@ local function buildDungeonPage(page)
         end
 
         local row = tableView:AddRow()
-        local dungeonText = row:AddText(
-            "dungeon",
-            dungeon.name,
-            { justifyH = "LEFT" }
-        )
+        local dungeonText =
+            row:AddText("dungeon", dungeon.name, { justifyH = "LEFT" })
         local tracked = {
             texts = { dungeonText },
             defaultThreshold = defaultThreshold,
             isEnabled = function()
-                local specSelection = NS.DB:Get(
-                    "dungeonRules",
-                    dungeon.id,
-                    "specializationID"
-                )
-                local threshold = NS.DB:Get(
-                    "dungeonRules",
-                    dungeon.id,
-                    "minimumDifficulty"
-                )
+                local specSelection =
+                    NS.DB:Get("dungeonRules", dungeon.id, "specializationID")
+                local threshold =
+                    NS.DB:Get("dungeonRules", dungeon.id, "minimumDifficulty")
 
                 return isValidSpecSelection(specSelection)
                     and NS.Catalog:IsDungeonThresholdAvailable(
@@ -371,11 +336,7 @@ local function buildDungeonPage(page)
                     )
             end,
             getSpec = function()
-                return NS.DB:Get(
-                    "dungeonRules",
-                    dungeon.id,
-                    "specializationID"
-                )
+                return NS.DB:Get("dungeonRules", dungeon.id, "specializationID")
             end,
             getThreshold = function()
                 return NS.DB:Get(
@@ -406,10 +367,9 @@ local function buildDungeonPage(page)
                 NS:NotifyConfigurationChanged()
             end,
             setThreshold = function(value)
-                if not NS.Catalog:IsDungeonThresholdAvailable(
-                    dungeon,
-                    value
-                ) then
+                if
+                    not NS.Catalog:IsDungeonThresholdAvailable(dungeon, value)
+                then
                     return
                 end
                 NS.DB:Set(
@@ -429,12 +389,7 @@ local function buildDungeonPage(page)
             )
         end
 
-        addRuleControls(
-            row,
-            tableView,
-            tracked,
-            thresholdChoices
-        )
+        addRuleControls(row, tableView, tracked, thresholdChoices)
     end
 
     addDynamicTable(layout, root, tableView, 8)
@@ -458,21 +413,18 @@ local function buildOutdoorContentPage(page)
         "Enable each outdoor bonus-roll offer you want to see, then choose its required loot specialization. Bountiful Delves also use a minimum tier."
     )
 
-    local tableView = ModernSettings:CreateSettingsTable(
-        layout:GetContent(),
-        {
-            width = root:GetWidth(),
-            columns = {
-                { key = "enable", width = 46 },
-                { key = "items", width = ITEMS_COLUMN_WIDTH },
-                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
-                { key = "content", weight = 1, justifyH = "LEFT" },
-                { key = "minimum", width = 130 },
-                { key = "gap", width = 8 },
-                { key = "spec", width = 230 },
-            },
-        }
-    )
+    local tableView = ModernSettings:CreateSettingsTable(layout:GetContent(), {
+        width = root:GetWidth(),
+        columns = {
+            { key = "enable", width = 46 },
+            { key = "items", width = ITEMS_COLUMN_WIDTH },
+            { key = "itemsGap", width = ITEMS_GAP_WIDTH },
+            { key = "content", weight = 1, justifyH = "LEFT" },
+            { key = "minimum", width = 130 },
+            { key = "gap", width = 8 },
+            { key = "spec", width = 230 },
+        },
+    })
     tableView:AddHeaderText("enable", "Enable")
     tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("content", "Content", { justifyH = "LEFT" })
@@ -481,34 +433,21 @@ local function buildOutdoorContentPage(page)
 
     do
         local row = tableView:AddRow()
-        local contentText = row:AddText(
-            "content",
-            "Bountiful Delves",
-            { justifyH = "LEFT" }
-        )
+        local contentText =
+            row:AddText("content", "Bountiful Delves", { justifyH = "LEFT" })
         local tracked = {
             texts = { contentText },
             defaultThreshold = NS.RuleDefaults.delveMinimumTier,
             isEnabled = function()
-                return isValidSpecSelection(NS.DB:Get(
-                    "contentRules",
-                    "delves",
-                    "specializationID"
-                ))
+                return isValidSpecSelection(
+                    NS.DB:Get("contentRules", "delves", "specializationID")
+                )
             end,
             getSpec = function()
-                return NS.DB:Get(
-                    "contentRules",
-                    "delves",
-                    "specializationID"
-                )
+                return NS.DB:Get("contentRules", "delves", "specializationID")
             end,
             getThreshold = function()
-                return NS.DB:Get(
-                    "contentRules",
-                    "delves",
-                    "minimumTier"
-                )
+                return NS.DB:Get("contentRules", "delves", "minimumTier")
             end,
             setEnabled = function(value)
                 if value then
@@ -523,29 +462,20 @@ local function buildOutdoorContentPage(page)
                 return true
             end,
             setSpec = function(specID)
-                NS.DB:Set(
-                    "contentRules",
-                    "delves",
-                    "specializationID",
-                    specID
-                )
+                NS.DB:Set("contentRules", "delves", "specializationID", specID)
                 NS:NotifyConfigurationChanged()
             end,
             setThreshold = function(value)
                 local limits = NS.RuleLimits.delveMinimumTier
-                if type(value) ~= "number"
+                if
+                    type(value) ~= "number"
                     or value % 1 ~= 0
                     or value < limits.minimum
                     or value > limits.maximum
                 then
                     return
                 end
-                NS.DB:Set(
-                    "contentRules",
-                    "delves",
-                    "minimumTier",
-                    value
-                )
+                NS.DB:Set("contentRules", "delves", "minimumTier", value)
                 NS:NotifyConfigurationChanged()
             end,
         }
@@ -557,21 +487,20 @@ local function buildOutdoorContentPage(page)
         local bossID = boss.id
         local bossName = boss.name
         local row = tableView:AddRow()
-        local contentText = row:AddText(
-            "content",
-            bossName,
-            { justifyH = "LEFT" }
-        )
+        local contentText =
+            row:AddText("content", bossName, { justifyH = "LEFT" })
         local minimumText = row:AddText("minimum", "Any eligible")
         local tracked = {
             texts = { contentText, minimumText },
             isEnabled = function()
-                return isValidSpecSelection(NS.DB:Get(
-                    "contentRules",
-                    "worldBosses",
-                    bossID,
-                    "specializationID"
-                ))
+                return isValidSpecSelection(
+                    NS.DB:Get(
+                        "contentRules",
+                        "worldBosses",
+                        bossID,
+                        "specializationID"
+                    )
+                )
             end,
             getSpec = function()
                 return NS.DB:Get(
@@ -590,11 +519,7 @@ local function buildOutdoorContentPage(page)
                         { specializationID = 0 }
                     )
                 else
-                    NS.DB:ResetPath(
-                        "contentRules",
-                        "worldBosses",
-                        bossID
-                    )
+                    NS.DB:ResetPath("contentRules", "worldBosses", bossID)
                 end
                 NS:NotifyConfigurationChanged()
                 return true
@@ -621,27 +546,18 @@ local function buildOutdoorContentPage(page)
 
     do
         local row = tableView:AddRow()
-        local contentText = row:AddText(
-            "content",
-            "Nightmare Prey",
-            { justifyH = "LEFT" }
-        )
+        local contentText =
+            row:AddText("content", "Nightmare Prey", { justifyH = "LEFT" })
         local minimumText = row:AddText("minimum", "Any eligible")
         local tracked = {
             texts = { contentText, minimumText },
             isEnabled = function()
-                return isValidSpecSelection(NS.DB:Get(
-                    "contentRules",
-                    "world",
-                    "specializationID"
-                ))
+                return isValidSpecSelection(
+                    NS.DB:Get("contentRules", "world", "specializationID")
+                )
             end,
             getSpec = function()
-                return NS.DB:Get(
-                    "contentRules",
-                    "world",
-                    "specializationID"
-                )
+                return NS.DB:Get("contentRules", "world", "specializationID")
             end,
             setEnabled = function(value)
                 if value then
@@ -655,12 +571,7 @@ local function buildOutdoorContentPage(page)
                 return true
             end,
             setSpec = function(specID)
-                NS.DB:Set(
-                    "contentRules",
-                    "world",
-                    "specializationID",
-                    specID
-                )
+                NS.DB:Set("contentRules", "world", "specializationID", specID)
                 NS:NotifyConfigurationChanged()
             end,
         }
@@ -678,28 +589,23 @@ local function hasEnabledRaidDifficulty(instance, difficultyID)
             instance.encounters[index].id,
             difficultyID
         )
-        if isValidSpecSelection(specID) then
-            return true
-        end
+        if isValidSpecSelection(specID) then return true end
     end
 
     return false
 end
 
 local function createRaidDifficultyTable(parent, width, instance, difficulty)
-    local tableView = ModernSettings:CreateSettingsTable(
-        parent,
-        {
-            width = width,
-            columns = {
-                { key = "enable", width = 46 },
-                { key = "items", width = ITEMS_COLUMN_WIDTH },
-                { key = "itemsGap", width = ITEMS_GAP_WIDTH },
-                { key = "boss", weight = 1, justifyH = "LEFT" },
-                { key = "spec", width = 230 },
-            },
-        }
-    )
+    local tableView = ModernSettings:CreateSettingsTable(parent, {
+        width = width,
+        columns = {
+            { key = "enable", width = 46 },
+            { key = "items", width = ITEMS_COLUMN_WIDTH },
+            { key = "itemsGap", width = ITEMS_GAP_WIDTH },
+            { key = "boss", weight = 1, justifyH = "LEFT" },
+            { key = "spec", width = 230 },
+        },
+    })
     tableView:AddHeaderText("enable", "Enable")
     tableView:AddHeaderText("items", "Items")
     tableView:AddHeaderText("boss", "Boss", { justifyH = "LEFT" })
@@ -708,20 +614,19 @@ local function createRaidDifficultyTable(parent, width, instance, difficulty)
     for encounterIndex = 1, #instance.encounters do
         local encounter = instance.encounters[encounterIndex]
         local row = tableView:AddRow()
-        local bossText = row:AddText(
-            "boss",
-            encounter.name,
-            { justifyH = "LEFT" }
-        )
+        local bossText =
+            row:AddText("boss", encounter.name, { justifyH = "LEFT" })
         local tracked = {
             texts = { bossText },
             isEnabled = function()
-                return isValidSpecSelection(NS.DB:Get(
-                    "raidRules",
-                    instance.id,
-                    encounter.id,
-                    difficulty.id
-                ))
+                return isValidSpecSelection(
+                    NS.DB:Get(
+                        "raidRules",
+                        instance.id,
+                        encounter.id,
+                        difficulty.id
+                    )
+                )
             end,
             getSpec = function()
                 return NS.DB:Get(
@@ -794,20 +699,12 @@ local function layoutRaidDifficultyGroups(groupsFrame, groups)
             tableFrame:Hide()
         else
             tableFrame:ClearAllPoints()
-            tableFrame:SetPoint(
-                "TOPLEFT",
-                groupsFrame,
-                "TOPLEFT",
-                0,
-                -cursor
-            )
+            tableFrame:SetPoint("TOPLEFT", groupsFrame, "TOPLEFT", 0, -cursor)
             tableFrame:Show()
             cursor = cursor + tableFrame:GetHeight()
         end
 
-        if index < #groups then
-            cursor = cursor + RAID_GROUP_GAP
-        end
+        if index < #groups then cursor = cursor + RAID_GROUP_GAP end
     end
 
     groupsFrame:SetHeight(math.max(cursor, 1))
@@ -850,8 +747,7 @@ local function buildRaidPage(page, instance)
             expanded = not group.collapsed,
             iconAtlas = RAID_DIFFICULTY_ICON_ATLAS[difficulty.id],
             iconSize = RAID_DIFFICULTY_ICON_SIZE,
-            iconDesaturated = difficulty.id
-                == NS.Catalog.Difficulty.STORY,
+            iconDesaturated = difficulty.id == NS.Catalog.Difficulty.STORY,
         })
 
         group.header = header
@@ -901,18 +797,14 @@ local function buildRaidPage(page, instance)
         local anyEnabled = false
         for index = 1, #groups do
             local group = groups[index]
-            local enabled = hasEnabledRaidDifficulty(
-                instance,
-                group.difficultyID
-            )
+            local enabled =
+                hasEnabledRaidDifficulty(instance, group.difficultyID)
             group.collapsed = not enabled
             anyEnabled = anyEnabled or enabled
         end
 
         -- Preserve catalog order and the existing top-difficulty fallback.
-        if not anyEnabled and groups[1] then
-            groups[1].collapsed = false
-        end
+        if not anyEnabled and groups[1] then groups[1].collapsed = false end
         for index = 1, #groups do
             local group = groups[index]
             group.header:SetExpanded(not group.collapsed)
@@ -945,19 +837,15 @@ function SettingsUI:RefreshRuleControls()
 end
 
 function SettingsUI:Register()
-    if self.category then
-        return
-    end
+    if self.category then return end
 
     local generalPage = CreateFrame("Frame")
     generalPage.OnRefresh = function()
         SettingsUI:RefreshGeneralControls()
     end
 
-    local category = Settings.RegisterCanvasLayoutCategory(
-        generalPage,
-        NS.displayName
-    )
+    local category =
+        Settings.RegisterCanvasLayoutCategory(generalPage, NS.displayName)
     local destinations = {}
 
     local trackerPage = CreateFrame("Frame")

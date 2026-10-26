@@ -83,29 +83,43 @@
 
 ### Checks
 
-- Style baseline: StyLua 2.5.2 and Selene 0.31.0. Configuration is prepared,
-  but the initial formatting/lint migration has not been run because neither
-  executable was available during setup. Do not report style compliance until
-  the checks pass; do not install tooling without explicit permission.
+- Style baseline: StyLua 2.5.2 and Selene 0.31.0. Use the existing executables
+  (by full path if absent from the session's PATH); do not install tooling,
+  change global PATH, or add custom style checkers without explicit permission.
 - Use Lua 5.1, UTF-8/LF, four spaces, and the formatter's 80-column guide.
   Keep nonempty functions/callbacks and loops multiline. Only simple
   single-branch conditionals may collapse. Review naming and logical spacing
   even when formatting and lint checks pass.
-- Run `stylua --check .` and `selene .` with zero findings. Apply formatting
-  with `stylua --verify .` when completing the initial migration. Owned addon
-  Lua and existing tests are included; LibStub and LibDBIcon remain upstream
-  vendors. Development-only configuration is excluded from release packages.
-- LibModernSettings and LibSimpleDB are pinned maintained-library submodules.
-  They still need standalone style configuration/migration in their own
-  repositories; do not rewrite or advance their pins as an addon-only cleanup.
-  After those repositories adopt the baseline, run both checks from each
-  library root as well. Parent Selene excludes them for separate checking;
-  parent StyLua does not silently exclude them. Until then, migration remains
-  incomplete and checks must not be described as an all-library style pass.
-- LibChangelog carries its own style configuration. Run its style checks from
-  `Libs/LibChangelog-1.0` separately, plus
-  `lua tests/run.lua ../LibStub/LibStub.lua`. The generated release snapshot is
-  excluded from addon style checks, not from Lua syntax and load-order checks.
+- Run `stylua --check .` and `selene .` with zero findings, including warnings.
+  Apply formatting with `stylua --verify .`; add `--respect-ignores` when passing
+  individual files. These checks cover all owned addon Lua and existing tests.
+  Development-only configuration is excluded from release packages.
+- Library lint migrations are being completed elsewhere to avoid repeating
+  the work. Verification is temporarily deferred for the current pins:
+  LibModernSettings 1.10.0, LibSimpleDB 2.0.0, and LibChangelog 1.0.1.
+  Leave their code and pins untouched during this addon-only migration.
+  These are per-library deferrals, not permanent lint exemptions.
+- When adopting a linted release of each maintained library, remove its
+  `.styluaignore` entry in the same update. Do not restore a blanket `Libs/**`
+  exclusion: StyLua reads ancestor ignores even when run inside a submodule.
+  Root formatting checks must then visit that library using its own config.
+  LibStub and LibDBIcon remain upstream/vendor exclusions.
+- From that update onward, require `stylua --check .` and `selene .` from the
+  updated library's root with zero findings, plus its Lua 5.1 syntax checks,
+  existing tests, and compatibility checks. Keep parent Selene exclusions only
+  to separate library globals from the addon's environment; they must be paired
+  with those separate library checks, not treated as verification exemptions.
+  Check each later library update under the same rules and keep `.pkgmeta`
+  tags aligned with gitlinks. Resolve migration work in the owning repository
+  rather than repeating it in each consumer. Report any remaining deferrals;
+  an addon-only pass must not be presented as an all-library pass.
+- The generated `Changelog/ReleaseNotes.lua` snapshot is excluded from style
+  checks, not from Lua syntax and load-order checks. Leave it unchanged during
+  ordinary development and style work; follow the release procedure above.
+- Keep `wow.yml` limited to reviewed globals used by this addon and its existing
+  tests. Verify additions against the local Blizzard export or an explicit
+  external contract. Keep default lint checks enabled; prefix intentionally
+  unused bindings with `_` and document narrow exceptions beside the code.
 - Run Lua syntax checks when `luac` is available.
 - Run `lua tests/run.lua` when a Lua 5.1-compatible interpreter is available.
 - Run the static safety scan in `tests/static-safety.ps1`.

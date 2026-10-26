@@ -62,15 +62,11 @@ local PRINT_PREFIX_COLOR_CODE = "|cff66e5ff"
 
 local function reportError(err)
     local handler = geterrorhandler and geterrorhandler()
-    if handler then
-        handler(err)
-    end
+    if handler then handler(err) end
 end
 
 local function dispatchCallbacks(callbacks, ...)
-    if not callbacks then
-        return
-    end
+    if not callbacks then return end
 
     local snapshot = {}
     for index = 1, #callbacks do
@@ -79,14 +75,14 @@ local function dispatchCallbacks(callbacks, ...)
 
     for index = 1, #snapshot do
         local ok, err = pcall(snapshot[index], ...)
-        if not ok then
-            reportError(err)
-        end
+        if not ok then reportError(err) end
     end
 end
 
 function NS:Print(message)
-    local text = PRINT_PREFIX_COLOR_CODE .. self.displayName .. ":|r "
+    local text = PRINT_PREFIX_COLOR_CODE
+        .. self.displayName
+        .. ":|r "
         .. tostring(message)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
         DEFAULT_CHAT_FRAME:AddMessage(text)
@@ -96,9 +92,7 @@ function NS:Print(message)
 end
 
 function NS:IsSecret(value)
-    if not issecretvalue then
-        return false
-    end
+    if not issecretvalue then return false end
 
     local ok, secret = pcall(issecretvalue, value)
     return ok and secret == true
@@ -131,16 +125,12 @@ function NS:RegisterEvent(event, callback)
 end
 
 function NS:GetLoadedConflict()
-    if not C_AddOns or not C_AddOns.IsAddOnLoaded then
-        return nil
-    end
+    if not C_AddOns or not C_AddOns.IsAddOnLoaded then return nil end
 
     if C_AddOns.IsAddOnLoaded("BonusRollConfirm") then
         return "BonusRollConfirm"
     end
-    if C_AddOns.IsAddOnLoaded("BonusRollGate") then
-        return "BonusRollGate"
-    end
+    if C_AddOns.IsAddOnLoaded("BonusRollGate") then return "BonusRollGate" end
 
     return nil
 end
@@ -151,7 +141,10 @@ function NS:SetEnabled(enabled)
     if enabled then
         local conflict = self:GetLoadedConflict()
         if conflict then
-            self:Print(conflict .. " is loaded. Disable it and reload before enabling BetterBonusRolls.")
+            self:Print(
+                conflict
+                    .. " is loaded. Disable it and reload before enabling BetterBonusRolls."
+            )
             return false
         end
     end
@@ -178,9 +171,7 @@ function NS:OpenSettings(categoryID)
             self:Print("Settings cannot be opened in combat.")
             return true
         end
-        Settings.OpenToCategory(
-            categoryID or self.SettingsUI.category:GetID()
-        )
+        Settings.OpenToCategory(categoryID or self.SettingsUI.category:GetID())
         return true
     end
 
@@ -216,15 +207,14 @@ end
 
 local function normalizeChallengeRun(data)
     local run = data.challengeRun
-    if run == nil then
-        return
-    end
+    if run == nil then return end
     if type(run) ~= "table" then
         data.challengeRun = nil
         return
     end
 
-    if not isPositiveInteger(run.mapID)
+    if
+        not isPositiveInteger(run.mapID)
         or not isOptionalPositiveInteger(run.level)
         or not isPositiveInteger(run.startedAt)
         or not isOptionalPositiveInteger(run.completedAt)
@@ -242,10 +232,9 @@ local function normalizeChallengeRun(data)
     end
 
     local offer = run.offer
-    if offer == nil then
-        return
-    end
-    if type(offer) ~= "table"
+    if offer == nil then return end
+    if
+        type(offer) ~= "table"
         or not isPositiveInteger(offer.spellID)
         or type(offer.endTime) ~= "number"
         or offer.endTime <= 0
@@ -268,11 +257,14 @@ local function normalizeDungeonRules(data)
             if not isLootSpecSelection(rule.specializationID) then
                 data.dungeonRules[mapID] = nil
             else
-                if not isIntegerInRange(
-                    rule.minimumDifficulty,
-                    NS.RuleLimits.dungeonMinimumDifficulty
-                ) then
-                    rule.minimumDifficulty = NS.RuleDefaults.dungeonMinimumDifficulty
+                if
+                    not isIntegerInRange(
+                        rule.minimumDifficulty,
+                        NS.RuleLimits.dungeonMinimumDifficulty
+                    )
+                then
+                    rule.minimumDifficulty =
+                        NS.RuleDefaults.dungeonMinimumDifficulty
                 end
             end
         else
@@ -282,18 +274,17 @@ local function normalizeDungeonRules(data)
 end
 
 local function normalizeContentRule(rule, hasTier)
-    if type(rule) ~= "table" then
-        return nil
-    end
+    if type(rule) ~= "table" then return nil end
 
-    if not isLootSpecSelection(rule.specializationID) then
-        return nil
-    end
+    if not isLootSpecSelection(rule.specializationID) then return nil end
 
-    if hasTier and not isIntegerInRange(
-        rule.minimumTier,
-        NS.RuleLimits.delveMinimumTier
-    ) then
+    if
+        hasTier
+        and not isIntegerInRange(
+            rule.minimumTier,
+            NS.RuleLimits.delveMinimumTier
+        )
+    then
         rule.minimumTier = NS.RuleDefaults.delveMinimumTier
     end
 
@@ -317,35 +308,32 @@ local function normalizeWorldBossRules(contentRules)
 end
 
 local function normalizeMinimapSettings(data)
-    if data.minimap == nil then
-        return
-    end
+    if data.minimap == nil then return end
     if type(data.minimap) ~= "table" then
         data.minimap = nil
         return
     end
 
-    if data.minimap.hide ~= nil
-        and type(data.minimap.hide) ~= "boolean"
-    then
+    if data.minimap.hide ~= nil and type(data.minimap.hide) ~= "boolean" then
         data.minimap.hide = nil
     end
 
     local minimapPos = data.minimap.minimapPos
-    if minimapPos ~= nil
-        and (type(minimapPos) ~= "number"
+    if
+        minimapPos ~= nil
+        and (
+            type(minimapPos) ~= "number"
             or minimapPos ~= minimapPos
             or minimapPos < 0
-            or minimapPos >= 360)
+            or minimapPos >= 360
+        )
     then
         data.minimap.minimapPos = nil
     end
 end
 
 local function normalizeObtainedBranch(branch, depth)
-    if NS:IsSecret(branch) or type(branch) ~= "table" then
-        return {}
-    end
+    if NS:IsSecret(branch) or type(branch) ~= "table" then return {} end
 
     for key, value in pairs(branch) do
         if not isPositiveInteger(key) then
@@ -356,8 +344,9 @@ local function normalizeObtainedBranch(branch, depth)
             else
                 local obtained = not NS:IsSecret(value.obtained)
                     and value.obtained == true
-                local confirmedObtained = not NS:IsSecret(value.confirmedObtained)
-                    and value.confirmedObtained == true
+                local confirmedObtained = not NS:IsSecret(
+                    value.confirmedObtained
+                ) and value.confirmedObtained == true
 
                 if obtained or confirmedObtained then
                     value.obtained = obtained
@@ -387,18 +376,10 @@ local function normalizeObtainedItems(data)
         data.obtainedItems = obtainedItems
     end
 
-    obtainedItems.raid = normalizeObtainedBranch(
-        obtainedItems.raid,
-        5
-    )
-    obtainedItems.dungeon = normalizeObtainedBranch(
-        obtainedItems.dungeon,
-        4
-    )
-    obtainedItems.worldBoss = normalizeObtainedBranch(
-        obtainedItems.worldBoss,
-        3
-    )
+    obtainedItems.raid = normalizeObtainedBranch(obtainedItems.raid, 5)
+    obtainedItems.dungeon = normalizeObtainedBranch(obtainedItems.dungeon, 4)
+    obtainedItems.worldBoss =
+        normalizeObtainedBranch(obtainedItems.worldBoss, 3)
 end
 
 local function normalizeDatabase(data)
@@ -410,21 +391,13 @@ local function normalizeDatabase(data)
         data.enabled = nil
     end
     normalizeMinimapSettings(data)
-    if type(data.raidRules) ~= "table" then
-        data.raidRules = {}
-    end
-    if type(data.contentRules) ~= "table" then
-        data.contentRules = {}
-    end
+    if type(data.raidRules) ~= "table" then data.raidRules = {} end
+    if type(data.contentRules) ~= "table" then data.contentRules = {} end
 
-    data.contentRules.delves = normalizeContentRule(
-        data.contentRules.delves,
-        true
-    )
-    data.contentRules.world = normalizeContentRule(
-        data.contentRules.world,
-        false
-    )
+    data.contentRules.delves =
+        normalizeContentRule(data.contentRules.delves, true)
+    data.contentRules.world =
+        normalizeContentRule(data.contentRules.world, false)
     normalizeWorldBossRules(data.contentRules)
     normalizeChallengeRun(data)
     normalizeObtainedItems(data)
@@ -444,9 +417,7 @@ local function initializeDatabase()
 end
 
 local function initializeAddon()
-    if initialized then
-        return
-    end
+    if initialized then return end
 
     initializeDatabase()
     initialized = true
@@ -456,12 +427,13 @@ local function initializeAddon()
         local conflict = NS:GetLoadedConflict()
         if conflict then
             NS.DB:Set("enabled", false)
-            NS:Print(conflict .. " is loaded, so BetterBonusRolls was left disabled. Disable it and reload first.")
+            NS:Print(
+                conflict
+                    .. " is loaded, so BetterBonusRolls was left disabled. Disable it and reload first."
+            )
         else
             NS.Catalog:WhenReady(function()
-                if not NS.DB:Get("enabled") then
-                    return
-                end
+                if not NS.DB:Get("enabled") then return end
 
                 local applied = NS.RollController:SetEnabled(true)
                 if applied == false then
@@ -476,9 +448,7 @@ end
 NS.eventFrame = CreateFrame("Frame")
 NS.eventFrame:RegisterEvent("ADDON_LOADED")
 NS.eventFrame:SetScript("OnEvent", function(_, event, ...)
-    if event == "ADDON_LOADED" and ... == addonName then
-        initializeAddon()
-    end
+    if event == "ADDON_LOADED" and ... == addonName then initializeAddon() end
 
     dispatchCallbacks(eventCallbacks[event], event, ...)
 end)

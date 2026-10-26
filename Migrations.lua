@@ -14,7 +14,8 @@ local function getLegacyDungeonMinimum(data)
         return DUNGEON_RANK.MYTHIC_PLUS_10
     end
 
-    if not NS:IsSecret(mythicPlus.enforceMinimumLevel)
+    if
+        not NS:IsSecret(mythicPlus.enforceMinimumLevel)
         and mythicPlus.enforceMinimumLevel == false
     then
         return DUNGEON_RANK.NORMAL
@@ -47,7 +48,8 @@ local function migrateTo2(data)
     local dungeonRules = data.dungeonRules
     if not NS:IsSecret(dungeonRules) and type(dungeonRules) == "table" then
         for mapID, rule in pairs(dungeonRules) do
-            if NS:IsPublicPositiveInteger(mapID)
+            if
+                NS:IsPublicPositiveInteger(mapID)
                 and NS:IsPublicPositiveInteger(rule)
             then
                 dungeonRules[mapID] = {
@@ -79,7 +81,10 @@ end
 local function migrateTo3(data)
     -- Schema 3 added obtained-item history without changing existing values.
     -- Current-format validation fills its empty source branches afterward.
-    if NS:IsSecret(data.obtainedItems) or type(data.obtainedItems) ~= "table" then
+    if
+        NS:IsSecret(data.obtainedItems)
+        or type(data.obtainedItems) ~= "table"
+    then
         data.obtainedItems = {}
     end
 end
@@ -87,7 +92,8 @@ end
 local function migrateTo4(data)
     local run = data.challengeRun
     if not NS:IsSecret(run) and type(run) == "table" then
-        if not NS:IsPublicPositiveInteger(run.startedAt)
+        if
+            not NS:IsPublicPositiveInteger(run.startedAt)
             and NS:IsPublicPositiveInteger(run.recordedAt)
         then
             run.startedAt = run.recordedAt
@@ -102,9 +108,7 @@ local function migrateTo4(data)
     end
 
     local oldDungeons = obtainedItems.dungeon
-    if NS:IsSecret(oldDungeons) or type(oldDungeons) ~= "table" then
-        return
-    end
+    if NS:IsSecret(oldDungeons) or type(oldDungeons) ~= "table" then return end
 
     local dungeonRules = data.dungeonRules
     if NS:IsSecret(dungeonRules) or type(dungeonRules) ~= "table" then
@@ -116,13 +120,16 @@ local function migrateTo4(data)
     -- minimums to +2. Build the replacement before assigning it to the save.
     local migrated = {}
     for mapID, specifications in pairs(oldDungeons) do
-        if NS:IsPublicPositiveInteger(mapID)
+        if
+            NS:IsPublicPositiveInteger(mapID)
             and not NS:IsSecret(specifications)
             and type(specifications) == "table"
         then
             local difficulty = DUNGEON_RANK.MYTHIC_PLUS_10
             local rule = dungeonRules[mapID]
-            if not NS:IsSecret(rule) and type(rule) == "table"
+            if
+                not NS:IsSecret(rule)
+                and type(rule) == "table"
                 and NS:IsPublicPositiveInteger(rule.minimumDifficulty)
                 and rule.minimumDifficulty <= DUNGEON_RANK.MYTHIC_PLUS_10
             then
@@ -145,7 +152,9 @@ local function migrateTo5(data)
     end
 
     for _, rule in pairs(dungeonRules) do
-        if not NS:IsSecret(rule) and type(rule) == "table"
+        if
+            not NS:IsSecret(rule)
+            and type(rule) == "table"
             and NS:IsPublicPositiveInteger(rule.minimumDifficulty)
             and rule.minimumDifficulty <= DUNGEON_RANK.MYTHIC_0
         then
@@ -157,9 +166,7 @@ local function migrateTo5(data)
 end
 
 local function migrateObtainedRecords(branch, depth)
-    if NS:IsSecret(branch) or type(branch) ~= "table" then
-        return
-    end
+    if NS:IsSecret(branch) or type(branch) ~= "table" then return end
 
     for key, value in pairs(branch) do
         if NS:IsPublicPositiveInteger(key) and not NS:IsSecret(value) then
@@ -201,17 +208,16 @@ local migrations = {
 
 function Migrations.Apply(data, currentSchema)
     local schema = data.schema
-    if not NS:IsPublicPositiveInteger(schema) then
-        schema = 1
-    end
+    if not NS:IsPublicPositiveInteger(schema) then schema = 1 end
 
     -- Refuse downgrades before changing saved data or applying defaults.
     if schema > currentSchema then
-        error(("BetterBonusRolls saved data uses schema %d; this version supports %d. "
-            .. "Update the addon; saved data has not been changed."):format(
-            schema,
-            currentSchema
-        ))
+        error(
+            (
+                "BetterBonusRolls saved data uses schema %d; this version supports %d. "
+                .. "Update the addon; saved data has not been changed."
+            ):format(schema, currentSchema)
+        )
     end
 
     -- Numeric iteration is deliberate: pairs() would not preserve order.

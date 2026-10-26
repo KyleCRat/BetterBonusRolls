@@ -19,17 +19,13 @@ local function isPlayerInCombat()
 end
 
 local function getCurrentClassSpec(specID)
-    if not NS:IsPublicPositiveInteger(specID) then
-        return nil
-    end
+    if not NS:IsPublicPositiveInteger(specID) then return nil end
 
     return NS.Catalog.specByID[specID]
 end
 
 local function hidePanel(clearTarget)
-    if not panel then
-        return
-    end
+    if not panel then return end
 
     panel:Hide()
     button:Hide()
@@ -42,9 +38,7 @@ local function hidePanel(clearTarget)
 end
 
 local function closePreview()
-    if not frame then
-        return
-    end
+    if not frame then return end
 
     frame:Hide()
     hidePanel(true)
@@ -55,30 +49,25 @@ end
 
 local function getSpecIcon(spec)
     local _, _, _, icon = GetSpecializationInfoForSpecID(spec.id)
-    if NS:IsPublicPositiveInteger(icon) then
-        return icon
-    end
-    if NS:IsPublicPositiveInteger(spec.icon) then
-        return spec.icon
-    end
+    if NS:IsPublicPositiveInteger(icon) then return icon end
+    if NS:IsPublicPositiveInteger(spec.icon) then return spec.icon end
 
     return UNKNOWN_SPEC_ICON
 end
 
 local function refreshPanel()
-    if not frame or not frame:IsShown() then
-        return
-    end
+    if not frame or not frame:IsShown() then return end
 
     local desiredSpecID = button.configuredSpecID
     local desiredLootSpecID = button.configuredLootSpecID
     local spec = getCurrentClassSpec(desiredSpecID)
     local validLootSpecID = not NS:IsSecret(desiredLootSpecID)
-        and (desiredLootSpecID == 0
-            or desiredLootSpecID == desiredSpecID)
+        and (desiredLootSpecID == 0 or desiredLootSpecID == desiredSpecID)
     local lootAnchor = frame
 
-    if not spec or not validLootSpecID
+    if
+        not spec
+        or not validLootSpecID
         or NS.Catalog:GetEffectiveLootSpecID() == desiredSpecID
     then
         hidePanel(false)
@@ -98,9 +87,7 @@ local function refreshPanel()
 end
 
 local function handleButtonClick(self)
-    if self ~= button or not frame or not frame:IsShown() then
-        return
-    end
+    if self ~= button or not frame or not frame:IsShown() then return end
 
     if isPlayerInCombat() then
         NS:Print("The loot-specialization preview cannot be used in combat.")
@@ -110,22 +97,34 @@ local function handleButtonClick(self)
     local desiredSpecID = self.configuredSpecID
     local desiredLootSpecID = self.configuredLootSpecID
     local spec = getCurrentClassSpec(desiredSpecID)
-    if not spec
+    if
+        not spec
         or NS:IsSecret(desiredLootSpecID)
-        or (desiredLootSpecID ~= 0
-            and desiredLootSpecID ~= desiredSpecID)
-        or (desiredLootSpecID ~= 0
-            and not NS:IsPublicPositiveInteger(desiredLootSpecID))
+        or (desiredLootSpecID ~= 0 and desiredLootSpecID ~= desiredSpecID)
+        or (
+            desiredLootSpecID ~= 0
+            and not NS:IsPublicPositiveInteger(desiredLootSpecID)
+        )
     then
         return
     end
 
-    NS.Development:Log("spec change requested", "origin", "preview",
-        "selection", desiredLootSpecID, "targetSpec", desiredSpecID)
+    NS.Development:Log(
+        "spec change requested",
+        "origin",
+        "preview",
+        "selection",
+        desiredLootSpecID,
+        "targetSpec",
+        desiredSpecID
+    )
     SetLootSpecialization(desiredLootSpecID)
     refreshPanel()
-    NS:Print("Loot specialization change requested for " .. spec.name
-        .. ". The preview did not use a bonus roll.")
+    NS:Print(
+        "Loot specialization change requested for "
+            .. spec.name
+            .. ". The preview did not use a bonus roll."
+    )
 end
 
 local function createPreviewFrame()
@@ -142,9 +141,7 @@ local function createPreviewFrame()
     frame:RegisterForDrag("LeftButton")
     NS.PixelPerfect.CreateSurface(frame)
     frame:SetScript("OnDragStart", function(self)
-        if not isPlayerInCombat() then
-            self:StartMoving()
-        end
+        if not isPlayerInCombat() then self:StartMoving() end
     end)
     frame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
@@ -155,47 +152,31 @@ local function createPreviewFrame()
     icon:SetPoint("LEFT", frame, "LEFT", 10, 0)
     icon:SetTexture(ADDON_ICON)
 
-    local title = frame:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontNormalLarge"
-    )
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 66, -16)
     title:SetText("Bonus Loot Preview")
 
-    local description = frame:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontHighlightSmall"
-    )
+    local description =
+        frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     description:SetText("Fake offer - no Roll or Pass action exists.")
 
-    local closeButton = CreateFrame(
-        "Button",
-        nil,
-        frame,
-        "UIPanelCloseButton"
-    )
+    local closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     closeButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 2, 2)
     closeButton:SetFrameLevel(frame:GetFrameLevel() + 20)
     closeButton:SetScript("OnClick", closePreview)
 
-    panel = NS.RollController:CreateLootSpecPanel(
-        frame,
-        frame,
-        handleButtonClick
-    )
+    panel =
+        NS.RollController:CreateLootSpecPanel(frame, frame, handleButtonClick)
     button = panel.button
     lootSidecar = NS.LootSidecar:Create(frame)
     frame:Hide()
 end
 
 local function handleLootSpecUpdate(event, unit)
-    if not NS.Development:IsEnabled() then
-        return
-    end
-    if event == "PLAYER_SPECIALIZATION_CHANGED"
+    if not NS.Development:IsEnabled() then return end
+    if
+        event == "PLAYER_SPECIALIZATION_CHANGED"
         and (NS:IsSecret(unit) or unit ~= "player")
     then
         return
@@ -209,15 +190,11 @@ function Preview:IsEnabled()
 end
 
 function Preview:Hide()
-    if frame and frame:IsShown() then
-        closePreview()
-    end
+    if frame and frame:IsShown() then closePreview() end
 end
 
 local function addLootCandidate(candidates, request, lootSpecID)
-    if not request then
-        return
-    end
+    if not request then return end
 
     candidates[#candidates + 1] = {
         request = request,
@@ -242,9 +219,7 @@ local function collectEnabledLootCandidates()
 end
 
 local function getFallbackSpecID()
-    if #NS.Catalog.specs == 0 then
-        return nil
-    end
+    if #NS.Catalog.specs == 0 then return nil end
 
     return NS.Catalog.specs[math.random(#NS.Catalog.specs)].id
 end
@@ -253,9 +228,7 @@ local function collectFallbackLootCandidates()
     local candidates = {}
     local specID = getFallbackSpecID()
 
-    if not specID then
-        return candidates
-    end
+    if not specID then return candidates end
 
     for instanceIndex = 1, #NS.Catalog.raids do
         local instance = NS.Catalog.raids[instanceIndex]
@@ -306,9 +279,7 @@ local function collectFallbackLootCandidates()
 end
 
 local function chooseLootCandidate(candidates)
-    if #candidates == 0 then
-        return nil
-    end
+    if #candidates == 0 then return nil end
 
     return candidates[math.random(#candidates)]
 end
@@ -324,9 +295,7 @@ local function getPreviewLootCandidate()
 end
 
 function Preview:Toggle()
-    if not self:IsEnabled() then
-        return false
-    end
+    if not self:IsEnabled() then return false end
 
     if frame and frame:IsShown() then
         closePreview()
@@ -344,19 +313,20 @@ function Preview:Toggle()
         return false
     end
 
-    if not frame then
-        createPreviewFrame()
-    end
+    if not frame then createPreviewFrame() end
 
     previewRequest = candidate.request
     button.configuredSpecID = candidate.request.specID
     button.configuredLootSpecID = candidate.lootSpecID
     frame:Show()
     refreshPanel()
-    NS:Print("Bonus-roll preview shown for "
-        .. candidate.request.sourceName .. " in "
-        .. NS.Catalog:GetSpecName(candidate.request.specID)
-        .. " loot specialization. This fake view cannot use or decline a bonus roll.")
+    NS:Print(
+        "Bonus-roll preview shown for "
+            .. candidate.request.sourceName
+            .. " in "
+            .. NS.Catalog:GetSpecName(candidate.request.specID)
+            .. " loot specialization. This fake view cannot use or decline a bonus roll."
+    )
     return true
 end
 

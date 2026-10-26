@@ -26,7 +26,8 @@ local ITEM_COLUMN_RIGHT_INSET = LIST_INSET
 
 for _, column in ipairs(CONTEXT_COLUMNS) do
     ITEM_COLUMN_RIGHT_INSET = ITEM_COLUMN_RIGHT_INSET
-        + column.width + CONTEXT_COLUMN_GAP
+        + column.width
+        + CONTEXT_COLUMN_GAP
 end
 
 local LIST_BOTTOM_MARGIN = 8
@@ -34,7 +35,8 @@ local ITEM_ROW_STRIPE_ALPHA = 0.035
 local UNKNOWN_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function getItemName(item)
-    if not NS:IsSecret(item.name)
+    if
+        not NS:IsSecret(item.name)
         and type(item.name) == "string"
         and item.name ~= ""
     then
@@ -45,7 +47,8 @@ local function getItemName(item)
 end
 
 local function getItemLink(item, itemName)
-    if not NS:IsSecret(item.link)
+    if
+        not NS:IsSecret(item.link)
         and type(item.link) == "string"
         and item.link ~= ""
     then
@@ -131,8 +134,7 @@ local function createItemRow(tracker, index)
         "LEFT",
         itemRow,
         "LEFT",
-        LIST_INSET
-            + ((OBTAINED_COLUMN_WIDTH - ITEM_CHECKBOX_SIZE) / 2),
+        LIST_INSET + ((OBTAINED_COLUMN_WIDTH - ITEM_CHECKBOX_SIZE) / 2),
         0
     )
     itemRow.checkbox = checkbox
@@ -160,11 +162,8 @@ local function createItemRow(tracker, index)
     icon:SetPoint("LEFT", itemButton, "LEFT", 0, 0)
     itemButton.icon = icon
 
-    local linkText = itemButton:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontHighlight"
-    )
+    local linkText =
+        itemButton:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 
     linkText:SetPoint("LEFT", icon, "RIGHT", ITEM_TEXT_GAP, 0)
     linkText:SetPoint("RIGHT", itemButton, "RIGHT", -4, 0)
@@ -193,16 +192,11 @@ local function createItemRow(tracker, index)
             return
         end
 
-        if HandleModifiedItemClick then
-            HandleModifiedItemClick(link)
-        end
+        if HandleModifiedItemClick then HandleModifiedItemClick(link) end
     end)
     itemRow.itemButton = itemButton
 
-    itemRow.contextText = createContextColumns(
-        itemRow,
-        "GameFontHighlight"
-    )
+    itemRow.contextText = createContextColumns(itemRow, "GameFontHighlight")
 
     return itemRow
 end
@@ -231,11 +225,8 @@ local function createListHeader(tracker)
     header:SetPoint("TOPLEFT", tracker.listFrame, "TOPLEFT", 0, 0)
     header:SetPoint("TOPRIGHT", tracker.listFrame, "TOPRIGHT", 0, 0)
 
-    local obtainedText = header:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontNormalSmall"
-    )
+    local obtainedText =
+        header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 
     obtainedText:SetPoint("TOPLEFT", header, "TOPLEFT", LIST_INSET, 0)
     obtainedText:SetSize(OBTAINED_COLUMN_WIDTH, LIST_HEADER_HEIGHT)
@@ -243,20 +234,14 @@ local function createListHeader(tracker)
     obtainedText:SetJustifyV("MIDDLE")
     obtainedText:SetText("Obtained")
 
-    local itemText = header:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontNormalSmall"
-    )
+    local itemText =
+        header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 
     itemText:SetPoint(
         "TOPLEFT",
         header,
         "TOPLEFT",
-        LIST_INSET
-            + OBTAINED_COLUMN_WIDTH
-            + ITEM_ICON_SIZE
-            + ITEM_TEXT_GAP,
+        LIST_INSET + OBTAINED_COLUMN_WIDTH + ITEM_ICON_SIZE + ITEM_TEXT_GAP,
         0
     )
     itemText:SetPoint(
@@ -270,10 +255,7 @@ local function createListHeader(tracker)
     itemText:SetJustifyV("MIDDLE")
     itemText:SetText("Item")
 
-    local contextText = createContextColumns(
-        header,
-        "GameFontNormalSmall"
-    )
+    local contextText = createContextColumns(header, "GameFontNormalSmall")
 
     for _, column in ipairs(CONTEXT_COLUMNS) do
         contextText[column.key]:SetText(column.label)
@@ -289,12 +271,12 @@ local function getStatusText(requestCount, loadingCount, unavailableCount)
 
     if loadingCount > 0 then
         messages[#messages + 1] = loadingCount == 1
-            and "1 enabled loot list is still loading."
+                and "1 enabled loot list is still loading."
             or loadingCount .. " enabled loot lists are still loading."
     end
     if unavailableCount > 0 then
         messages[#messages + 1] = unavailableCount == 1
-            and "1 enabled loot list is unavailable; use its source page to retry."
+                and "1 enabled loot list is unavailable; use its source page to retry."
             or unavailableCount
                 .. " enabled loot lists are unavailable; use their source pages to retry."
     end
@@ -336,8 +318,7 @@ local function updateListHeight(tracker, itemCount, hasStatus)
     local contentRows = itemCount + (hasStatus and 1 or 0)
 
     tracker.listFrame:SetHeight(
-        LIST_HEADER_HEIGHT
-        + (math.max(contentRows, 1) * ITEM_ROW_HEIGHT)
+        LIST_HEADER_HEIGHT + (math.max(contentRows, 1) * ITEM_ROW_HEIGHT)
     )
     tracker.layout:Finalize({
         contentHeight = tracker.listTop
@@ -348,9 +329,7 @@ local function updateListHeight(tracker, itemCount, hasStatus)
 end
 
 function LootTrackerSettings:Refresh()
-    if not self.page then
-        return
-    end
+    if not self.page then return end
 
     local enabled = NS.LootTracker:CollectEnabledLootRequests()
     local entries = {}
@@ -394,11 +373,7 @@ function LootTrackerSettings:Refresh()
         remaining .. " remaining / " .. #entries .. " total"
     )
 
-    local statusText = getStatusText(
-        #enabled,
-        loadingCount,
-        unavailableCount
-    )
+    local statusText = getStatusText(#enabled, loadingCount, unavailableCount)
 
     self.statusText:ClearAllPoints()
     self.statusText:SetPoint(
@@ -421,9 +396,7 @@ function LootTrackerSettings:Refresh()
 end
 
 function LootTrackerSettings:RefreshIfVisible()
-    if self.page and self.page:IsShown() then
-        self:Refresh()
-    end
+    if self.page and self.page:IsShown() then self:Refresh() end
 end
 
 function LootTrackerSettings:Build(page, measurementFrame)
@@ -457,11 +430,8 @@ function LootTrackerSettings:Build(page, measurementFrame)
     )
     createListHeader(self)
 
-    self.statusText = self.listFrame:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontDisable"
-    )
+    self.statusText =
+        self.listFrame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     self.statusText:SetHeight(ITEM_ROW_HEIGHT)
     self.statusText:SetJustifyH("LEFT")
     self.statusText:SetJustifyV("MIDDLE")
@@ -482,16 +452,19 @@ function LootTrackerSettings:Build(page, measurementFrame)
 end
 
 NS.LootTracker:RegisterChangedCallback(function(changeType, key)
-    if not LootTrackerSettings.page
+    if
+        not LootTrackerSettings.page
         or not LootTrackerSettings.page:IsShown()
     then
         return
     end
 
-    if (changeType == "pool"
-            and LootTrackerSettings.activeQueryKeys[key])
-        or (changeType == "obtained"
-            and LootTrackerSettings.activeTrackingKeys[key])
+    if
+        (changeType == "pool" and LootTrackerSettings.activeQueryKeys[key])
+        or (
+            changeType == "obtained"
+            and LootTrackerSettings.activeTrackingKeys[key]
+        )
     then
         LootTrackerSettings:Refresh()
     end

@@ -24,12 +24,8 @@ function PixelPerfect.DisablePixelSnap(texture)
 end
 
 function PixelPerfect.CreateBackground(frame, color, drawLayer, subLevel)
-    local texture = frame:CreateTexture(
-        nil,
-        drawLayer or "BACKGROUND",
-        nil,
-        subLevel
-    )
+    local texture =
+        frame:CreateTexture(nil, drawLayer or "BACKGROUND", nil, subLevel)
 
     texture:SetAllPoints(frame)
     texture:SetTexture(WHITE_TEXTURE)
@@ -58,8 +54,7 @@ local function refreshBorder(frame, border)
     local container = border.container
     local pixelSize = PixelUtil.GetPixelToUIUnitFactor()
         / container:GetEffectiveScale()
-    local edgeSize = math.max(1, math.floor(border.size + 0.5))
-        * pixelSize
+    local edgeSize = math.max(1, math.floor(border.size + 0.5)) * pixelSize
 
     container:SetFrameLevel(frame:GetFrameLevel() + 1)
     container:Show()
@@ -157,9 +152,7 @@ function PixelPerfect.RefreshAll()
 end
 
 function PixelPerfect.RequestRefresh()
-    if refreshPending then
-        return
-    end
+    if refreshPending then return end
 
     refreshPending = true
     C_Timer.After(0, function()

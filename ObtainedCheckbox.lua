@@ -16,7 +16,8 @@ local function cancelPendingUncheck(checkbox)
 end
 
 local function getItemName(item)
-    if not NS:IsSecret(item.name)
+    if
+        not NS:IsSecret(item.name)
         and type(item.name) == "string"
         and item.name ~= ""
     then
@@ -28,8 +29,12 @@ end
 
 local function getConfirmationText(request, itemName)
     return "BetterBonusRolls has confirmed that you obtained "
-        .. itemName .. " from " .. request.sourceName .. " for "
-        .. NS.Catalog:GetSpecName(request.specID) .. " loot specialization."
+        .. itemName
+        .. " from "
+        .. request.sourceName
+        .. " for "
+        .. NS.Catalog:GetSpecName(request.specID)
+        .. " loot specialization."
 end
 
 local function refreshCheckbox(checkbox)
@@ -41,11 +46,18 @@ local function refreshCheckbox(checkbox)
 
     local request = binding.request
     local obtained = NS.LootTracker:IsObtained(request, binding.itemID)
-    local confirmed = NS.LootTracker:IsConfirmedObtained(request, binding.itemID)
+    local confirmed =
+        NS.LootTracker:IsConfirmedObtained(request, binding.itemID)
     local action = obtained and "not obtained" or "obtained"
-    local text = "Mark " .. binding.itemName .. " from "
-        .. request.sourceName .. " " .. action .. " for "
-        .. NS.Catalog:GetSpecName(request.specID) .. " loot specialization."
+    local text = "Mark "
+        .. binding.itemName
+        .. " from "
+        .. request.sourceName
+        .. " "
+        .. action
+        .. " for "
+        .. NS.Catalog:GetSpecName(request.specID)
+        .. " loot specialization."
 
     if confirmed then
         local confirmation = getConfirmationText(request, binding.itemName)
@@ -57,9 +69,7 @@ local function refreshCheckbox(checkbox)
         text = confirmation .. "\n\n" .. text
     end
 
-    if not obtained or not confirmed then
-        cancelPendingUncheck(checkbox)
-    end
+    if not obtained or not confirmed then cancelPendingUncheck(checkbox) end
 
     ModernSettings:SetTooltip(checkbox, {
         title = confirmed and "Confirmed Obtained" or "Obtained",
@@ -71,9 +81,7 @@ local function refreshCheckbox(checkbox)
 end
 
 local function dismissUncheck(_, data)
-    if pendingUncheck == data then
-        pendingUncheck = nil
-    end
+    if pendingUncheck == data then pendingUncheck = nil end
 end
 
 -- This checklist dialog deliberately does not share the roll confirmation's
@@ -83,13 +91,12 @@ StaticPopupDialogs[UNCHECK_POPUP] = {
     button1 = "Mark Not Obtained",
     button2 = "Cancel",
     OnAccept = function(_, data)
-        if pendingUncheck ~= data then
-            return
-        end
+        if pendingUncheck ~= data then return end
 
         pendingUncheck = nil
         local checkbox = data.checkbox
-        if checkbox.bbrObtainedBinding ~= data.binding
+        if
+            checkbox.bbrObtainedBinding ~= data.binding
             or not checkbox:IsVisible()
         then
             return
@@ -120,7 +127,8 @@ local function onCheckboxChanged(checkbox, value)
         return
     end
 
-    if not value
+    if
+        not value
         and NS.LootTracker:IsConfirmedObtained(binding.request, binding.itemID)
     then
         -- The native checkbox has already toggled visually. Restore it without
@@ -144,7 +152,9 @@ local function onCheckboxChanged(checkbox, value)
 
         if not dialog or not dialog:IsShown() then
             dismissUncheck(nil, pending)
-            NS:Print("Unable to show the confirmation. The item remains marked obtained.")
+            NS:Print(
+                "Unable to show the confirmation. The item remains marked obtained."
+            )
         end
 
         return
@@ -170,7 +180,8 @@ end
 
 function ObtainedCheckbox:Update(checkbox, request, item)
     local binding = checkbox.bbrObtainedBinding
-    if not binding
+    if
+        not binding
         or binding.request.trackingKey ~= request.trackingKey
         or binding.itemID ~= item.itemID
     then

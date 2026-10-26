@@ -11,9 +11,7 @@ local function openSettings()
 end
 
 local function enableAddon()
-    if NS:SetEnabled(true) then
-        NS:Print("Enabled for this character.")
-    end
+    if NS:SetEnabled(true) then NS:Print("Enabled for this character.") end
 end
 
 local function disableAddon()
@@ -85,9 +83,7 @@ end
 
 local function matches(command, input)
     for index = 1, #command.triggers do
-        if input == command.triggers[index] then
-            return true
-        end
+        if input == command.triggers[index] then return true end
     end
 
     return false

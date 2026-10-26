@@ -1,6 +1,13 @@
-# Preserve upstream vendor formatting. Maintained libraries use their own policy.
+# Preserve upstream/vendor formatting.
 Libs/LibStub/**
 Libs/LibDBIcon-1.0/**
+
+# Temporary deferrals for the current maintained-library pins, not exemptions.
+# Remove each path when adopting its linted release; see AGENTS.md.
+# Avoid Libs/** so migrated libraries can use their own formatter configuration.
+Libs/LibModernSettings-1.0/**
+Libs/LibSimpleDB/**
+Libs/LibChangelog-1.0/**
 
 # Generated release artifact; preserve the library generator's output.
 Changelog/ReleaseNotes.lua

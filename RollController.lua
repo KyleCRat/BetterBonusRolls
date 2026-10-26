@@ -72,29 +72,21 @@ end
 
 local function getPublicTimestamp()
     local now = time()
-    if not isPublicNumber(now) or now <= 0 then
-        return nil
-    end
+    if not isPublicNumber(now) or now <= 0 then return nil end
     return now
 end
 
 local function sameValue(left, right)
-    if NS:IsSecret(left) or NS:IsSecret(right) then
-        return false
-    end
+    if NS:IsSecret(left) or NS:IsSecret(right) then return false end
     return left == right
 end
 
 local function snapshotsMatch(left, right)
-    if not left or not right then
-        return false
-    end
+    if not left or not right then return false end
 
     for index = 1, #SNAPSHOT_KEYS do
         local key = SNAPSHOT_KEYS[index]
-        if not sameValue(left[key], right[key]) then
-            return false
-        end
+        if not sameValue(left[key], right[key]) then return false end
     end
 
     return true
@@ -141,26 +133,39 @@ local function copyRawOffer(raw)
     }
 end
 
-local function createTooltipContext(displayItemID, itemContext, treasureContextLevel)
-    if not NS:IsPublicPositiveInteger(displayItemID)
-        or NS:IsSecret(itemContext) or NS:IsSecret(treasureContextLevel)
+local function createTooltipContext(
+    displayItemID,
+    itemContext,
+    treasureContextLevel
+)
+    if
+        not NS:IsPublicPositiveInteger(displayItemID)
+        or NS:IsSecret(itemContext)
+        or NS:IsSecret(treasureContextLevel)
     then
         return nil
     end
-    if itemContext ~= nil
-        and (type(itemContext) ~= "number" or itemContext < 0 or itemContext % 1 ~= 0)
+    if
+        itemContext ~= nil
+        and (
+            type(itemContext) ~= "number"
+            or itemContext < 0
+            or itemContext % 1 ~= 0
+        )
     then
         return nil
     end
-    if treasureContextLevel ~= nil
-        and (type(treasureContextLevel) ~= "number"
-            or treasureContextLevel < 0 or treasureContextLevel % 1 ~= 0)
+    if
+        treasureContextLevel ~= nil
+        and (
+            type(treasureContextLevel) ~= "number"
+            or treasureContextLevel < 0
+            or treasureContextLevel % 1 ~= 0
+        )
     then
         return nil
     end
-    if treasureContextLevel == 0 then
-        treasureContextLevel = nil
-    end
+    if treasureContextLevel == 0 then treasureContextLevel = nil end
 
     return {
         displayItemID = displayItemID,
@@ -170,18 +175,18 @@ local function createTooltipContext(displayItemID, itemContext, treasureContextL
 end
 
 local function tooltipContextsMatch(left, right)
-    return left and right
+    return left
+        and right
         and sameValue(left.displayItemID, right.displayItemID)
         and sameValue(left.itemContext, right.itemContext)
         and sameValue(left.treasureContextLevel, right.treasureContextLevel)
 end
 
 local function captureRawOffer()
-    if not frame then
-        return nil
-    end
+    if not frame then return nil end
     local state = frame.state
-    if NS:IsSecret(state)
+    if
+        NS:IsSecret(state)
         or state ~= "prompt"
         or not NS:IsPublicPositiveInteger(frame.spellID)
         or not NS:IsPublicPositiveInteger(frame.difficultyID)
@@ -192,13 +197,15 @@ local function captureRawOffer()
     if NS:IsSecret(frame.instanceID) or NS:IsSecret(frame.encounterID) then
         return nil
     end
-    if frame.instanceID ~= nil
+    if
+        frame.instanceID ~= nil
         and frame.instanceID ~= 0
         and not NS:IsPublicPositiveInteger(frame.instanceID)
     then
         return nil
     end
-    if frame.encounterID ~= nil
+    if
+        frame.encounterID ~= nil
         and frame.encounterID ~= 0
         and not NS:IsPublicPositiveInteger(frame.encounterID)
     then
@@ -217,7 +224,8 @@ end
 local function capturePreyQuest(raw)
     -- Prey currently uses a raid difficulty, but has no Journal source. An
     -- active hunt must not override a real boss, dungeon, or Delve offer.
-    if NS:IsPublicPositiveInteger(raw.instanceID)
+    if
+        NS:IsPublicPositiveInteger(raw.instanceID)
         or NS:IsPublicPositiveInteger(raw.encounterID)
         or NS.Catalog:IsDungeonDifficulty(raw.difficultyID)
         or raw.difficultyID == NS.Catalog.Difficulty.DELVE
@@ -226,45 +234,31 @@ local function capturePreyQuest(raw)
     end
 
     local _, instanceType = GetInstanceInfo()
-    if NS:IsSecret(instanceType) or instanceType ~= "none" then
-        return nil
-    end
+    if NS:IsSecret(instanceType) or instanceType ~= "none" then return nil end
 
     local questID = C_QuestLog.GetActivePreyQuest()
-    if NS:IsPublicPositiveInteger(questID) then
-        return questID
-    end
+    if NS:IsPublicPositiveInteger(questID) then return questID end
 
     return nil
 end
 
 local function isRawOfferActive(raw)
-    if not raw or not frame then
-        return false
-    end
+    if not raw or not frame then return false end
     local state = frame.state
-    if NS:IsSecret(state) or state ~= "prompt" then
-        return false
-    end
-    if not rawOffersMatch(raw, captureRawOffer()) then
-        return false
-    end
+    if NS:IsSecret(state) or state ~= "prompt" then return false end
+    if not rawOffersMatch(raw, captureRawOffer()) then return false end
     if currentOffer and currentOffer.raw == raw and currentOffer.expired then
         return false
     end
 
     local now = getPublicTimestamp()
-    if not now then
-        return false
-    end
+    if not now then return false end
 
     return now < raw.endTime
 end
 
 local function getCurrentClassSpec(specID)
-    if not NS:IsPublicPositiveInteger(specID) then
-        return nil
-    end
+    if not NS:IsPublicPositiveInteger(specID) then return nil end
     return NS.Catalog.specByID[specID]
 end
 
@@ -298,24 +292,30 @@ local function getDelveWidgetTier()
     -- Discover the current header instead of pinning a Delve/widget ID or
     -- inferring the tier from a reward cache's item level or context.
     local widgetSetID = select(12, C_Scenario.GetStepInfo())
-    if not NS:IsPublicPositiveInteger(widgetSetID) then
-        return nil
-    end
+    if not NS:IsPublicPositiveInteger(widgetSetID) then return nil end
 
     local widgets = C_UIWidgetManager.GetAllWidgetsBySetID(widgetSetID)
-    if NS:IsSecret(widgets) or type(widgets) ~= "table" then
-        return nil
-    end
+    if NS:IsSecret(widgets) or type(widgets) ~= "table" then return nil end
 
     local tier
     local headerWidgetID
     for _, widget in ipairs(widgets) do
-        if not NS:IsSecret(widget) and type(widget) == "table"
+        if
+            not NS:IsSecret(widget)
+            and type(widget) == "table"
             and NS:IsPublicPositiveInteger(widget.widgetID)
-            and sameValue(widget.widgetType, Enum.UIWidgetVisualizationType.ScenarioHeaderDelves)
+            and sameValue(
+                widget.widgetType,
+                Enum.UIWidgetVisualizationType.ScenarioHeaderDelves
+            )
         then
-            local info = C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo(widget.widgetID)
-            if not NS:IsSecret(info) and type(info) == "table"
+            local info =
+                C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo(
+                    widget.widgetID
+                )
+            if
+                not NS:IsSecret(info)
+                and type(info) == "table"
                 and sameValue(info.shownState, Enum.WidgetShownState.Shown)
             then
                 local text = info.tierText
@@ -326,7 +326,10 @@ local function getDelveWidgetTier()
                 -- label is evidence; do not extract digits from arbitrary text.
                 local digits = text:match("^%s*(%d+)%s*$")
                 local value = digits and tonumber(digits)
-                if not NS:IsPublicPositiveInteger(value) or (tier and tier ~= value) then
+                if
+                    not NS:IsPublicPositiveInteger(value)
+                    or (tier and tier ~= value)
+                then
                     return nil
                 end
                 tier = value
@@ -340,7 +343,10 @@ end
 
 local function getActiveDelveTier()
     local ok, tierInfo = pcall(C_DelvesUI.GetActiveDelveTier)
-    if ok and not NS:IsSecret(tierInfo) and type(tierInfo) == "table"
+    if
+        ok
+        and not NS:IsSecret(tierInfo)
+        and type(tierInfo) == "table"
         and NS:IsPublicPositiveInteger(tierInfo.tier)
     then
         return tierInfo.tier, "active Delve API"
@@ -352,18 +358,16 @@ local function getActiveDelveTier()
 end
 
 local function rememberActiveDelveTier(reason)
-    if delveWorldTransition then
-        return nil
-    end
+    if delveWorldTransition then return nil end
 
-    local _, instanceType, difficultyID, _, _, _, _, gameMapID = GetInstanceInfo()
-    if not sameValue(instanceType, "scenario")
+    local _, instanceType, difficultyID, _, _, _, _, gameMapID =
+        GetInstanceInfo()
+    if
+        not sameValue(instanceType, "scenario")
         or not sameValue(difficultyID, NS.Catalog.Difficulty.DELVE)
         or not NS:IsPublicPositiveInteger(gameMapID)
     then
-        if delveState.gameMapID then
-            delveState = {}
-        end
+        if delveState.gameMapID then delveState = {} end
         return nil
     end
     if delveState.gameMapID ~= gameMapID then
@@ -373,9 +377,21 @@ local function rememberActiveDelveTier(reason)
     local tier, source, widgetSetID, widgetID = getActiveDelveTier()
     if tier then
         if tier ~= delveState.activeTier or source ~= delveState.source then
-            NS.Development:Log("delve tier captured", "tier", tier, "source", source,
-                "reason", reason, "gameMapID", gameMapID,
-                "widgetSetID", widgetSetID, "widgetID", widgetID)
+            NS.Development:Log(
+                "delve tier captured",
+                "tier",
+                tier,
+                "source",
+                source,
+                "reason",
+                reason,
+                "gameMapID",
+                gameMapID,
+                "widgetSetID",
+                widgetSetID,
+                "widgetID",
+                widgetID
+            )
         end
         delveState.activeTier = tier
         delveState.source = source
@@ -387,8 +403,13 @@ local function rememberActiveDelveTier(reason)
 end
 
 local function handleDelveWidgetUpdate(event, widget)
-    if not NS:IsSecret(widget) and type(widget) == "table"
-        and sameValue(widget.widgetType, Enum.UIWidgetVisualizationType.ScenarioHeaderDelves)
+    if
+        not NS:IsSecret(widget)
+        and type(widget) == "table"
+        and sameValue(
+            widget.widgetType,
+            Enum.UIWidgetVisualizationType.ScenarioHeaderDelves
+        )
     then
         rememberActiveDelveTier(event)
     end
@@ -396,13 +417,12 @@ end
 
 local function getCompletionChallenge()
     local info = C_ChallengeMode.GetChallengeCompletionInfo()
-    if NS:IsSecret(info) or type(info) ~= "table" then
-        return nil
-    end
+    if NS:IsSecret(info) or type(info) ~= "table" then return nil end
 
     local mapID = info.mapChallengeModeID
     local level = info.level
-    if NS:IsPublicPositiveInteger(mapID)
+    if
+        NS:IsPublicPositiveInteger(mapID)
         and NS:IsPublicPositiveInteger(level)
     then
         return {
@@ -418,16 +438,10 @@ local function getActiveChallenge()
     local mapID = C_ChallengeMode.GetActiveChallengeMapID()
     local level = C_ChallengeMode.GetActiveKeystoneInfo()
 
-    if not NS:IsPublicPositiveInteger(mapID) then
-        mapID = nil
-    end
-    if not NS:IsPublicPositiveInteger(level) then
-        level = nil
-    end
+    if not NS:IsPublicPositiveInteger(mapID) then mapID = nil end
+    if not NS:IsPublicPositiveInteger(level) then level = nil end
 
-    if not mapID and not level then
-        return nil
-    end
+    if not mapID and not level then return nil end
 
     return {
         mapID = mapID,
@@ -441,14 +455,17 @@ end
 
 local function isPublicOptionalNonNegativeInteger(value)
     return value == nil
-        or (not NS:IsSecret(value)
+        or (
+            not NS:IsSecret(value)
             and type(value) == "number"
             and value >= 0
-            and value % 1 == 0)
+            and value % 1 == 0
+        )
 end
 
 local function isChallengeRunValid(run)
-    if NS:IsSecret(run)
+    if
+        NS:IsSecret(run)
         or type(run) ~= "table"
         or not NS:IsPublicPositiveInteger(run.mapID)
         or not isPublicOptionalPositiveInteger(run.level)
@@ -460,14 +477,10 @@ local function isChallengeRunValid(run)
         return false
     end
 
-    if not run.level and (run.completedAt or run.offer) then
-        return false
-    end
+    if not run.level and (run.completedAt or run.offer) then return false end
 
     local offer = run.offer
-    if offer == nil then
-        return true
-    end
+    if offer == nil then return true end
 
     return not NS:IsSecret(offer)
         and type(offer) == "table"
@@ -488,9 +501,7 @@ local function cancelChallengeRetry()
     local timer = challengeRetryTimer
 
     challengeRetryTimer = nil
-    if timer then
-        timer:Cancel()
-    end
+    if timer then timer:Cancel() end
 end
 
 local function beginChallengeRetrySeries()
@@ -500,18 +511,14 @@ local function beginChallengeRetrySeries()
 end
 
 local function isChallengeTimestampFresh(timestamp)
-    if not NS:IsPublicPositiveInteger(timestamp) then
-        return false
-    end
+    if not NS:IsPublicPositiveInteger(timestamp) then return false end
 
     local now = getPublicTimestamp()
     return now and now <= timestamp + CHALLENGE_RUN_MAX_AGE
 end
 
 local function expireStaleUnboundChallengeRun()
-    if not challengeRun or challengeRun.offer then
-        return
-    end
+    if not challengeRun or challengeRun.offer then return end
 
     local timestamp = challengeRun.completedAt or challengeRun.startedAt
     if not isChallengeTimestampFresh(timestamp) then
@@ -527,10 +534,10 @@ local function restoreChallengeRun()
     end
 
     local now = getPublicTimestamp()
-    if restored.offer
+    if
+        restored.offer
         and now
-        and now > restored.offer.endTime
-            + PERSISTED_OFFER_EXPIRY_GRACE
+        and now > restored.offer.endTime + PERSISTED_OFFER_EXPIRY_GRACE
     then
         persistChallengeRun(nil)
         return
@@ -541,7 +548,8 @@ local function restoreChallengeRun()
 end
 
 local function buildChallengeRun(mapID, level, startedAt)
-    if not NS:IsPublicPositiveInteger(mapID)
+    if
+        not NS:IsPublicPositiveInteger(mapID)
         or not isPublicOptionalPositiveInteger(level)
         or not NS:IsPublicPositiveInteger(startedAt)
     then
@@ -559,7 +567,8 @@ local function buildChallengeRun(mapID, level, startedAt)
 end
 
 local function buildActiveChallengeRun(active, preserveExisting)
-    if not active
+    if
+        not active
         or not NS:IsPublicPositiveInteger(active.mapID)
         or not NS:IsPublicPositiveInteger(active.level)
     then
@@ -572,20 +581,14 @@ local function buildActiveChallengeRun(active, preserveExisting)
         and isChallengeRunValid(previous)
         and previous.mapID == active.mapID
         and (not previous.level or previous.level == active.level)
-    if sameRun then
-        startedAt = previous.startedAt
-    end
+    if sameRun then startedAt = previous.startedAt end
 
     local run = buildChallengeRun(active.mapID, active.level, startedAt)
-    if not run then
-        return nil
-    end
+    if not run then return nil end
 
     if sameRun and previous.level == active.level then
         run.completedAt = previous.completedAt
-        if previous.offer then
-            run.offer = copyRawOffer(previous.offer)
-        end
+        if previous.offer then run.offer = copyRawOffer(previous.offer) end
     end
 
     return run
@@ -593,32 +596,34 @@ end
 
 local function reconcileActiveChallenge()
     local run = buildActiveChallengeRun(getActiveChallenge(), true)
-    if run then
-        persistChallengeRun(run)
-    end
+    if run then persistChallengeRun(run) end
 end
 
 local function challengeRunMatchesSource(run, raw)
-    if not isChallengeRunValid(run)
+    if
+        not isChallengeRunValid(run)
         or not NS:IsPublicPositiveInteger(run.level)
     then
         return false
     end
 
     local dungeon = NS.Catalog.dungeonByMap[run.mapID]
-    if not dungeon
+    if
+        not dungeon
         or not NS:IsPublicPositiveInteger(raw.instanceID)
         or not NS:IsPublicPositiveInteger(dungeon.journalInstanceID)
         or raw.instanceID ~= dungeon.journalInstanceID
     then
         return false
     end
-    if run.journalInstanceID
+    if
+        run.journalInstanceID
         and run.journalInstanceID ~= dungeon.journalInstanceID
     then
         return false
     end
-    if run.gameMapID
+    if
+        run.gameMapID
         and dungeon.gameMapID
         and run.gameMapID ~= dungeon.gameMapID
     then
@@ -632,18 +637,10 @@ local function challengeRunMatchesSource(run, raw)
 end
 
 local function bindChallengeRunToOffer(run, raw)
-    if run.offer and rawOffersMatch(run.offer, raw) then
-        return run
-    end
+    if run.offer and rawOffersMatch(run.offer, raw) then return run end
 
-    local bound = buildChallengeRun(
-        run.mapID,
-        run.level,
-        run.startedAt
-    )
-    if not bound then
-        return nil
-    end
+    local bound = buildChallengeRun(run.mapID, run.level, run.startedAt)
+    if not bound then return nil end
     bound.completedAt = run.completedAt
     bound.offer = copyRawOffer(raw)
     persistChallengeRun(bound)
@@ -651,7 +648,8 @@ local function bindChallengeRunToOffer(run, raw)
 end
 
 local function clearChallengeRunForOffer(raw)
-    if challengeRun
+    if
+        challengeRun
         and challengeRun.offer
         and persistedOffersMatch(challengeRun.offer, raw)
     then
@@ -660,7 +658,8 @@ local function clearChallengeRunForOffer(raw)
 end
 
 local function getChallengeForOffer(raw)
-    if challengeRun
+    if
+        challengeRun
         and challengeRun.offer
         and challengeRunMatchesSource(challengeRun, raw)
     then
@@ -670,7 +669,8 @@ local function getChallengeForOffer(raw)
     local activeChallenge = getActiveChallenge()
     local mapID = activeChallenge and activeChallenge.mapID
     local level = activeChallenge and activeChallenge.level
-    if NS:IsPublicPositiveInteger(mapID)
+    if
+        NS:IsPublicPositiveInteger(mapID)
         and NS:IsPublicPositiveInteger(level)
     then
         local activeRun = buildActiveChallengeRun(activeChallenge, false)
@@ -683,45 +683,32 @@ local function getChallengeForOffer(raw)
     end
 
     expireStaleUnboundChallengeRun()
-    if challengeRun
+    if
+        challengeRun
         and isChallengeTimestampFresh(challengeRun.completedAt)
         and challengeRunMatchesSource(challengeRun, raw)
     then
         local bound = bindChallengeRunToOffer(challengeRun, raw)
-        if bound then
-            return bound
-        end
+        if bound then return bound end
     end
 
     return nil
 end
 
 local function getDungeonRule(mapID)
-    if not NS:IsPublicPositiveInteger(mapID) then
-        return nil
-    end
+    if not NS:IsPublicPositiveInteger(mapID) then return nil end
 
     local dungeon = NS.Catalog.dungeonByMap[mapID]
-    if not dungeon then
-        return nil
-    end
+    if not dungeon then return nil end
 
-    local specSelection = NS.DB:Get(
-        "dungeonRules",
-        mapID,
-        "specializationID"
-    )
-    local resolvedSpec = resolveLootSpecSelection(
-        specSelection
-    )
-    local minimumDifficulty = NS.DB:Get(
-        "dungeonRules",
-        mapID,
-        "minimumDifficulty"
-    )
+    local specSelection = NS.DB:Get("dungeonRules", mapID, "specializationID")
+    local resolvedSpec = resolveLootSpecSelection(specSelection)
+    local minimumDifficulty =
+        NS.DB:Get("dungeonRules", mapID, "minimumDifficulty")
     local limits = NS.RuleLimits.dungeonMinimumDifficulty
 
-    if not resolvedSpec
+    if
+        not resolvedSpec
         or not NS:IsPublicPositiveInteger(minimumDifficulty)
         or minimumDifficulty < limits.minimum
         or minimumDifficulty > limits.maximum
@@ -750,7 +737,8 @@ end
 
 local function findStandardDungeon(raw)
     local matches = NS:IsPublicPositiveInteger(raw.instanceID)
-        and NS.Catalog.dungeonByInstance[raw.instanceID] or nil
+            and NS.Catalog.dungeonByInstance[raw.instanceID]
+        or nil
     if not matches or #matches == 0 then
         return {
             ambiguous = false,
@@ -788,8 +776,7 @@ local function findStandardDungeon(raw)
 end
 
 local function resolveDungeonOffer(raw)
-    local isMythicPlus = raw.difficultyID
-        == NS.Catalog.Difficulty.MYTHIC_PLUS
+    local isMythicPlus = raw.difficultyID == NS.Catalog.Difficulty.MYTHIC_PLUS
     local mapID
     local level
     local dungeon
@@ -803,7 +790,8 @@ local function resolveDungeonOffer(raw)
         level = challenge and challenge.level
         dungeon = mapID and NS.Catalog.dungeonByMap[mapID]
 
-        if dungeon
+        if
+            dungeon
             and NS:IsPublicPositiveInteger(raw.instanceID)
             and NS:IsPublicPositiveInteger(dungeon.journalInstanceID)
             and raw.instanceID ~= dungeon.journalInstanceID
@@ -818,7 +806,8 @@ local function resolveDungeonOffer(raw)
             -- The offer's journal instance is safe only when it identifies
             -- exactly one current-season dungeon row.
             local matches = NS:IsPublicPositiveInteger(raw.instanceID)
-                and NS.Catalog.dungeonByInstance[raw.instanceID] or nil
+                    and NS.Catalog.dungeonByInstance[raw.instanceID]
+                or nil
             if matches and #matches == 1 then
                 dungeon = matches[1]
                 mapID = dungeon.id
@@ -845,13 +834,12 @@ local function resolveDungeonOffer(raw)
     else
         difficultyName = NS.Catalog:GetDifficultyName(raw.difficultyID)
     end
-    local sourceName = difficultyName .. " "
+    local sourceName = difficultyName
+        .. " "
         .. (dungeon and dungeon.name or "current-season dungeon")
 
-    local completionRank = NS.Catalog:GetDungeonCompletionRank(
-        raw.difficultyID,
-        level
-    )
+    local completionRank =
+        NS.Catalog:GetDungeonCompletionRank(raw.difficultyID, level)
     local base = {
         kind = "dungeon",
         sourceName = sourceName,
@@ -864,7 +852,8 @@ local function resolveDungeonOffer(raw)
     if ambiguous then
         base.configured = false
         base.allowed = false
-        base.reason = "multiple seasonal dungeon rows share this instance, so the exact dungeon could not be verified"
+        base.reason =
+            "multiple seasonal dungeon rows share this instance, so the exact dungeon could not be verified"
         return base
     end
     if not dungeon then
@@ -888,19 +877,21 @@ local function resolveDungeonOffer(raw)
     if not completionRank then
         base.allowed = false
         base.reason = isMythicPlus
-            and "the completed key level could not be verified"
+                and "the completed key level could not be verified"
             or "the dungeon difficulty could not be verified"
         return base
     end
 
     if completionRank < rule.minimumDifficulty then
         local actual = NS.Catalog:GetDungeonThresholdLabel(completionRank)
-        local minimum = NS.Catalog:GetDungeonThresholdLabel(
-            rule.minimumDifficulty
-        )
+        local minimum =
+            NS.Catalog:GetDungeonThresholdLabel(rule.minimumDifficulty)
         base.allowed = false
-        base.reason = "the " .. actual .. " completion is below your "
-            .. minimum .. " minimum"
+        base.reason = "the "
+            .. actual
+            .. " completion is below your "
+            .. minimum
+            .. " minimum"
         return base
     end
 
@@ -909,30 +900,19 @@ local function resolveDungeonOffer(raw)
 end
 
 local function getContentRule(ruleKey, hasTier)
-    local specSelection = NS.DB:Get(
-        "contentRules",
-        ruleKey,
-        "specializationID"
-    )
-    local resolvedSpec = resolveLootSpecSelection(
-        specSelection
-    )
-    if not resolvedSpec then
-        return nil
-    end
+    local specSelection = NS.DB:Get("contentRules", ruleKey, "specializationID")
+    local resolvedSpec = resolveLootSpecSelection(specSelection)
+    if not resolvedSpec then return nil end
 
     local rule = {
         desiredSpecID = resolvedSpec.desiredSpecID,
         desiredLootSpecID = resolvedSpec.desiredLootSpecID,
     }
     if hasTier then
-        local minimumTier = NS.DB:Get(
-            "contentRules",
-            ruleKey,
-            "minimumTier"
-        )
+        local minimumTier = NS.DB:Get("contentRules", ruleKey, "minimumTier")
         local limits = NS.RuleLimits.delveMinimumTier
-        if not NS:IsPublicPositiveInteger(minimumTier)
+        if
+            not NS:IsPublicPositiveInteger(minimumTier)
             or minimumTier < limits.minimum
             or minimumTier > limits.maximum
         then
@@ -974,8 +954,11 @@ local function resolveDelveOffer()
     end
     if tier < rule.minimumTier then
         result.allowed = false
-        result.reason = "Tier " .. tier .. " is below your Tier "
-            .. rule.minimumTier .. " minimum"
+        result.reason = "Tier "
+            .. tier
+            .. " is below your Tier "
+            .. rule.minimumTier
+            .. " minimum"
         return result
     end
 
@@ -993,12 +976,14 @@ local function resolveWorldBossOffer(raw)
             sourceName = boss.name,
         }
 
-        if NS:IsPublicPositiveInteger(raw.instanceID)
+        if
+            NS:IsPublicPositiveInteger(raw.instanceID)
             and raw.instanceID ~= boss.instanceID
         then
             result.configured = false
             result.allowed = false
-            result.reason = "the world-boss encounter did not match its current-season instance"
+            result.reason =
+                "the world-boss encounter did not match its current-season instance"
             return result
         end
 
@@ -1008,13 +993,13 @@ local function resolveWorldBossOffer(raw)
             boss.id,
             "specializationID"
         )
-        local resolvedSpec = resolveLootSpecSelection(
-            specSelection
-        )
+        local resolvedSpec = resolveLootSpecSelection(specSelection)
         if not resolvedSpec then
             result.configured = false
             result.allowed = false
-            result.reason = "the " .. boss.name .. " bonus-roll rule is disabled"
+            result.reason = "the "
+                .. boss.name
+                .. " bonus-roll rule is disabled"
             return result
         end
 
@@ -1063,8 +1048,7 @@ local function resolveRaidOffer(raw)
     local encounter = instance
         and raw.encounterID
         and instance.encounterByID[raw.encounterID]
-    local difficulty = instance
-        and instance.difficultyByID[difficultyID]
+    local difficulty = instance and instance.difficultyByID[difficultyID]
     local difficultyName = NS.Catalog:GetDifficultyName(difficultyID)
     local encounterName = encounter and encounter.name or "unknown encounter"
     local sourceName = difficultyName .. " " .. encounterName
@@ -1079,15 +1063,9 @@ local function resolveRaidOffer(raw)
         }
     end
 
-    local specSelection = NS.DB:Get(
-        "raidRules",
-        instance.id,
-        encounter.id,
-        difficultyID
-    )
-    local resolvedSpec = resolveLootSpecSelection(
-        specSelection
-    )
+    local specSelection =
+        NS.DB:Get("raidRules", instance.id, encounter.id, difficultyID)
+    local resolvedSpec = resolveLootSpecSelection(specSelection)
     if not resolvedSpec then
         return {
             kind = "raid",
@@ -1109,9 +1087,7 @@ local function resolveRaidOffer(raw)
 end
 
 local function resolveOffer(raw)
-    if not raw then
-        return nil
-    end
+    if not raw then return nil end
 
     local result
     if currentOffer and currentOffer.preyQuestID then
@@ -1132,19 +1108,16 @@ local function resolveOffer(raw)
     result.instanceID = raw.instanceID
     result.encounterID = raw.encounterID
     result.preyQuestID = currentOffer and currentOffer.preyQuestID or nil
-    result.difficultyID = NS.Catalog:CanonicalDifficultyID(
-        raw.difficultyID
-    )
+    result.difficultyID = NS.Catalog:CanonicalDifficultyID(raw.difficultyID)
     result.currentSpecID = NS.Catalog:GetEffectiveLootSpecID()
 
     return result
 end
 
 local function hideConfirmation()
-    if StaticPopup_IsCustomGenericConfirmationShown
-        and StaticPopup_IsCustomGenericConfirmationShown(
-            confirmationReference
-        )
+    if
+        StaticPopup_IsCustomGenericConfirmationShown
+        and StaticPopup_IsCustomGenericConfirmationShown(confirmationReference)
     then
         StaticPopup_Hide("GENERIC_CONFIRMATION")
     end
@@ -1161,9 +1134,7 @@ local function disarm(hidePopup, reenableButton)
     local wasArmed = armedToken ~= nil
     armedToken = nil
 
-    if wasArmed and hidePopup then
-        hideConfirmation()
-    end
+    if wasArmed and hidePopup then hideConfirmation() end
 
     if reenableButton and rollButton and canEnableRollButton() then
         rollButton:Enable()
@@ -1173,9 +1144,7 @@ end
 local function refreshSwitchPanel(resolved)
     NS.LootSidecar:Hide()
 
-    if not switchPanel then
-        return
-    end
+    if not switchPanel then return end
 
     switchPanel:Hide()
     switchButton:Hide()
@@ -1183,7 +1152,8 @@ local function refreshSwitchPanel(resolved)
     switchButton.configuredLootSpecID = nil
     switchButton.specIcon:SetTexture(nil)
 
-    if not runtimeEnabled
+    if
+        not runtimeEnabled
         or not currentOffer
         or not isRawOfferActive(currentOffer.raw)
         or not frame:IsShown()
@@ -1192,9 +1162,7 @@ local function refreshSwitchPanel(resolved)
     end
 
     resolved = resolved or resolveOffer(currentOffer.raw)
-    if not resolved or not resolved.desiredSpecID then
-        return
-    end
+    if not resolved or not resolved.desiredSpecID then return end
 
     local lootAnchor = frame
     if resolved.currentSpecID ~= resolved.desiredSpecID then
@@ -1202,8 +1170,8 @@ local function refreshSwitchPanel(resolved)
         if spec then
             switchButton.configuredSpecID = spec.id
             switchButton.configuredLootSpecID = resolved.desiredLootSpecID
-            local icon = NS:IsPublicPositiveInteger(spec.icon)
-                and spec.icon or UNKNOWN_SPEC_ICON
+            local icon = NS:IsPublicPositiveInteger(spec.icon) and spec.icon
+                or UNKNOWN_SPEC_ICON
             switchButton.specIcon:SetTexture(icon)
             switchButton:Show()
             switchPanel:Show()
@@ -1238,8 +1206,11 @@ local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
     end
 
     NS:Print(
-        "Bonus roll hidden for " .. sourceName .. ": " .. reason
-        .. ". Use /bbr show to view it again while the offer is active."
+        "Bonus roll hidden for "
+            .. sourceName
+            .. ": "
+            .. reason
+            .. ". Use /bbr show to view it again while the offer is active."
     )
     return true
 end
@@ -1253,13 +1224,17 @@ end
 local function buildConfirmationText(snapshot)
     local currentName = NS.Catalog:GetSpecName(snapshot.currentSpecID)
 
-    if snapshot.configured
+    if
+        snapshot.configured
         and snapshot.allowed
         and snapshot.currentSpecID == snapshot.desiredSpecID
     then
         return {
-            text = "Use a bonus roll on " .. snapshot.sourceName .. " in "
-                .. currentName .. " loot specialization?",
+            text = "Use a bonus roll on "
+                .. snapshot.sourceName
+                .. " in "
+                .. currentName
+                .. " loot specialization?",
             acceptText = "Use Bonus Roll",
             showAlert = false,
         }
@@ -1268,23 +1243,26 @@ local function buildConfirmationText(snapshot)
     local lines = {}
     if not snapshot.allowed then
         lines[#lines + 1] = "This offer does not match your configured rules: "
-            .. snapshot.reason .. "."
+            .. snapshot.reason
+            .. "."
     end
-    if snapshot.desiredSpecID
+    if
+        snapshot.desiredSpecID
         and snapshot.currentSpecID ~= snapshot.desiredSpecID
     then
         lines[#lines + 1] = "Configured loot specialization: "
             .. NS.Catalog:GetSpecName(snapshot.desiredSpecID)
-        lines[#lines + 1] = "Current loot specialization: "
-            .. currentName
-        lines[#lines + 1] = "Changing loot specialization now will change which specialization this roll uses."
+        lines[#lines + 1] = "Current loot specialization: " .. currentName
+        lines[#lines + 1] =
+            "Changing loot specialization now will change which specialization this roll uses."
     else
         lines[#lines + 1] = "Current loot specialization: " .. currentName
     end
 
     lines[#lines + 1] = ""
     lines[#lines + 1] = "Are you sure you wish to use a bonus roll on "
-        .. snapshot.sourceName .. " anyway?"
+        .. snapshot.sourceName
+        .. " anyway?"
 
     return {
         text = table.concat(lines, "\n"),
@@ -1302,8 +1280,11 @@ end
 
 local function observeCurrentLoot(snapshot)
     NS.Development:LogSnapshot(snapshot)
-    if not runtimeEnabled or not snapshot
-        or not currentOffer or currentOffer.rollState
+    if
+        not runtimeEnabled
+        or not snapshot
+        or not currentOffer
+        or currentOffer.rollState
     then
         NS.LootReconciliation:Cancel()
         return
@@ -1324,17 +1305,18 @@ local function observeCurrentLoot(snapshot)
 end
 
 local function confirmArmedToken(token)
-    if armedToken ~= token then
-        return
-    end
+    if armedToken ~= token then return end
 
     local snapshot = currentSnapshot()
-    if not runtimeEnabled
+    if
+        not runtimeEnabled
         or not ensureScriptsOwned()
         or not snapshotsMatch(token.snapshot, snapshot)
     then
         disarm(false, true)
-        NS:Print("The bonus-roll state changed. Click Blizzard's Roll button again to review a fresh confirmation.")
+        NS:Print(
+            "The bonus-roll state changed. Click Blizzard's Roll button again to review a fresh confirmation."
+        )
         return
     end
 
@@ -1344,9 +1326,7 @@ local function confirmArmedToken(token)
     local down = token.down
 
     armedToken = nil
-    if not callback or not button then
-        return
-    end
+    if not callback or not button then return end
 
     resultCandidate = {
         snapshot = copySnapshot(snapshot),
@@ -1358,13 +1338,12 @@ local function confirmArmedToken(token)
 end
 
 local function cancelArmedToken(token)
-    if armedToken == token then
-        disarm(false, true)
-    end
+    if armedToken == token then disarm(false, true) end
 end
 
 local function handleRollButtonClick(self, mouseButton, down)
-    if self ~= rollButton
+    if
+        self ~= rollButton
         or not runtimeEnabled
         or not bonusRollActivated
         or armedToken
@@ -1374,9 +1353,7 @@ local function handleRollButtonClick(self, mouseButton, down)
     end
 
     local snapshot = currentSnapshot()
-    if not snapshot then
-        return
-    end
+    if not snapshot then return end
 
     local token = {
         snapshot = snapshot,
@@ -1389,7 +1366,9 @@ local function handleRollButtonClick(self, mouseButton, down)
     local confirmation = buildConfirmationText(snapshot)
     if not StaticPopup_ShowCustomGenericConfirmation then
         disarm(false, true)
-        NS:Print("Unable to open the bonus-roll confirmation; no roll was used.")
+        NS:Print(
+            "Unable to open the bonus-roll confirmation; no roll was used."
+        )
         return
     end
 
@@ -1407,20 +1386,21 @@ local function handleRollButtonClick(self, mouseButton, down)
         referenceKey = confirmationReference,
     })
 
-    if StaticPopup_IsCustomGenericConfirmationShown
+    if
+        StaticPopup_IsCustomGenericConfirmationShown
         and not StaticPopup_IsCustomGenericConfirmationShown(
             confirmationReference
         )
     then
         disarm(false, true)
-        NS:Print("Unable to open the bonus-roll confirmation; no roll was used.")
+        NS:Print(
+            "Unable to open the bonus-roll confirmation; no roll was used."
+        )
     end
 end
 
 local function handlePassButtonClick(self)
-    if self ~= passButton or not runtimeEnabled then
-        return
-    end
+    if self ~= passButton or not runtimeEnabled then return end
 
     local resolved = currentSnapshot()
     hideCurrentOffer("you clicked No", resolved)
@@ -1435,16 +1415,15 @@ passButtonOnClick = function(self)
 end
 
 local function handleSwitchButtonClick(self)
-    if self ~= switchButton or not runtimeEnabled then
-        return
-    end
+    if self ~= switchButton or not runtimeEnabled then return end
 
     disarm(true, true)
     local snapshot = currentSnapshot()
     local desiredSpecID = snapshot and snapshot.desiredSpecID
     local desiredLootSpecID = snapshot and snapshot.desiredLootSpecID
     local spec = getCurrentClassSpec(desiredSpecID)
-    if not spec
+    if
+        not spec
         or self.configuredSpecID ~= desiredSpecID
         or self.configuredLootSpecID ~= desiredLootSpecID
         or snapshot.currentSpecID == desiredSpecID
@@ -1453,9 +1432,17 @@ local function handleSwitchButtonClick(self)
         return
     end
 
-    NS.Development:Log("spec change requested", "origin", "sidecar",
-        "selection", desiredLootSpecID, "targetSpec", desiredSpecID,
-        "previousSpec", snapshot.currentSpecID)
+    NS.Development:Log(
+        "spec change requested",
+        "origin",
+        "sidecar",
+        "selection",
+        desiredLootSpecID,
+        "targetSpec",
+        desiredSpecID,
+        "previousSpec",
+        snapshot.currentSpecID
+    )
     SetLootSpecialization(desiredLootSpecID)
     refreshSwitchPanel(currentSnapshot())
 end
@@ -1474,21 +1461,13 @@ local function createLootSpecPanel(parent, anchor, clickHandler)
     panel:SetFrameLevel(parent:GetFrameLevel() + 10)
     NS.PixelPerfect.CreateSurface(panel)
 
-    local title = panel:CreateFontString(
-        nil,
-        "OVERLAY",
-        "GameFontNormalSmall"
-    )
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     title:SetPoint("TOP", panel, "TOP", 0, -8)
     title:SetJustifyH("CENTER")
     title:SetText("Change\nLoot Spec")
     panel.title = title
 
-    local button = CreateFrame(
-        "Button",
-        nil,
-        panel
-    )
+    local button = CreateFrame("Button", nil, panel)
     button:SetSize(LOOT_SPEC_BUTTON_SIZE, LOOT_SPEC_BUTTON_SIZE)
     button:SetPoint("BOTTOM", panel, "BOTTOM", 0, 7)
 
@@ -1523,12 +1502,13 @@ local function createLootSpecPanel(parent, anchor, clickHandler)
     button:SetScript("OnClick", clickHandler)
     button:SetScript("OnEnter", function(self)
         local specID = self.configuredSpecID
-        if not specID then
-            return
-        end
+        if not specID then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Change Loot Specialization to "
-            .. NS.Catalog:GetSpecName(specID) .. ".")
+        GameTooltip:SetText(
+            "Change Loot Specialization to "
+                .. NS.Catalog:GetSpecName(specID)
+                .. "."
+        )
         GameTooltip:AddLine(
             "This button only changes your loot specialization. It does not use the bonus roll.",
             1,
@@ -1551,26 +1531,20 @@ function Controller:CreateLootSpecPanel(parent, anchor, clickHandler)
 end
 
 local function createSwitchPanel()
-    switchPanel = createLootSpecPanel(
-        frame.PromptFrame,
-        frame,
-        handleSwitchButtonClick
-    )
+    switchPanel =
+        createLootSpecPanel(frame.PromptFrame, frame, handleSwitchButtonClick)
     switchButton = switchPanel.button
     NS.LootSidecar:Attach(frame.PromptFrame)
 end
 
 local function install()
-    if installed then
-        return true
-    end
+    if installed then return true end
 
-    if not BonusRollFrame then
-        C_AddOns.LoadAddOn("Blizzard_UIPanels_Game")
-    end
+    if not BonusRollFrame then C_AddOns.LoadAddOn("Blizzard_UIPanels_Game") end
 
     frame = BonusRollFrame
-    if not frame
+    if
+        not frame
         or not frame.PromptFrame
         or not frame.PromptFrame.RollButton
         or not frame.PromptFrame.PassButton
@@ -1585,7 +1559,8 @@ local function install()
     passButton = frame.PromptFrame.PassButton
     nativeRollOnClick = rollButton:GetScript("OnClick")
     nativePassOnClick = passButton:GetScript("OnClick")
-    if type(nativeRollOnClick) ~= "function"
+    if
+        type(nativeRollOnClick) ~= "function"
         or type(nativePassOnClick) ~= "function"
     then
         return false
@@ -1593,16 +1568,16 @@ local function install()
 
     createSwitchPanel()
     frame:HookScript("OnShow", function()
-        if not runtimeEnabled then
-            return
-        end
+        if not runtimeEnabled then return end
 
         local raw = captureRawOffer()
         if unsafeHidden and not raw then
             frame:Hide()
             return
         end
-        if not currentOffer or not currentOffer.hidden
+        if
+            not currentOffer
+            or not currentOffer.hidden
             or not rawOffersMatch(currentOffer.raw, raw)
         then
             return
@@ -1610,10 +1585,17 @@ local function install()
 
         local source = frame.PromptFrame.EncounterJournalLinkButton
         local tooltipContext = createTooltipContext(
-            source.displayItemID, source.itemContext, source.treasureContextLevel
+            source.displayItemID,
+            source.itemContext,
+            source.treasureContextLevel
         )
-        if currentOffer.tooltipContext and tooltipContext
-            and not tooltipContextsMatch(currentOffer.tooltipContext, tooltipContext)
+        if
+            currentOffer.tooltipContext
+            and tooltipContext
+            and not tooltipContextsMatch(
+                currentOffer.tooltipContext,
+                tooltipContext
+            )
         then
             return
         end
@@ -1640,18 +1622,18 @@ local function install()
 end
 
 local function enableScripts()
-    if not install() then
-        return false
-    end
+    if not install() then return false end
 
     local currentRollScript = rollButton:GetScript("OnClick")
     local currentPassScript = passButton:GetScript("OnClick")
-    if currentRollScript ~= nativeRollOnClick
+    if
+        currentRollScript ~= nativeRollOnClick
         and currentRollScript ~= rollButtonOnClick
     then
         return false
     end
-    if currentPassScript ~= nativePassOnClick
+    if
+        currentPassScript ~= nativePassOnClick
         and currentPassScript ~= passButtonOnClick
     then
         return false
@@ -1663,9 +1645,7 @@ local function enableScripts()
 end
 
 local function restoreScripts()
-    if not installed then
-        return
-    end
+    if not installed then return end
     if rollButton:GetScript("OnClick") == rollButtonOnClick then
         rollButton:SetScript("OnClick", nativeRollOnClick)
     end
@@ -1675,9 +1655,7 @@ local function restoreScripts()
 end
 
 function Controller:OnOfferStarted()
-    if not install() then
-        return
-    end
+    if not install() then return end
 
     local raw = captureRawOffer()
     if not raw then
@@ -1685,21 +1663,28 @@ function Controller:OnOfferStarted()
         if runtimeEnabled and frame and frame:IsShown() then
             unsafeHidden = true
             GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
-            NS:Print("Bonus roll hidden because its state could not be safely inspected. Disable BetterBonusRolls to restore Blizzard's native prompt while the offer is active.")
+            NS:Print(
+                "Bonus roll hidden because its state could not be safely inspected. Disable BetterBonusRolls to restore Blizzard's native prompt while the offer is active."
+            )
         end
         return
     end
 
     local source = frame.PromptFrame.EncounterJournalLinkButton
     local tooltipContext = createTooltipContext(
-        source.displayItemID, source.itemContext, source.treasureContextLevel
+        source.displayItemID,
+        source.itemContext,
+        source.treasureContextLevel
     )
     local sameTooltipContext = currentOffer
         and tooltipContextsMatch(currentOffer.tooltipContext, tooltipContext)
     local tooltipContextChanged = currentOffer
-        and (currentOffer.tooltipContext or tooltipContext) and not sameTooltipContext
+        and (currentOffer.tooltipContext or tooltipContext)
+        and not sameTooltipContext
 
-    if not currentOffer or not rawOffersMatch(currentOffer.raw, raw)
+    if
+        not currentOffer
+        or not rawOffersMatch(currentOffer.raw, raw)
         or tooltipContextChanged
     then
         local preyQuestID = capturePreyQuest(raw)
@@ -1713,21 +1698,31 @@ function Controller:OnOfferStarted()
         -- A still-pending offer from the same source may be a redisplay.
         -- Unknown cache data/deadline continuity must not recapture today's
         -- loot spec and relabel an older tooltip.
-        if currentOffer and not currentOffer.rollState and not currentOffer.expired
+        if
+            currentOffer
+            and not currentOffer.rollState
+            and not currentOffer.expired
             and (not now or now < currentOffer.raw.endTime)
             and sameValue(currentOffer.raw.spellID, raw.spellID)
             and sameValue(currentOffer.raw.instanceID, raw.instanceID)
             and sameValue(currentOffer.raw.encounterID, raw.encounterID)
             and sameValue(currentOffer.raw.difficultyID, raw.difficultyID)
-            and (sameTooltipContext or not currentOffer.tooltipContext or not tooltipContext)
+            and (
+                sameTooltipContext
+                or not currentOffer.tooltipContext
+                or not tooltipContext
+            )
         then
             tooltipSpecCaptured = true
             tooltipOriginalEndTime = currentOffer.tooltipOriginalEndTime
-            if now
-                and math.abs(raw.endTime - tooltipOriginalEndTime) <= OFFER_REISSUE_TIME_TOLERANCE
+            if
+                now
+                and math.abs(raw.endTime - tooltipOriginalEndTime)
+                    <= OFFER_REISSUE_TIME_TOLERANCE
             then
                 hidden = currentOffer.hidden
-                hiddenForMissingChallenge = currentOffer.hiddenForMissingChallenge
+                hiddenForMissingChallenge =
+                    currentOffer.hiddenForMissingChallenge
                 delveTier = currentOffer.delveTier
                 if sameTooltipContext then
                     -- Keep the initial source even after the hunt leaves the
@@ -1739,21 +1734,39 @@ function Controller:OnOfferStarted()
                     end
                 end
             end
-            NS.Development:Log("tooltip owner on reissued offer",
-                "status", tooltipSpecID and "preserved" or "unknown; reconciliation skipped",
-                "specID", tooltipSpecID, "originalEndTime", tooltipOriginalEndTime,
-                "incomingEndTime", raw.endTime)
+            NS.Development:Log(
+                "tooltip owner on reissued offer",
+                "status",
+                tooltipSpecID and "preserved"
+                    or "unknown; reconciliation skipped",
+                "specID",
+                tooltipSpecID,
+                "originalEndTime",
+                tooltipOriginalEndTime,
+                "incomingEndTime",
+                raw.endTime
+            )
         end
 
-        NS.Development:Log("offer identity replaced",
-            "previousGeneration", currentOffer and currentOffer.generation,
-            "previousEndTime", currentOffer and currentOffer.raw.endTime,
-            "incomingEndTime", raw.endTime,
-            "previousTooltipSpecID", currentOffer and currentOffer.tooltipSpecID,
-            "previousSpellID", currentOffer and currentOffer.raw.spellID,
-            "previousInstanceID", currentOffer and currentOffer.raw.instanceID,
-            "previousEncounterID", currentOffer and currentOffer.raw.encounterID,
-            "previousDifficultyID", currentOffer and currentOffer.raw.difficultyID)
+        NS.Development:Log(
+            "offer identity replaced",
+            "previousGeneration",
+            currentOffer and currentOffer.generation,
+            "previousEndTime",
+            currentOffer and currentOffer.raw.endTime,
+            "incomingEndTime",
+            raw.endTime,
+            "previousTooltipSpecID",
+            currentOffer and currentOffer.tooltipSpecID,
+            "previousSpellID",
+            currentOffer and currentOffer.raw.spellID,
+            "previousInstanceID",
+            currentOffer and currentOffer.raw.instanceID,
+            "previousEncounterID",
+            currentOffer and currentOffer.raw.encounterID,
+            "previousDifficultyID",
+            currentOffer and currentOffer.raw.difficultyID
+        )
         NS.LootReconciliation:Cancel()
         disarm(true, false)
         resultCandidate = nil
@@ -1779,13 +1792,22 @@ function Controller:OnOfferStarted()
         unsafeHidden = false
         timedOutSpellID = nil
         if preyQuestID then
-            NS.Development:Log("prey offer classified", "questID", preyQuestID,
-                "difficultyID", raw.difficultyID,
-                "journalInstanceID", raw.instanceID, "encounterID", raw.encounterID)
+            NS.Development:Log(
+                "prey offer classified",
+                "questID",
+                preyQuestID,
+                "difficultyID",
+                raw.difficultyID,
+                "journalInstanceID",
+                raw.instanceID,
+                "encounterID",
+                raw.encounterID
+            )
         end
     else
         currentOffer.raw = raw
-        if raw.difficultyID == NS.Catalog.Difficulty.DELVE
+        if
+            raw.difficultyID == NS.Catalog.Difficulty.DELVE
             and not currentOffer.delveTier
         then
             currentOffer.delveTier = rememberActiveDelveTier("offer recovered")
@@ -1796,12 +1818,12 @@ function Controller:OnOfferStarted()
     bonusRollActivated = true
 
     NS.Development:StartCapture("offer opened or recovered")
-    if not runtimeEnabled then
-        return
-    end
+    if not runtimeEnabled then return end
     if not ensureScriptsOwned() then
         hideCurrentOffer("another addon changed the bonus-roll buttons")
-        NS:Print("BetterBonusRolls disabled itself because another addon changed the bonus-roll buttons.")
+        NS:Print(
+            "BetterBonusRolls disabled itself because another addon changed the bonus-roll buttons."
+        )
         NS:SetEnabled(false)
         return
     end
@@ -1833,13 +1855,13 @@ end
 
 function Controller:SetEnabled(enabled)
     enabled = enabled == true
-    if enabled == runtimeEnabled then
-        return true
-    end
+    if enabled == runtimeEnabled then return true end
 
     if enabled then
         if not enableScripts() then
-            NS:Print("The Blizzard bonus-roll buttons could not be safely controlled. BetterBonusRolls remains disabled.")
+            NS:Print(
+                "The Blizzard bonus-roll buttons could not be safely controlled. BetterBonusRolls remains disabled."
+            )
             return false
         end
 
@@ -1849,9 +1871,11 @@ function Controller:SetEnabled(enabled)
     end
 
     local shouldRestore = unsafeHidden
-        or (currentOffer
+        or (
+            currentOffer
             and currentOffer.hidden
-            and isRawOfferActive(currentOffer.raw))
+            and isRawOfferActive(currentOffer.raw)
+        )
 
     runtimeEnabled = false
     NS.LootReconciliation:Cancel()
@@ -1862,13 +1886,9 @@ function Controller:SetEnabled(enabled)
 
     if shouldRestore and frame and not frame:IsShown() then
         GroupLootContainer_AddFrame(GroupLootContainer, frame)
-        if not bonusRollActivated then
-            rollButton:Disable()
-        end
+        if not bonusRollActivated then rollButton:Disable() end
         unsafeHidden = false
-        if currentOffer then
-            currentOffer.hidden = false
-        end
+        if currentOffer then currentOffer.hidden = false end
     end
 
     return true
@@ -1876,7 +1896,8 @@ end
 
 function Controller:OnConfigurationChanged()
     disarm(true, true)
-    if not runtimeEnabled
+    if
+        not runtimeEnabled
         or not currentOffer
         or not isRawOfferActive(currentOffer.raw)
     then
@@ -1899,7 +1920,9 @@ end
 
 function Controller:ShowCurrent()
     if unsafeHidden then
-        NS:Print("This offer could not be safely inspected. Disable BetterBonusRolls to restore Blizzard's native prompt.")
+        NS:Print(
+            "This offer could not be safely inspected. Disable BetterBonusRolls to restore Blizzard's native prompt."
+        )
         return false
     end
     if not currentOffer or not isRawOfferActive(currentOffer.raw) then
@@ -1914,9 +1937,7 @@ function Controller:ShowCurrent()
 
     currentOffer.hidden = false
     GroupLootContainer_AddFrame(GroupLootContainer, frame)
-    if not bonusRollActivated then
-        rollButton:Disable()
-    end
+    if not bonusRollActivated then rollButton:Disable() end
     local resolved = resolveOffer(currentOffer.raw)
     observeCurrentLoot(resolved)
     refreshSwitchPanel(resolved)
@@ -1924,7 +1945,8 @@ function Controller:ShowCurrent()
 end
 
 local function restoreOfferAfterChallengeRecovery()
-    if not runtimeEnabled
+    if
+        not runtimeEnabled
         or not currentOffer
         or not currentOffer.hiddenForMissingChallenge
         or currentOffer.rollState
@@ -1935,9 +1957,7 @@ local function restoreOfferAfterChallengeRecovery()
     end
 
     local resolved = resolveOffer(currentOffer.raw)
-    if not resolved or not resolved.challengeLevel then
-        return
-    end
+    if not resolved or not resolved.challengeLevel then return end
 
     currentOffer.hiddenForMissingChallenge = false
     if resolved.allowed then
@@ -1948,7 +1968,8 @@ local function restoreOfferAfterChallengeRecovery()
 end
 
 function Controller:HideCurrentByCommand()
-    if not currentOffer
+    if
+        not currentOffer
         or not isRawOfferActive(currentOffer.raw)
         or not frame:IsShown()
     then
@@ -1966,14 +1987,13 @@ end
 -- Public diagnostic snapshot only; never expose native callbacks or tokens.
 -- Do not resolve rules here: logging must not bind or update a cached run.
 function Controller:GetDevelopmentContext()
-    if not currentOffer then
-        return nil
-    end
+    if not currentOffer then return nil end
 
     return {
         generation = currentOffer.generation,
         raw = copyRawOffer(currentOffer.raw),
-        active = not currentOffer.rollState and isRawOfferActive(currentOffer.raw),
+        active = not currentOffer.rollState
+            and isRawOfferActive(currentOffer.raw),
         hidden = currentOffer.hidden,
         rollState = currentOffer.rollState,
         enabled = runtimeEnabled,
@@ -1998,27 +2018,52 @@ function Controller:GetStatusText()
 end
 
 local function handleSpellConfirmationPrompt(
-    _, spellID, confirmationType, _text, duration,
-    currencyID, currencyCost, difficultyID, displayItemID, itemContext, treasureContextLevel
+    _,
+    spellID,
+    confirmationType,
+    _text,
+    duration,
+    currencyID,
+    currencyCost,
+    difficultyID,
+    displayItemID,
+    itemContext,
+    treasureContextLevel
 )
-    NS.Development:Log("SPELL_CONFIRMATION_PROMPT", "spellID", spellID,
-        "type", confirmationType, "duration", duration, "currencyID", currencyID,
-        "currencyCost", currencyCost, "difficultyID", difficultyID,
-        "displayItemID", displayItemID, "itemContext", itemContext,
-        "treasureContextLevel", treasureContextLevel)
-    if NS:IsSecret(confirmationType)
+    NS.Development:Log(
+        "SPELL_CONFIRMATION_PROMPT",
+        "spellID",
+        spellID,
+        "type",
+        confirmationType,
+        "duration",
+        duration,
+        "currencyID",
+        currencyID,
+        "currencyCost",
+        currencyCost,
+        "difficultyID",
+        difficultyID,
+        "displayItemID",
+        displayItemID,
+        "itemContext",
+        itemContext,
+        "treasureContextLevel",
+        treasureContextLevel
+    )
+    if
+        NS:IsSecret(confirmationType)
         or confirmationType ~= Enum.ConfirmationPromptUIType.BonusRoll
         or not NS:IsPublicPositiveInteger(spellID)
         or not NS:IsPublicPositiveInteger(difficultyID)
-        or not isPublicNumber(duration) or duration <= 0
+        or not isPublicNumber(duration)
+        or duration <= 0
     then
         return
     end
 
     local now = getPublicTimestamp()
-    if not now then
-        return
-    end
+    if not now then return end
 
     -- Read the spec before deferred work, but do not attach it to a recognized
     -- or uncertain redisplay: prompt events can repeat after a portal.
@@ -2030,46 +2075,76 @@ local function handleSpellConfirmationPrompt(
         tooltipSpecID = nil
     end
     local endTime = now + duration
-    local tooltipContext = createTooltipContext(displayItemID, itemContext, treasureContextLevel)
-    NS.Development:Log("prompt loot specialization", "specID", tooltipSpecID,
-        "expectedEndTime", endTime)
+    local tooltipContext =
+        createTooltipContext(displayItemID, itemContext, treasureContextLevel)
+    NS.Development:Log(
+        "prompt loot specialization",
+        "specID",
+        tooltipSpecID,
+        "expectedEndTime",
+        endTime
+    )
 
     -- Let Blizzard populate the frame regardless of event-handler order.
     -- Match the fresh prompt before attaching its initial tooltip owner.
     C_Timer.After(0, function()
         local offer = currentOffer
-        if not offer or offer.rollState
+        if
+            not offer
+            or offer.rollState
             or not sameValue(offer.raw.spellID, spellID)
             or not sameValue(offer.raw.difficultyID, difficultyID)
             or not sameValue(offer.raw.endTime, endTime)
             or not tooltipContextsMatch(offer.tooltipContext, tooltipContext)
             or not isRawOfferActive(offer.raw)
         then
-            NS.Development:Log("tooltip owner not attached", "expectedSpellID", spellID,
-                "expectedDifficulty", difficultyID, "expectedEndTime", endTime,
-                "actualEndTime", offer and offer.raw.endTime,
-                "alreadyCaptured", offer and offer.tooltipSpecCaptured,
-                "rollState", offer and offer.rollState)
+            NS.Development:Log(
+                "tooltip owner not attached",
+                "expectedSpellID",
+                spellID,
+                "expectedDifficulty",
+                difficultyID,
+                "expectedEndTime",
+                endTime,
+                "actualEndTime",
+                offer and offer.raw.endTime,
+                "alreadyCaptured",
+                offer and offer.tooltipSpecCaptured,
+                "rollState",
+                offer and offer.rollState
+            )
             return
         end
 
         if offer.tooltipSpecCaptured then
-            NS.Development:Log("tooltip owner unchanged by repeated prompt",
-                "generation", offer.generation, "tooltipSpecID", offer.tooltipSpecID,
-                "promptSpecID", tooltipSpecID)
+            NS.Development:Log(
+                "tooltip owner unchanged by repeated prompt",
+                "generation",
+                offer.generation,
+                "tooltipSpecID",
+                offer.tooltipSpecID,
+                "promptSpecID",
+                tooltipSpecID
+            )
             return
         end
 
         offer.tooltipSpecCaptured = true
         offer.tooltipSpecID = tooltipSpecID
-        NS.Development:Log("tooltip owner attached", "generation", offer.generation,
-            "specID", tooltipSpecID)
+        NS.Development:Log(
+            "tooltip owner attached",
+            "generation",
+            offer.generation,
+            "specID",
+            tooltipSpecID
+        )
         observeCurrentLoot(currentSnapshot())
     end)
 end
 
 local function handleLootSpecUpdate(event, unit)
-    if event == "PLAYER_SPECIALIZATION_CHANGED"
+    if
+        event == "PLAYER_SPECIALIZATION_CHANGED"
         and (NS:IsSecret(unit) or unit ~= "player")
     then
         return
@@ -2085,7 +2160,8 @@ local function handleTimeout(_, spellID, confirmationType)
     local bonusRollType = Enum
         and Enum.ConfirmationPromptUIType
         and Enum.ConfirmationPromptUIType.BonusRoll
-    if NS:IsSecret(confirmationType)
+    if
+        NS:IsSecret(confirmationType)
         or NS:IsSecret(spellID)
         or confirmationType ~= bonusRollType
         or not currentOffer
@@ -2094,9 +2170,7 @@ local function handleTimeout(_, spellID, confirmationType)
         return
     end
 
-    if timedOutSpellID == spellID then
-        return
-    end
+    if timedOutSpellID == spellID then return end
     timedOutSpellID = spellID
     NS.LootReconciliation:Cancel()
     clearChallengeRunForOffer(currentOffer.raw)
@@ -2109,19 +2183,20 @@ local function handleTimeout(_, spellID, confirmationType)
         return
     end
 
-    if not runtimeEnabled then
-        return
-    end
+    if not runtimeEnabled then return end
 
     disarm(true, false)
     refreshSwitchPanel(nil)
     currentOffer.hidden = false
-    NS:Print("Bonus roll expired without being used and can no longer be restored.")
+    NS:Print(
+        "Bonus roll expired without being used and can no longer be restored."
+    )
 end
 
 local function handleBonusRollStarted()
     NS.LootReconciliation:Cancel()
-    if resultCandidate
+    if
+        resultCandidate
         and currentOffer
         and resultCandidate.snapshot.generation == currentOffer.generation
     then
@@ -2131,14 +2206,10 @@ local function handleBonusRollStarted()
         resultCandidate = nil
     end
 
-    if currentOffer then
-        clearChallengeRunForOffer(currentOffer.raw)
-    end
+    if currentOffer then clearChallengeRunForOffer(currentOffer.raw) end
     disarm(true, false)
     refreshSwitchPanel(nil)
-    if currentOffer then
-        currentOffer.hidden = false
-    end
+    if currentOffer then currentOffer.hidden = false end
 end
 
 local function handleBonusRollFailed()
@@ -2154,30 +2225,49 @@ local function handleBonusRollFailed()
     refreshSwitchPanel(nil)
 end
 
-local function handleBonusRollResult(_, typeIdentifier, itemLink,
-    _quantity, specID, _sex, _personalLootToast, _currencyID,
-    isSecondaryResult)
-    if not resultCandidate
+local function handleBonusRollResult(
+    _,
+    typeIdentifier,
+    itemLink,
+    _quantity,
+    specID,
+    _sex,
+    _personalLootToast,
+    _currencyID,
+    isSecondaryResult
+)
+    if
+        not resultCandidate
         or not resultCandidate.started
         or not currentOffer
         or resultCandidate.snapshot.generation ~= currentOffer.generation
     then
-        NS.Development:Log("reward tracking skipped",
-            "reason", "no matching started roll",
-            "candidateGeneration", resultCandidate and resultCandidate.snapshot.generation,
-            "offerGeneration", currentOffer and currentOffer.generation,
-            "started", resultCandidate and resultCandidate.started)
+        NS.Development:Log(
+            "reward tracking skipped",
+            "reason",
+            "no matching started roll",
+            "candidateGeneration",
+            resultCandidate and resultCandidate.snapshot.generation,
+            "offerGeneration",
+            currentOffer and currentOffer.generation,
+            "started",
+            resultCandidate and resultCandidate.started
+        )
         return
     end
-    if NS:IsSecret(typeIdentifier)
+    if
+        NS:IsSecret(typeIdentifier)
         or NS:IsSecret(itemLink)
         or NS:IsSecret(specID)
         or NS:IsSecret(isSecondaryResult)
         or type(typeIdentifier) ~= "string"
         or type(isSecondaryResult) ~= "boolean"
     then
-        NS.Development:Log("reward tracking skipped",
-            "reason", "restricted or invalid result payload")
+        NS.Development:Log(
+            "reward tracking skipped",
+            "reason",
+            "restricted or invalid result payload"
+        )
         resultCandidate = nil
         currentOffer.rollState = "result"
         return
@@ -2185,40 +2275,49 @@ local function handleBonusRollResult(_, typeIdentifier, itemLink,
 
     local snapshot = resultCandidate.snapshot
     local actualSpecID = specID
-    if actualSpecID == 0 then
-        actualSpecID = snapshot.currentSpecID
-    end
-    NS.Development:Log("reward matched to offer", "offerGeneration", snapshot.generation,
-        "source", snapshot.sourceName, "reportedSpec", specID,
-        "actualSpec", actualSpecID, "specAtConfirmation", snapshot.currentSpecID)
+    if actualSpecID == 0 then actualSpecID = snapshot.currentSpecID end
+    NS.Development:Log(
+        "reward matched to offer",
+        "offerGeneration",
+        snapshot.generation,
+        "source",
+        snapshot.sourceName,
+        "reportedSpec",
+        specID,
+        "actualSpec",
+        actualSpecID,
+        "specAtConfirmation",
+        snapshot.currentSpecID
+    )
 
-    if typeIdentifier == "item"
+    if
+        typeIdentifier == "item"
         and type(itemLink) == "string"
         and NS:IsPublicPositiveInteger(actualSpecID)
     then
-        NS.LootTracker:RecordBonusRollItem(
-            snapshot,
-            itemLink,
-            actualSpecID
-        )
+        NS.LootTracker:RecordBonusRollItem(snapshot, itemLink, actualSpecID)
     end
 
     currentOffer.rollState = "result"
-    if isSecondaryResult or resultCandidate.primaryResultSeen then
-        return
-    end
+    if isSecondaryResult or resultCandidate.primaryResultSeen then return end
 
     resultCandidate.primaryResultSeen = true
 
     local sourceName = not NS:IsSecret(snapshot.sourceName)
-        and type(snapshot.sourceName) == "string"
-        and snapshot.sourceName or "the selected source"
+            and type(snapshot.sourceName) == "string"
+            and snapshot.sourceName
+        or "the selected source"
     local specName = NS:IsPublicPositiveInteger(actualSpecID)
-        and NS.Catalog:GetSpecName(actualSpecID) or "Unknown"
-    local resultText = "Bonus roll used on " .. sourceName
-        .. " with " .. specName .. " loot specialization"
+            and NS.Catalog:GetSpecName(actualSpecID)
+        or "Unknown"
+    local resultText = "Bonus roll used on "
+        .. sourceName
+        .. " with "
+        .. specName
+        .. " loot specialization"
 
-    if typeIdentifier == "item"
+    if
+        typeIdentifier == "item"
         and type(itemLink) == "string"
         and itemLink ~= ""
     then
@@ -2242,29 +2341,24 @@ end
 local function handleChallengeStart(_, mapID)
     local eventMapID = NS:IsPublicPositiveInteger(mapID) and mapID or nil
     local startedAt = getPublicTimestamp()
-    if not eventMapID or not startedAt then
-        return
-    end
+    if not eventMapID or not startedAt then return end
 
     local ownerGeneration = beginChallengeRetrySeries()
     persistChallengeRun(buildChallengeRun(eventMapID, nil, startedAt))
 
     local retryIndex = 1
     local function attemptCapture()
-        if challengeRetryGeneration ~= ownerGeneration then
-            return
-        end
+        if challengeRetryGeneration ~= ownerGeneration then return end
 
         local active = getActiveChallenge()
-        if active
+        if
+            active
             and active.mapID == eventMapID
             and NS:IsPublicPositiveInteger(active.level)
         then
-            persistChallengeRun(buildChallengeRun(
-                eventMapID,
-                active.level,
-                startedAt
-            ))
+            persistChallengeRun(
+                buildChallengeRun(eventMapID, active.level, startedAt)
+            )
             cancelChallengeRetry()
             return
         end
@@ -2284,32 +2378,26 @@ end
 
 local function handleChallengeCompleted()
     local completedAt = getPublicTimestamp()
-    if not completedAt then
-        return
-    end
+    if not completedAt then return end
 
     local ownerGeneration = beginChallengeRetrySeries()
     local retryIndex = 1
     local function attemptCapture()
-        if challengeRetryGeneration ~= ownerGeneration then
-            return
-        end
+        if challengeRetryGeneration ~= ownerGeneration then return end
 
         local completion = getCompletionChallenge()
         local run
         if completion then
             local startedAt = completedAt
-            if isChallengeRunValid(challengeRun)
+            if
+                isChallengeRunValid(challengeRun)
                 and challengeRun.mapID == completion.mapID
             then
                 startedAt = challengeRun.startedAt
             end
 
-            run = buildChallengeRun(
-                completion.mapID,
-                completion.level,
-                startedAt
-            )
+            run =
+                buildChallengeRun(completion.mapID, completion.level, startedAt)
         elseif isChallengeRunValid(challengeRun) and challengeRun.level then
             run = buildChallengeRun(
                 challengeRun.mapID,
@@ -2342,15 +2430,16 @@ end
 local function handleAddonLoaded(_, loadedAddon)
     if loadedAddon == "BonusRollConfirm" or loadedAddon == "BonusRollGate" then
         if runtimeEnabled then
-            NS:Print(loadedAddon .. " loaded, so BetterBonusRolls has been disabled. Disable it and reload before re-enabling.")
+            NS:Print(
+                loadedAddon
+                    .. " loaded, so BetterBonusRolls has been disabled. Disable it and reload before re-enabling."
+            )
             NS:SetEnabled(false)
         end
         return
     end
 
-    if loadedAddon == "Blizzard_UIPanels_Game" then
-        install()
-    end
+    if loadedAddon == "Blizzard_UIPanels_Game" then install() end
 end
 
 NS:RegisterInitializer(function()
@@ -2378,9 +2467,15 @@ NS:RegisterInitializer(function()
             -- reconciliation. Source rules and actual roll rewards are separate.
             currentOffer.tooltipSpecID = nil
             currentOffer.tooltipSpecCaptured = true
-            NS.Development:Log("tooltip reconciliation disabled",
-                "reason", "world transition", "previousTooltipSpecID", previousTooltipSpecID,
-                "generation", currentOffer.generation)
+            NS.Development:Log(
+                "tooltip reconciliation disabled",
+                "reason",
+                "world transition",
+                "previousTooltipSpecID",
+                previousTooltipSpecID,
+                "generation",
+                currentOffer.generation
+            )
         end
     end)
     NS:RegisterEvent("ADDON_LOADED", handleAddonLoaded)

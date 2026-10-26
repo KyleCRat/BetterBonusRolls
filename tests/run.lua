@@ -6,32 +6,42 @@ end
 
 local function assertEqual(actual, expected, message)
     if actual ~= expected then
-        fail((message or "values differ")
-            .. ": expected " .. tostring(expected)
-            .. ", got " .. tostring(actual))
+        fail(
+            (message or "values differ")
+                .. ": expected "
+                .. tostring(expected)
+                .. ", got "
+                .. tostring(actual)
+        )
     end
 end
 
 local function assertContains(text, expected, message)
     if not text or not text:find(expected, 1, true) then
-        fail((message or "text did not match")
-            .. ": expected to find " .. expected
-            .. " in " .. tostring(text))
+        fail(
+            (message or "text did not match")
+                .. ": expected to find "
+                .. expected
+                .. " in "
+                .. tostring(text)
+        )
     end
 end
 
 local function assertNotContains(text, unexpected, message)
     if text and text:find(unexpected, 1, true) then
-        fail((message or "text unexpectedly matched")
-            .. ": did not expect to find " .. unexpected
-            .. " in " .. tostring(text))
+        fail(
+            (message or "text unexpectedly matched")
+                .. ": did not expect to find "
+                .. unexpected
+                .. " in "
+                .. tostring(text)
+        )
     end
 end
 
 local function copyValue(value)
-    if type(value) ~= "table" then
-        return value
-    end
+    if type(value) ~= "table" then return value end
 
     local copy = {}
     for key, child in pairs(value) do
@@ -43,8 +53,7 @@ end
 local function makeRegion()
     local region = {}
 
-    function region:SetAllPoints()
-    end
+    function region:SetAllPoints() end
 
     function region:SetAtlas(atlas)
         self.atlas = atlas
@@ -54,18 +63,15 @@ local function makeRegion()
         self.blendMode = blendMode
     end
 
-    function region:SetPoint()
-    end
+    function region:SetPoint() end
 
     function region:SetJustifyH(justification)
         self.justification = justification
     end
 
-    function region:SetSize()
-    end
+    function region:SetSize() end
 
-    function region:SetTexCoord()
-    end
+    function region:SetTexCoord() end
 
     function region:SetText(text)
         self.text = text
@@ -105,14 +111,11 @@ local function makeButton()
         self.enabled = enabled == true
     end
 
-    function button:SetSize()
-    end
+    function button:SetSize() end
 
-    function button:SetPoint()
-    end
+    function button:SetPoint() end
 
-    function button:SetFrameLevel()
-    end
+    function button:SetFrameLevel() end
 
     function button:CreateFontString()
         local region = makeRegion()
@@ -215,8 +218,7 @@ local function buildHarness(options)
         spellID = 500,
         endTime = options.endTime or 1100,
         instanceID = options.instanceID == nil and 100 or options.instanceID,
-        encounterID = options.encounterID == nil and 200
-            or options.encounterID,
+        encounterID = options.encounterID == nil and 200 or options.encounterID,
         difficultyID = options.difficultyID or 14,
         PromptFrame = prompt,
         shown = true,
@@ -239,16 +241,13 @@ local function buildHarness(options)
 
     BonusRollFrame = bonusFrame
     GroupLootContainer = {}
-    BonusRollFrame_StartBonusRoll = function()
-    end
+    BonusRollFrame_StartBonusRoll = function() end
     GroupLootContainer_AddFrame = function(_, target)
         target.shown = true
     end
     GroupLootContainer_RemoveFrame = function(_, target)
         target.shown = false
-        if target.hooks.OnHide then
-            target.hooks.OnHide(target)
-        end
+        if target.hooks.OnHide then target.hooks.OnHide(target) end
     end
     hooksecurefunc = function(_, callback)
         harness.startHook = callback
@@ -304,17 +303,12 @@ local function buildHarness(options)
         },
     }
     GameTooltip = {
-        SetOwner = function()
-        end,
-        SetText = function()
-        end,
-        AddLine = function()
-        end,
-        Show = function()
-        end,
+        SetOwner = function() end,
+        SetText = function() end,
+        AddLine = function() end,
+        Show = function() end,
     }
-    GameTooltip_Hide = function()
-    end
+    GameTooltip_Hide = function() end
     StaticPopup_ShowCustomGenericConfirmation = function(data)
         harness.popup = data
         harness.popupShown = true
@@ -438,9 +432,7 @@ local function buildHarness(options)
     end
 
     function NS:IsPublicPositiveInteger(value)
-        return type(value) == "number"
-            and value > 0
-            and value % 1 == 0
+        return type(value) == "number" and value > 0 and value % 1 == 0
     end
 
     function NS:Print(message)
@@ -456,8 +448,7 @@ local function buildHarness(options)
     end
 
     NS.PixelPerfect = {
-        CreateSurface = function()
-        end,
+        CreateSurface = function() end,
     }
 
     function NS.Catalog:CanonicalDifficultyID(difficultyID)
@@ -533,10 +524,8 @@ local function buildHarness(options)
     }
 
     NS.LootReconciliation = {
-        ObserveOffer = function()
-        end,
-        Cancel = function()
-        end,
+        ObserveOffer = function() end,
+        Cancel = function() end,
     }
 
     NS.LootTracker = {}
@@ -550,12 +539,9 @@ local function buildHarness(options)
     end
 
     NS.LootSidecar = {
-        Attach = function()
-        end,
-        Hide = function()
-        end,
-        Refresh = function()
-        end,
+        Attach = function() end,
+        Hide = function() end,
+        Refresh = function() end,
     }
 
     NS.DB = {}
@@ -600,9 +586,7 @@ local function buildHarness(options)
     harness.passButton = pass
     if options.cachedDelveTier then
         harness.delveTier = options.cachedDelveTier
-        harness.events.ACTIVE_DELVE_DATA_UPDATE(
-            "ACTIVE_DELVE_DATA_UPDATE"
-        )
+        harness.events.ACTIVE_DELVE_DATA_UPDATE("ACTIVE_DELVE_DATA_UPDATE")
         harness.delveTier = nil
     end
     assertEqual(NS.RollController:SetEnabled(true), true, "controller enabled")
@@ -730,76 +714,139 @@ test("new offer disarms pending confirmation", function()
     assertEqual(harness.nativeRolls, 0, "new offer invalidates old token")
 end)
 
-test("redisplays and world transitions never preserve a stale Roll authorization", function()
-    local cases = {
-        { throughPortal = false, deadlineOffset = -1 },
-        { throughPortal = true, deadlineOffset = 0, promptOffset = 1 },
-        { throughPortal = true, deadlineOffset = -1 },
-        { throughPortal = true, deadlineOffset = 1 },
-    }
-    for _, case in ipairs(cases) do
-        local harness = buildHarness()
-        local function queuePrompt(deadlineOffset)
-            local source = harness.frame.PromptFrame.EncounterJournalLinkButton
-            harness.events.SPELL_CONFIRMATION_PROMPT(
-                "SPELL_CONFIRMATION_PROMPT", harness.frame.spellID,
-                Enum.ConfirmationPromptUIType.BonusRoll, "",
-                harness.frame.endTime - harness.now + (deadlineOffset or 0), 3418, 1,
-                harness.frame.difficultyID, source.displayItemID,
-                source.itemContext, source.treasureContextLevel
+test(
+    "redisplays and world transitions never preserve a stale Roll authorization",
+    function()
+        local cases = {
+            { throughPortal = false, deadlineOffset = -1 },
+            { throughPortal = true, deadlineOffset = 0, promptOffset = 1 },
+            { throughPortal = true, deadlineOffset = -1 },
+            { throughPortal = true, deadlineOffset = 1 },
+        }
+        for _, case in ipairs(cases) do
+            local harness = buildHarness()
+            local function queuePrompt(deadlineOffset)
+                local source =
+                    harness.frame.PromptFrame.EncounterJournalLinkButton
+                harness.events.SPELL_CONFIRMATION_PROMPT(
+                    "SPELL_CONFIRMATION_PROMPT",
+                    harness.frame.spellID,
+                    Enum.ConfirmationPromptUIType.BonusRoll,
+                    "",
+                    harness.frame.endTime - harness.now + (deadlineOffset or 0),
+                    3418,
+                    1,
+                    harness.frame.difficultyID,
+                    source.displayItemID,
+                    source.itemContext,
+                    source.treasureContextLevel
+                )
+            end
+
+            queuePrompt()
+            harness:RunNextTimer()
+            harness.currentSpecID = 2
+            harness.events.PLAYER_LOOT_SPEC_UPDATED("PLAYER_LOOT_SPEC_UPDATED")
+            clickRoll(harness)
+            local staleCallback = harness.popup.callback
+            if case.throughPortal then
+                queuePrompt()
+                harness.events.PLAYER_LEAVING_WORLD("PLAYER_LEAVING_WORLD")
+                harness:RunNextTimer()
+                local context =
+                    harness.NS.RollController:GetDevelopmentContext()
+                assertEqual(
+                    context.tooltipSpecID,
+                    nil,
+                    "queued prompt cannot restore a post-zone owner"
+                )
+                assertEqual(
+                    context.tooltipSpecCaptured,
+                    true,
+                    "post-zone owner is locked to unknown"
+                )
+                staleCallback()
+                assertEqual(
+                    harness.nativeRolls,
+                    0,
+                    "leaving world disarms immediately"
+                )
+            end
+
+            harness.now = harness.now + 16
+            harness.frame.endTime = harness.frame.endTime + case.deadlineOffset
+            harness.startHook()
+            queuePrompt(case.promptOffset)
+            harness:RunNextTimer()
+
+            local context = harness.NS.RollController:GetDevelopmentContext()
+            if case.throughPortal then
+                assertEqual(
+                    context.tooltipSpecID,
+                    nil,
+                    "redisplay cannot reconcile after zoning"
+                )
+            else
+                assertEqual(
+                    context.tooltipSpecID,
+                    1,
+                    "non-zone redisplay retains original tooltip spec"
+                )
+            end
+            assertEqual(
+                context.tooltipSpecCaptured,
+                true,
+                "redisplay cannot attach a new owner"
+            )
+            assertEqual(
+                context.raw.endTime,
+                1100 + case.deadlineOffset,
+                "native deadline remains exact"
+            )
+            assertEqual(
+                harness.popupShown,
+                false,
+                "confirmation does not reopen itself"
+            )
+            staleCallback()
+            assertEqual(
+                harness.nativeRolls,
+                0,
+                "one-second tolerance cannot authorize Roll"
+            )
+            assertEqual(
+                harness.nativePasses,
+                0,
+                "redisplay cannot decline a roll"
+            )
+
+            clickRoll(harness)
+            acceptPopup(harness)
+            assertEqual(
+                harness.nativeRolls,
+                1,
+                "fresh click and confirmation still required"
+            )
+
+            harness.frame.spellID = 501
+            harness.frame.endTime = 1200
+            harness.startHook()
+            queuePrompt()
+            harness:RunNextTimer()
+            context = harness.NS.RollController:GetDevelopmentContext()
+            assertEqual(
+                context.tooltipSpecID,
+                2,
+                "a distinct new offer can capture its own starting spec"
+            )
+            assertEqual(
+                harness.nativeRolls,
+                1,
+                "a new tooltip owner never rolls automatically"
             )
         end
-
-        queuePrompt()
-        harness:RunNextTimer()
-        harness.currentSpecID = 2
-        harness.events.PLAYER_LOOT_SPEC_UPDATED("PLAYER_LOOT_SPEC_UPDATED")
-        clickRoll(harness)
-        local staleCallback = harness.popup.callback
-        if case.throughPortal then
-            queuePrompt()
-            harness.events.PLAYER_LEAVING_WORLD("PLAYER_LEAVING_WORLD")
-            harness:RunNextTimer()
-            local context = harness.NS.RollController:GetDevelopmentContext()
-            assertEqual(context.tooltipSpecID, nil, "queued prompt cannot restore a post-zone owner")
-            assertEqual(context.tooltipSpecCaptured, true, "post-zone owner is locked to unknown")
-            staleCallback()
-            assertEqual(harness.nativeRolls, 0, "leaving world disarms immediately")
-        end
-
-        harness.now = harness.now + 16
-        harness.frame.endTime = harness.frame.endTime + case.deadlineOffset
-        harness.startHook()
-        queuePrompt(case.promptOffset)
-        harness:RunNextTimer()
-
-        local context = harness.NS.RollController:GetDevelopmentContext()
-        if case.throughPortal then
-            assertEqual(context.tooltipSpecID, nil, "redisplay cannot reconcile after zoning")
-        else
-            assertEqual(context.tooltipSpecID, 1, "non-zone redisplay retains original tooltip spec")
-        end
-        assertEqual(context.tooltipSpecCaptured, true, "redisplay cannot attach a new owner")
-        assertEqual(context.raw.endTime, 1100 + case.deadlineOffset, "native deadline remains exact")
-        assertEqual(harness.popupShown, false, "confirmation does not reopen itself")
-        staleCallback()
-        assertEqual(harness.nativeRolls, 0, "one-second tolerance cannot authorize Roll")
-        assertEqual(harness.nativePasses, 0, "redisplay cannot decline a roll")
-
-        clickRoll(harness)
-        acceptPopup(harness)
-        assertEqual(harness.nativeRolls, 1, "fresh click and confirmation still required")
-
-        harness.frame.spellID = 501
-        harness.frame.endTime = 1200
-        harness.startHook()
-        queuePrompt()
-        harness:RunNextTimer()
-        context = harness.NS.RollController:GetDevelopmentContext()
-        assertEqual(context.tooltipSpecID, 2, "a distinct new offer can capture its own starting spec")
-        assertEqual(harness.nativeRolls, 1, "a new tooltip owner never rolls automatically")
     end
-end)
+)
 
 test("changed reward cache disarms an otherwise identical offer", function()
     local harness = buildHarness()
@@ -809,9 +856,17 @@ test("changed reward cache disarms an otherwise identical offer", function()
     harness.startHook()
     staleCallback()
 
-    assertEqual(harness.nativeRolls, 0, "a different cache cannot reuse authorization")
+    assertEqual(
+        harness.nativeRolls,
+        0,
+        "a different cache cannot reuse authorization"
+    )
     assertEqual(harness.nativePasses, 0, "cache change does not pass")
-    assertEqual(harness.popupShown, false, "cache change does not reopen confirmation")
+    assertEqual(
+        harness.popupShown,
+        false,
+        "cache change does not reopen confirmation"
+    )
 end)
 
 test("No hides without invoking native Pass", function()
@@ -828,70 +883,157 @@ test("No hides without invoking native Pass", function()
     )
 end)
 
-test("Prey rules and Roll/Pass protection do not depend on the cache item ID", function()
-    for _, displayItemID in ipairs({ 280131, 900001 }) do
-        local harness = buildHarness({
-            instanceID = 0,
-            encounterID = 0,
-            instanceType = "none",
-            activePreyQuestID = 95023,
-            displayItemID = displayItemID,
-            worldRule = { specializationID = 1 },
-        })
-        assertEqual(harness.frame.shown, true, "the initial Prey offer uses its enabled rule")
-        assertContains(harness.NS.RollController:GetStatusText(), "Nightmare Prey", "Prey source")
-        assertEqual(harness.nativeRolls, 0, "classification never rolls")
+test(
+    "Prey rules and Roll/Pass protection do not depend on the cache item ID",
+    function()
+        for _, displayItemID in ipairs({ 280131, 900001 }) do
+            local harness = buildHarness({
+                instanceID = 0,
+                encounterID = 0,
+                instanceType = "none",
+                activePreyQuestID = 95023,
+                displayItemID = displayItemID,
+                worldRule = { specializationID = 1 },
+            })
+            assertEqual(
+                harness.frame.shown,
+                true,
+                "the initial Prey offer uses its enabled rule"
+            )
+            assertContains(
+                harness.NS.RollController:GetStatusText(),
+                "Nightmare Prey",
+                "Prey source"
+            )
+            assertEqual(harness.nativeRolls, 0, "classification never rolls")
 
-        local pass = harness.passButton:GetScript("OnClick")
-        pass(harness.passButton, "LeftButton", false)
-        assertEqual(harness.nativePasses, 0, "Prey Pass only hides")
-        harness.NS.RollController:ShowCurrent()
-        clickRoll(harness)
-        local staleCallback = harness.popup.callback
-        assertEqual(harness.popup.acceptText, "Use Bonus Roll", "Prey rule permits this source")
+            local pass = harness.passButton:GetScript("OnClick")
+            pass(harness.passButton, "LeftButton", false)
+            assertEqual(harness.nativePasses, 0, "Prey Pass only hides")
+            harness.NS.RollController:ShowCurrent()
+            clickRoll(harness)
+            local staleCallback = harness.popup.callback
+            assertEqual(
+                harness.popup.acceptText,
+                "Use Bonus Roll",
+                "Prey rule permits this source"
+            )
 
-        harness.activePreyQuestID = nil
-        harness.events.PLAYER_LEAVING_WORLD("PLAYER_LEAVING_WORLD")
-        harness.now = harness.now + 16
-        harness.frame.endTime = harness.frame.endTime - 1
-        harness.startHook()
-        staleCallback()
-        assertEqual(harness.nativeRolls, 0, "source continuity cannot preserve authorization")
-        assertEqual(harness.popupShown, false, "redisplay cannot reopen confirmation")
-        assertContains(harness.NS.RollController:GetStatusText(), "Nightmare Prey", "source survives quest removal")
+            harness.activePreyQuestID = nil
+            harness.events.PLAYER_LEAVING_WORLD("PLAYER_LEAVING_WORLD")
+            harness.now = harness.now + 16
+            harness.frame.endTime = harness.frame.endTime - 1
+            harness.startHook()
+            staleCallback()
+            assertEqual(
+                harness.nativeRolls,
+                0,
+                "source continuity cannot preserve authorization"
+            )
+            assertEqual(
+                harness.popupShown,
+                false,
+                "redisplay cannot reopen confirmation"
+            )
+            assertContains(
+                harness.NS.RollController:GetStatusText(),
+                "Nightmare Prey",
+                "source survives quest removal"
+            )
 
-        clickRoll(harness)
-        assertEqual(harness.popup.acceptText, "Use Bonus Roll", "redisplay still uses the Prey rule")
-        acceptPopup(harness)
-        assertEqual(harness.nativeRolls, 1, "Prey still requires a fresh click and confirmation")
-        assertEqual(harness.nativePasses, 0, "no native Pass callback is invoked")
+            clickRoll(harness)
+            assertEqual(
+                harness.popup.acceptText,
+                "Use Bonus Roll",
+                "redisplay still uses the Prey rule"
+            )
+            acceptPopup(harness)
+            assertEqual(
+                harness.nativeRolls,
+                1,
+                "Prey still requires a fresh click and confirmation"
+            )
+            assertEqual(
+                harness.nativePasses,
+                0,
+                "no native Pass callback is invoked"
+            )
+        end
     end
-end)
+)
 
-test("an enabled Prey rule cannot authorize unrelated or unidentified sources", function()
-    local cases = {
-        { instanceID = 100, encounterID = 200, instanceType = "none", activePreyQuestID = 95023 },
-        { instanceID = 100, encounterID = 200, difficultyID = 172, instanceType = "none", activePreyQuestID = 95023 },
-        { instanceID = 0, encounterID = 0, instanceType = "raid", activePreyQuestID = 95023 },
-        { instanceID = 0, encounterID = 0, instanceType = "none" },
-        { instanceID = 0, encounterID = 0, difficultyID = 172, instanceType = "none" },
-        { instanceID = 0, encounterID = 0, difficultyID = 208, instanceType = "none", activePreyQuestID = 95023 },
-        { instanceID = 0, encounterID = 0, difficultyID = 8, instanceType = "none", activePreyQuestID = 95023 },
-    }
-    for _, options in ipairs(cases) do
-        options.unconfigured = true
-        options.worldRule = { specializationID = 1 }
-        local harness = buildHarness(options)
-        assertEqual(harness.frame.shown, false, "the Prey rule cannot show this source")
-        harness.NS.RollController:ShowCurrent()
-        clickRoll(harness)
-        assertEqual(harness.popup.acceptText, "Roll Anyway", "unconfigured-source warning is retained")
-        assertNotContains(harness.popup.text, "Nightmare Prey", "the confirmation keeps the real source")
-        cancelPopup(harness)
-        assertEqual(harness.nativeRolls, 0, "no roll without confirmation")
-        assertEqual(harness.nativePasses, 0, "no automatic decline")
+test(
+    "an enabled Prey rule cannot authorize unrelated or unidentified sources",
+    function()
+        local cases = {
+            {
+                instanceID = 100,
+                encounterID = 200,
+                instanceType = "none",
+                activePreyQuestID = 95023,
+            },
+            {
+                instanceID = 100,
+                encounterID = 200,
+                difficultyID = 172,
+                instanceType = "none",
+                activePreyQuestID = 95023,
+            },
+            {
+                instanceID = 0,
+                encounterID = 0,
+                instanceType = "raid",
+                activePreyQuestID = 95023,
+            },
+            { instanceID = 0, encounterID = 0, instanceType = "none" },
+            {
+                instanceID = 0,
+                encounterID = 0,
+                difficultyID = 172,
+                instanceType = "none",
+            },
+            {
+                instanceID = 0,
+                encounterID = 0,
+                difficultyID = 208,
+                instanceType = "none",
+                activePreyQuestID = 95023,
+            },
+            {
+                instanceID = 0,
+                encounterID = 0,
+                difficultyID = 8,
+                instanceType = "none",
+                activePreyQuestID = 95023,
+            },
+        }
+        for _, options in ipairs(cases) do
+            options.unconfigured = true
+            options.worldRule = { specializationID = 1 }
+            local harness = buildHarness(options)
+            assertEqual(
+                harness.frame.shown,
+                false,
+                "the Prey rule cannot show this source"
+            )
+            harness.NS.RollController:ShowCurrent()
+            clickRoll(harness)
+            assertEqual(
+                harness.popup.acceptText,
+                "Roll Anyway",
+                "unconfigured-source warning is retained"
+            )
+            assertNotContains(
+                harness.popup.text,
+                "Nightmare Prey",
+                "the confirmation keeps the real source"
+            )
+            cancelPopup(harness)
+            assertEqual(harness.nativeRolls, 0, "no roll without confirmation")
+            assertEqual(harness.nativePasses, 0, "no automatic decline")
+        end
     end
-end)
+)
 
 test("timeout disarms and prevents restoration", function()
     local harness = buildHarness({
@@ -937,7 +1079,11 @@ test("started roll suppresses expiration and records its result", function()
     )
 
     assertEqual(harness.nativeRolls, 1, "native Roll remains one shot")
-    assertEqual(#harness.messages, 0, "submitted roll does not report expiration")
+    assertEqual(
+        #harness.messages,
+        0,
+        "submitted roll does not report expiration"
+    )
 
     harness.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
 
@@ -1068,7 +1214,11 @@ test("wrong-spec sidecar changes only loot specialization", function()
     assertEqual(harness.lootSpecChanges, 1, "switch changes loot spec")
     assertEqual(harness.nativeRolls, 0, "switch never rolls")
     assertEqual(harness.nativePasses, 0, "switch never passes")
-    assertEqual(harness.switchPanel.shown, false, "correct-spec sidecar is hidden")
+    assertEqual(
+        harness.switchPanel.shown,
+        false,
+        "correct-spec sidecar is hidden"
+    )
 end)
 
 test("Current Spec rules use Blizzard's default loot-spec selection", function()
@@ -1078,11 +1228,19 @@ test("Current Spec rules use Blizzard's default loot-spec selection", function()
         raidRule = 0,
     })
 
-    assertEqual(harness.switchPanel.shown, true, "current-spec sidecar is visible")
+    assertEqual(
+        harness.switchPanel.shown,
+        true,
+        "current-spec sidecar is visible"
+    )
     harness.switchButton:GetScript("OnClick")(harness.switchButton)
 
     assertEqual(harness.lastLootSpecSelection, 0, "switch selects Current Spec")
-    assertEqual(harness.currentSpecID, 1, "Current Spec resolves to active spec")
+    assertEqual(
+        harness.currentSpecID,
+        1,
+        "Current Spec resolves to active spec"
+    )
     assertEqual(harness.nativeRolls, 0, "current-spec switch never rolls")
     assertEqual(harness.nativePasses, 0, "current-spec switch never passes")
 end)
@@ -1091,7 +1249,11 @@ test("wrong-spec confirmation requires Roll Anyway", function()
     local harness = buildHarness({ currentSpecID = 2, raidRule = 1 })
     clickRoll(harness)
 
-    assertEqual(harness.popup.acceptText, "Roll Anyway", "wrong-spec accept text")
+    assertEqual(
+        harness.popup.acceptText,
+        "Roll Anyway",
+        "wrong-spec accept text"
+    )
     assertContains(
         harness.popup.text,
         "Changing loot specialization now will change",
@@ -1134,30 +1296,49 @@ test("challenge start replaces and persists one atomic run", function()
     assertEqual(harness.nativeRolls, 0, "challenge start never rolls")
 end)
 
-test("incomplete challenge start retries without retaining an old run", function()
-    local harness = buildHarness({
-        challengeRun = {
-            mapID = 999,
-            level = 4,
-            startedAt = 900,
-        },
-    })
+test(
+    "incomplete challenge start retries without retaining an old run",
+    function()
+        local harness = buildHarness({
+            challengeRun = {
+                mapID = 999,
+                level = 4,
+                startedAt = 900,
+            },
+        })
 
-    harness.activeChallengeMapID = 0
-    harness.challengeLevel = 0
-    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+        harness.activeChallengeMapID = 0
+        harness.challengeLevel = 0
+        harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
 
-    assertEqual(harness.challengeRun.mapID, 300, "event map replaces old run")
-    assertEqual(harness.challengeRun.level, nil, "partial start stores no level")
-    assertEqual(harness.challengeRun.offer, nil, "partial start clears old offer")
+        assertEqual(
+            harness.challengeRun.mapID,
+            300,
+            "event map replaces old run"
+        )
+        assertEqual(
+            harness.challengeRun.level,
+            nil,
+            "partial start stores no level"
+        )
+        assertEqual(
+            harness.challengeRun.offer,
+            nil,
+            "partial start clears old offer"
+        )
 
-    harness.activeChallengeMapID = 300
-    harness.challengeLevel = 10
-    assertEqual(harness:RunNextTimer(), true, "start retry was scheduled")
-    assertEqual(harness.challengeRun.mapID, 300, "retry keeps event map")
-    assertEqual(harness.challengeRun.level, 10, "retry captures current level")
-    assertEqual(harness.nativeRolls, 0, "start retry never rolls")
-end)
+        harness.activeChallengeMapID = 300
+        harness.challengeLevel = 10
+        assertEqual(harness:RunNextTimer(), true, "start retry was scheduled")
+        assertEqual(harness.challengeRun.mapID, 300, "retry keeps event map")
+        assertEqual(
+            harness.challengeRun.level,
+            10,
+            "retry captures current level"
+        )
+        assertEqual(harness.nativeRolls, 0, "start retry never rolls")
+    end
+)
 
 test("new challenge start invalidates an older delayed retry", function()
     local harness = buildHarness()
@@ -1171,29 +1352,36 @@ test("new challenge start invalidates an older delayed retry", function()
     harness.challengeLevel = 10
     harness:RunNextTimer()
     assertEqual(harness.challengeRun.mapID, 301, "newest start remains owner")
-    assertEqual(harness.challengeRun.level, nil, "old retry cannot add its level")
-end)
-
-test("world transitions retain a persisted run when active data is absent", function()
-    local harness = buildHarness()
-
-    harness.activeChallengeMapID = 300
-    harness.challengeLevel = 10
-    harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
-    local startedAt = harness.challengeRun.startedAt
-
-    harness.activeChallengeMapID = 0
-    harness.challengeLevel = 0
-    harness.events.PLAYER_ENTERING_WORLD("PLAYER_ENTERING_WORLD")
-
-    assertEqual(harness.challengeRun.mapID, 300, "zone change retains map")
-    assertEqual(harness.challengeRun.level, 10, "zone change retains level")
     assertEqual(
-        harness.challengeRun.startedAt,
-        startedAt,
-        "zone change retains start provenance"
+        harness.challengeRun.level,
+        nil,
+        "old retry cannot add its level"
     )
 end)
+
+test(
+    "world transitions retain a persisted run when active data is absent",
+    function()
+        local harness = buildHarness()
+
+        harness.activeChallengeMapID = 300
+        harness.challengeLevel = 10
+        harness.events.CHALLENGE_MODE_START("CHALLENGE_MODE_START", 300)
+        local startedAt = harness.challengeRun.startedAt
+
+        harness.activeChallengeMapID = 0
+        harness.challengeLevel = 0
+        harness.events.PLAYER_ENTERING_WORLD("PLAYER_ENTERING_WORLD")
+
+        assertEqual(harness.challengeRun.mapID, 300, "zone change retains map")
+        assertEqual(harness.challengeRun.level, 10, "zone change retains level")
+        assertEqual(
+            harness.challengeRun.startedAt,
+            startedAt,
+            "zone change retains start provenance"
+        )
+    end
+)
 
 test("challenge completion refreshes the persisted run", function()
     local harness = buildHarness()
@@ -1263,7 +1451,11 @@ test("Mythic+ offer survives reload using its persisted run", function()
     clickRoll(reloaded)
     assertEqual(reloaded.nativeRolls, 0, "reload still requires confirmation")
     acceptPopup(reloaded)
-    assertEqual(reloaded.nativeRolls, 1, "confirmed reload can invoke native Roll")
+    assertEqual(
+        reloaded.nativeRolls,
+        1,
+        "confirmed reload can invoke native Roll"
+    )
 
     reloaded.events.BONUS_ROLL_STARTED("BONUS_ROLL_STARTED")
     assertEqual(reloaded.challengeRun, nil, "used offer clears persisted run")
@@ -1326,7 +1518,11 @@ test("incomplete completion data retries before recovering the run", function()
     assertEqual(harness:RunNextTimer(), true, "completion retry was scheduled")
     assertEqual(harness.challengeRun.mapID, 300, "retry recovers map")
     assertEqual(harness.challengeRun.level, 10, "retry recovers level")
-    assertEqual(harness.challengeRun.completedAt, 1000, "event time is retained")
+    assertEqual(
+        harness.challengeRun.completedAt,
+        1000,
+        "event time is retained"
+    )
 end)
 
 local function buildPendingDungeonOffer()
@@ -1342,44 +1538,70 @@ local function buildPendingDungeonOffer()
     })
 end
 
-test("late completion restores the prompt but never authorizes a roll", function()
-    local harness = buildPendingDungeonOffer()
-    assertEqual(harness.frame.shown, false, "missing key data hides offer")
+test(
+    "late completion restores the prompt but never authorizes a roll",
+    function()
+        local harness = buildPendingDungeonOffer()
+        assertEqual(harness.frame.shown, false, "missing key data hides offer")
 
-    harness.completionChallengeMapID = 300
-    harness.challengeLevel = 10
-    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+        harness.completionChallengeMapID = 300
+        harness.challengeLevel = 10
+        harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
 
-    assertEqual(harness.frame.shown, true, "completion restores eligible offer")
-    assertEqual(harness.popupShown, false, "recovery does not open confirmation")
-    assertEqual(harness.nativeRolls, 0, "recovery never rolls")
-    assertEqual(harness.nativePasses, 0, "recovery never passes")
-    assertContains(
-        harness.NS.RollController:GetStatusText(),
-        "+10 Test Dungeon is shown",
-        "restored offer uses the recovered key"
-    )
+        assertEqual(
+            harness.frame.shown,
+            true,
+            "completion restores eligible offer"
+        )
+        assertEqual(
+            harness.popupShown,
+            false,
+            "recovery does not open confirmation"
+        )
+        assertEqual(harness.nativeRolls, 0, "recovery never rolls")
+        assertEqual(harness.nativePasses, 0, "recovery never passes")
+        assertContains(
+            harness.NS.RollController:GetStatusText(),
+            "+10 Test Dungeon is shown",
+            "restored offer uses the recovered key"
+        )
 
-    clickRoll(harness)
-    assertEqual(harness.nativeRolls, 0, "Blizzard click still needs confirmation")
-    acceptPopup(harness)
-    assertEqual(harness.nativeRolls, 1, "confirmed user click can roll")
-end)
+        clickRoll(harness)
+        assertEqual(
+            harness.nativeRolls,
+            0,
+            "Blizzard click still needs confirmation"
+        )
+        acceptPopup(harness)
+        assertEqual(harness.nativeRolls, 1, "confirmed user click can roll")
+    end
+)
 
-test("completion retry restores an offer hidden before its data arrived", function()
-    local harness = buildPendingDungeonOffer()
-    harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
-    assertEqual(harness.frame.shown, false, "incomplete completion stays hidden")
+test(
+    "completion retry restores an offer hidden before its data arrived",
+    function()
+        local harness = buildPendingDungeonOffer()
+        harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
+        assertEqual(
+            harness.frame.shown,
+            false,
+            "incomplete completion stays hidden"
+        )
 
-    harness.completionChallengeMapID = 300
-    harness.challengeLevel = 10
-    assertEqual(harness:RunNextTimer(), true, "completion retry runs")
+        harness.completionChallengeMapID = 300
+        harness.challengeLevel = 10
+        assertEqual(harness:RunNextTimer(), true, "completion retry runs")
 
-    assertEqual(harness.frame.shown, true, "retry restores eligible offer")
-    assertEqual(harness.popupShown, false, "retry does not open confirmation")
-    assertEqual(harness.nativeRolls, 0, "retry never rolls")
-    assertEqual(harness.nativePasses, 0, "retry never passes")
-end)
+        assertEqual(harness.frame.shown, true, "retry restores eligible offer")
+        assertEqual(
+            harness.popupShown,
+            false,
+            "retry does not open confirmation"
+        )
+        assertEqual(harness.nativeRolls, 0, "retry never rolls")
+        assertEqual(harness.nativePasses, 0, "retry never passes")
+    end
+)
 
 test("late completion respects No and command hides", function()
     for _, action in ipairs({ "No", "command" }) do
@@ -1397,7 +1619,11 @@ test("late completion respects No and command hides", function()
         harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
 
         assertEqual(harness.frame.shown, false, action .. " keeps offer hidden")
-        assertEqual(harness.popupShown, false, action .. " never opens confirmation")
+        assertEqual(
+            harness.popupShown,
+            false,
+            action .. " never opens confirmation"
+        )
         assertEqual(harness.nativeRolls, 0, action .. " never rolls")
         assertEqual(harness.nativePasses, 0, action .. " never passes")
     end
@@ -1420,40 +1646,47 @@ test("late completion cannot restore expired or filtered offers", function()
         harness.events.CHALLENGE_MODE_COMPLETED("CHALLENGE_MODE_COMPLETED")
 
         assertEqual(harness.frame.shown, false, condition .. " stays hidden")
-        assertEqual(harness.popupShown, false, condition .. " never opens confirmation")
+        assertEqual(
+            harness.popupShown,
+            false,
+            condition .. " never opens confirmation"
+        )
         assertEqual(harness.nativeRolls, 0, condition .. " never rolls")
         assertEqual(harness.nativePasses, 0, condition .. " never passes")
     end
 end)
 
-test("fresh completed challenge run identifies the cleared active map", function()
-    local harness = buildHarness({
-        activeChallengeMapID = 0,
-        completionChallengeMapID = 0,
-        challengeLevel = 10,
-        difficultyID = 8,
-        challengeRun = {
-            mapID = 300,
-            level = 10,
-            startedAt = 900,
-            completedAt = 999,
-            gameMapID = 900,
-            journalInstanceID = 100,
-        },
-        dungeonRule = {
-            specializationID = 1,
-            minimumDifficulty = 12,
-        },
-    })
+test(
+    "fresh completed challenge run identifies the cleared active map",
+    function()
+        local harness = buildHarness({
+            activeChallengeMapID = 0,
+            completionChallengeMapID = 0,
+            challengeLevel = 10,
+            difficultyID = 8,
+            challengeRun = {
+                mapID = 300,
+                level = 10,
+                startedAt = 900,
+                completedAt = 999,
+                gameMapID = 900,
+                journalInstanceID = 100,
+            },
+            dungeonRule = {
+                specializationID = 1,
+                minimumDifficulty = 12,
+            },
+        })
 
-    assertEqual(harness.frame.shown, true, "fresh completion shows offer")
-    assertEqual(
-        harness.challengeRun.offer.spellID,
-        harness.frame.spellID,
-        "fresh completion binds exact offer"
-    )
-    assertEqual(harness.nativeRolls, 0, "fresh completion never rolls")
-end)
+        assertEqual(harness.frame.shown, true, "fresh completion shows offer")
+        assertEqual(
+            harness.challengeRun.offer.spellID,
+            harness.frame.spellID,
+            "fresh completion binds exact offer"
+        )
+        assertEqual(harness.nativeRolls, 0, "fresh completion never rolls")
+    end
+)
 
 test("stale unbound challenge run cannot identify an offer", function()
     local harness = buildHarness({
@@ -1487,9 +1720,17 @@ test("unconfigured offer hides but can be manually confirmed", function()
     assertEqual(harness.frame.shown, false, "unconfigured offer auto-hides")
     assertEqual(harness.nativePasses, 0, "auto-hide never passes")
 
-    assertEqual(harness.NS.RollController:ShowCurrent(), true, "manual restore works")
+    assertEqual(
+        harness.NS.RollController:ShowCurrent(),
+        true,
+        "manual restore works"
+    )
     clickRoll(harness)
-    assertEqual(harness.popup.acceptText, "Roll Anyway", "violation is explicit")
+    assertEqual(
+        harness.popup.acceptText,
+        "Roll Anyway",
+        "violation is explicit"
+    )
     acceptPopup(harness)
     assertEqual(harness.nativeRolls, 1, "manual restore still needs two clicks")
 end)

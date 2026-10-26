@@ -1,8 +1,11 @@
 std = "wow"
 exclude = [
+    # Upstream/vendor libraries retain their own policy.
     "Libs/LibStub/**",
     "Libs/LibDBIcon-1.0/**",
-    # Pinned maintained libraries are checked from their own repository roots.
+    # Current maintained-library pins are temporarily deferred; see AGENTS.md.
+    # After adopting linted releases, run Selene from each library's root.
+    # These exclusions then only separate library globals from the addon config.
     "Libs/LibModernSettings-1.0/**",
     "Libs/LibSimpleDB/**",
     "Libs/LibChangelog-1.0/**",
