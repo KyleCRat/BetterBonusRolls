@@ -17,6 +17,7 @@ local passButtonOnClick
 local armedToken
 local currentOffer
 local resultCandidate
+local hiddenReminder
 local generation = 0
 local bonusRollActivated = true
 local timedOutSpellID
@@ -37,6 +38,7 @@ local PERSISTED_OFFER_EXPIRY_GRACE = 5
 local OFFER_REISSUE_TIME_TOLERANCE = 1
 local CHALLENGE_RUN_MAX_AGE = 60 * 60
 local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
+local HIDDEN_REMINDER_DELAYS = { 5, 10 }
 local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local delveState = {}
 local delveWorldTransition = false
@@ -1182,6 +1184,50 @@ local function refreshSwitchPanel(resolved)
     NS.LootSidecar:Refresh(resolved, lootAnchor)
 end
 
+local function cancelHiddenReminders()
+    local reminder = hiddenReminder
+    hiddenReminder = nil
+    if not reminder then return end
+
+    for index = 1, #reminder.timers do
+        reminder.timers[index]:Cancel()
+    end
+end
+
+local function announceHiddenOffer(message)
+    cancelHiddenReminders()
+    NS:Print(message)
+
+    local reminder = { offer = currentOffer, timers = {} }
+    hiddenReminder = reminder
+    for index = 1, #HIDDEN_REMINDER_DELAYS do
+        local isLastReminder = index == #HIDDEN_REMINDER_DELAYS
+        reminder.timers[index] = C_Timer.NewTimer(
+            HIDDEN_REMINDER_DELAYS[index],
+            function()
+                if hiddenReminder ~= reminder then return end
+
+                -- A reminder belongs to one hide, not just a reusable spell ID.
+                -- Revalidate before printing; callbacks never alter visibility.
+                if
+                    not runtimeEnabled
+                    or currentOffer ~= reminder.offer
+                    or not currentOffer.hidden
+                    or currentOffer.rollState
+                    or not isRawOfferActive(currentOffer.raw)
+                    or frame:IsShown()
+                then
+                    cancelHiddenReminders()
+                    return
+                end
+
+                NS:Print(message)
+                if isLastReminder then cancelHiddenReminders() end
+            end
+        )
+    end
+end
+
 local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
     if not currentOffer or not isRawOfferActive(currentOffer.raw) then
         return false
@@ -1205,12 +1251,12 @@ local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
         GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
     end
 
-    NS:Print(
+    announceHiddenOffer(
         "Bonus roll hidden for "
             .. sourceName
             .. ": "
             .. reason
-            .. ". Use /bbr show to view it again while the offer is active."
+            .. ". Use |cffffff00/bbr show|r to view it again while the offer is active."
     )
     return true
 end
@@ -1659,6 +1705,7 @@ function Controller:OnOfferStarted()
 
     local raw = captureRawOffer()
     if not raw then
+        cancelHiddenReminders()
         NS.LootReconciliation:Cancel()
         if runtimeEnabled and frame and frame:IsShown() then
             unsafeHidden = true
@@ -1767,6 +1814,7 @@ function Controller:OnOfferStarted()
             "previousDifficultyID",
             currentOffer and currentOffer.raw.difficultyID
         )
+        cancelHiddenReminders()
         NS.LootReconciliation:Cancel()
         disarm(true, false)
         resultCandidate = nil
@@ -1878,6 +1926,7 @@ function Controller:SetEnabled(enabled)
         )
 
     runtimeEnabled = false
+    cancelHiddenReminders()
     NS.LootReconciliation:Cancel()
     resultCandidate = nil
     disarm(true, false)
@@ -1929,6 +1978,7 @@ function Controller:ShowCurrent()
         NS:Print("No active bonus roll can be shown.")
         return false
     end
+    cancelHiddenReminders()
     currentOffer.hiddenForMissingChallenge = false
     if frame:IsShown() then
         NS:Print("The bonus roll is already showing.")
@@ -2172,6 +2222,7 @@ local function handleTimeout(_, spellID, confirmationType)
 
     if timedOutSpellID == spellID then return end
     timedOutSpellID = spellID
+    cancelHiddenReminders()
     NS.LootReconciliation:Cancel()
     clearChallengeRunForOffer(currentOffer.raw)
     currentOffer.expired = true
@@ -2194,6 +2245,7 @@ local function handleTimeout(_, spellID, confirmationType)
 end
 
 local function handleBonusRollStarted()
+    cancelHiddenReminders()
     NS.LootReconciliation:Cancel()
     if
         resultCandidate
@@ -2213,6 +2265,7 @@ local function handleBonusRollStarted()
 end
 
 local function handleBonusRollFailed()
+    cancelHiddenReminders()
     NS.LootReconciliation:Cancel()
     resultCandidate = nil
     if currentOffer then

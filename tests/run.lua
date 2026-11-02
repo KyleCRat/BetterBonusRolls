@@ -336,6 +336,7 @@ local function buildHarness(options)
         NewTimer = function(delay, callback)
             local timer = {
                 delay = delay,
+                dueTime = harness.now + delay,
                 callback = callback,
                 cancelled = false,
             }
@@ -354,10 +355,20 @@ local function buildHarness(options)
 
     function harness:RunNextTimer()
         while #self.timers > 0 do
-            local timer = table.remove(self.timers, 1)
+            -- Independent retries and reminders run by deadline, not insertion.
+            local nextIndex = 1
+            for index = 2, #self.timers do
+                if
+                    self.timers[index].dueTime
+                    < self.timers[nextIndex].dueTime
+                then
+                    nextIndex = index
+                end
+            end
+            local timer = table.remove(self.timers, nextIndex)
 
             if not timer.cancelled then
-                self.now = self.now + timer.delay
+                self.now = math.max(self.now, timer.dueTime)
                 timer.callback()
                 return true
             end
@@ -878,7 +889,7 @@ test("No hides without invoking native Pass", function()
     assertEqual(harness.frame.shown, false, "offer is hidden")
     assertContains(
         harness.messages[#harness.messages],
-        "Use /bbr show",
+        "Use |cffffff00/bbr show|r",
         "hide message includes recovery"
     )
 end)

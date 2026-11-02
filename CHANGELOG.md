@@ -10,6 +10,9 @@
 
 ### Changed
 
+- Hidden bonus-roll reminders now appear immediately and repeat after 5 and
+  10 seconds while the offer remains active and hidden, with `/bbr show`
+  highlighted in yellow to stand out after loot-message spam.
 - Raid and Lair settings pages now open every difficulty with an enabled boss.
   If none are enabled, only the top difficulty opens. Manual expansion and
   collapse remain available while viewing the page.
