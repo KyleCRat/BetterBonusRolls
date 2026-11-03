@@ -23,7 +23,7 @@ While BetterBonusRolls is enabled:
 - If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
 - A checklist beside the offer shows its bonus-rollable items and which ones you have obtained.
 - Clicking Blizzard's **No** button hides the offer without declining it. It stays hidden through Blizzard's periodic refreshes and zone redisplays.
-- Hidden-offer reminders print immediately, then after 5 and 10 seconds while the offer remains active and hidden. Use `/bbr show` to restore it; showing the offer stops the remaining reminders.
+- Hidden-offer reminders print immediately, then after 5 and 10 seconds while the offer remains active and hidden. The `/bbr show` command is highlighted in yellow; use it to restore the offer and stop the remaining reminders.
 - When a bonus roll awards a tracked item, its matching entry is automatically marked **Obtained** for that source, difficulty, and loot specialization.
 - Once the server offer expires, it can no longer be restored.
 
@@ -47,6 +47,8 @@ You can also mark items manually. **Confirmed Obtained** tooltips identify items
 | Current Season Dungeons | Choose each dungeon, its minimum Mythic+ key level from `+2` through `+10`, and loot specialization. New rules default to `+10`, which also includes higher keys. Normal, Heroic, and Mythic 0 are not selectable. |
 | Bountiful Delves | Use one rule for all Bountiful Delves with a minimum Tier 1-11 and loot specialization. |
 | Outdoor Content | Configure current-season World Bosses individually and Nightmare Prey separately. |
+
+Raid and Lair settings pages open every difficulty with an enabled boss. If none are enabled, only the top difficulty opens. You can still expand or collapse difficulties manually.
 
 Bonus-rollable item lists are available for raids, Lairs, current-season dungeons, and individual World Bosses. These include equipment and specialization-specific tier tokens. Item tracking is not currently available for Bountiful Delves or Nightmare Prey.
 

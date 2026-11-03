@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [12.1.5-7] - 2026-11-02
+
 ### Added
 
 - In-game update highlights and full notes through the Changelog settings page
@@ -27,7 +29,3 @@
   `/bbr show` to restore a hidden offer while it is still active.
 - Delve minimum-tier rules now recognize the tier shown in the active Delve
   when Blizzard's tier API returns zero, retaining it through completion.
-
-## [12.1.5-5] - 2026-10-06
-
-- Updated for WoW 12.1.5.

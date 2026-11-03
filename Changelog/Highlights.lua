@@ -1,11 +1,14 @@
 local _, NS = ...
 
 NS.ChangelogHighlights = {
-    Unreleased = {
+    ["12.1.5-7"] = {
+        {
+            title = "Hidden-offer reminders are easier to see",
+            body = "Reminders print immediately and again after 5 and 10 seconds while the offer stays active and hidden. The /bbr show command is highlighted in yellow; showing the offer stops the remaining reminders.",
+        },
         {
             title = "Your enabled raid difficulties open first",
             body = "Raid and Lair settings open every difficulty with an enabled boss. With none enabled, only the top difficulty opens. You can still expand or collapse groups while viewing the page.",
-            emphasis = "requested",
             controls = {
                 {
                     type = "button",
