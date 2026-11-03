@@ -2,7 +2,9 @@
 
 - Target only Mainline WoW Interface `120105` and Lua 5.1.
 - Verify uncertain APIs against the local BlizzardInterfaceCode export matching the target client build.
-- Keep all persisted settings character-specific in `BetterBonusRollsDB` through LibSimpleDB.
+- Keep gameplay settings and loot history character-specific in
+  `BetterBonusRollsDB`. Changelog preferences and read status are account-wide
+  in `BetterBonusRollsAccountDB`. Access both through LibSimpleDB.
 - Keep LibModernSettings, LibSimpleDB, and LibChangelog pinned git submodules;
   embed LibStub locally. Align submodule commits with released `.pkgmeta` tags.
 - LibChangelog 1.0.1 requires LibModernSettings 1.10.0 or newer. Keep LMS at
@@ -26,8 +28,10 @@
 
 - `Changelog/Changelog.lua` registers after database initialization, independently
   of bonus-roll filtering. Store `autoShow` and `acknowledgedVersion` through
-  `NS.DB` under `changelog`; BBR intentionally uses character-specific storage
-  rather than the library's suggested account-wide namespace.
+  `NS.AccountDB` under `changelog` so acknowledging a release clears its NEW tag
+  and login notice for every character on the account. Both database instances
+  are initialized by Core before module initializers run. The account-wide
+  changelog starts fresh; do not import the unreleased character-specific state.
 - LibChangelog owns the shared `/changelog` command, notification timing and
   acknowledgement. Do not add another popup queue or copy its UI. Highlight
   actions may navigate to existing settings; they must not roll or decline.

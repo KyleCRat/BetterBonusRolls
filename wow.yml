@@ -7,6 +7,8 @@ globals:
       - type: any
       - type: string
         required: false
+  BetterBonusRollsAccountDB:
+    any: true
   BetterBonusRollsDB:
     any: true
   BetterBonusRolls_OnAddonCompartmentClick:

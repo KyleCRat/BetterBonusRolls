@@ -5,8 +5,9 @@
 ### Added
 
 - In-game update highlights and full notes through the Changelog settings page
-  and shared `/changelog` window. New-release notices can be disabled, with
-  notification preferences and read status saved per character.
+  and shared `/changelog` window. New-release notices can be disabled.
+  Notification preferences and read status are shared across your account,
+  so each release only needs to be acknowledged once across your characters.
 
 ### Changed
 

@@ -56,9 +56,10 @@ Open **Changelog** in settings to read update highlights and full notes. Use
 `/changelog` to browse updates from all addons using the shared changelog window.
 On the Changelog page, turn off **Show changelog for BetterBonusRolls on login**
 to disable automatic new-release notices; manual browsing remains available.
-The preference and read status are saved per character, independently of whether
-bonus-roll filtering is enabled. Unreleased previews are available manually and
-never trigger automatic notices.
+The preference and read status are shared across your account, independently of
+whether bonus-roll filtering is enabled. Acknowledging a release on one character
+clears its **NEW** tag and login notice for your other characters. Unreleased
+previews are available manually and never trigger automatic notices.
 
 | Command | Aliases | Action |
 | --- | --- | --- |

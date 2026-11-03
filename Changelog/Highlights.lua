@@ -23,7 +23,7 @@ NS.ChangelogHighlights = {
         },
         {
             title = "Read update notes in game",
-            body = "Browse highlights and full notes on the Changelog settings page, or use /changelog to see updates from all supported addons. Automatic update notices and read status are saved separately for each BBR character.",
+            body = "Browse highlights and full notes on the Changelog settings page, or use /changelog to see updates from all supported addons. Notification preferences and read status are shared across your account, so each release only needs to be acknowledged once across your characters.",
         },
     },
 }

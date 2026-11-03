@@ -38,9 +38,6 @@ local DEFAULTS = {
     schema = CURRENT_SCHEMA,
     enabled = false,
     developmentMode = false,
-    changelog = {
-        autoShow = true,
-    },
     minimap = {
         hide = false,
         minimapPos = 225,
@@ -52,6 +49,12 @@ local DEFAULTS = {
         raid = {},
         dungeon = {},
         worldBoss = {},
+    },
+}
+
+local ACCOUNT_DEFAULTS = {
+    changelog = {
+        autoShow = true,
     },
 }
 
@@ -414,6 +417,14 @@ local function initializeDatabase()
     normalizeDatabase(data)
 
     NS.DB = LibStub("LibSimpleDB-2.0"):New(data, DEFAULTS)
+
+    local accountData = _G.BetterBonusRollsAccountDB
+    if type(accountData) ~= "table" then
+        accountData = {}
+        _G.BetterBonusRollsAccountDB = accountData
+    end
+
+    NS.AccountDB = LibStub("LibSimpleDB-2.0"):New(accountData, ACCOUNT_DEFAULTS)
 end
 
 local function initializeAddon()

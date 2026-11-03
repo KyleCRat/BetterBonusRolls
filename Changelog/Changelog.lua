@@ -16,14 +16,14 @@ NS:RegisterInitializer(function()
     Changelog.controller = LibStub("LibChangelog-1.0"):Register(addonName, {
         displayName = NS.displayName,
         release = release,
-        -- BBR intentionally keeps all settings and read status per character.
+        -- Changelog preferences and read status are shared across characters.
         -- Registration is independent of bonus-roll filtering being enabled.
         storage = {
             get = function(key)
-                return NS.DB:Get("changelog", key)
+                return NS.AccountDB:Get("changelog", key)
             end,
             set = function(key, value)
-                NS.DB:Set("changelog", key, value)
+                NS.AccountDB:Set("changelog", key, value)
             end,
         },
     })
