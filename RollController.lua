@@ -38,7 +38,8 @@ local PERSISTED_OFFER_EXPIRY_GRACE = 5
 local OFFER_REISSUE_TIME_TOLERANCE = 1
 local CHALLENGE_RUN_MAX_AGE = 60 * 60
 local CHALLENGE_RETRY_DELAYS = { 0.1, 0.25, 0.5, 1, 2 }
-local HIDDEN_REMINDER_DELAYS = { 5, 10 }
+local HIDDEN_REMINDER_INTERVAL = 10
+local HIDDEN_REMINDER_REPEATS = 2
 local UNKNOWN_SPEC_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local delveState = {}
 local delveWorldTransition = false
@@ -1189,43 +1190,55 @@ local function cancelHiddenReminders()
     hiddenReminder = nil
     if not reminder then return end
 
-    for index = 1, #reminder.timers do
-        reminder.timers[index]:Cancel()
-    end
+    if reminder.timer then reminder.timer:Cancel() end
+end
+
+local function scheduleHiddenReminder(reminder)
+    -- Schedule from the last printed message so delayed callbacks cannot
+    -- deliver both repeats together after a client stall.
+    reminder.timer = C_Timer.NewTimer(HIDDEN_REMINDER_INTERVAL, function()
+        if hiddenReminder ~= reminder then return end
+        reminder.timer = nil
+
+        -- A reminder belongs to one hide, not just a reusable spell ID.
+        -- Revalidate before printing; callbacks never alter visibility.
+        if
+            not runtimeEnabled
+            or currentOffer ~= reminder.offer
+            or not currentOffer.hidden
+            or currentOffer.rollState
+            or not isRawOfferActive(currentOffer.raw)
+            or frame:IsShown()
+        then
+            cancelHiddenReminders()
+            return
+        end
+
+        NS:Print(reminder.message)
+        reminder.remaining = reminder.remaining - 1
+        if reminder.remaining > 0 then
+            scheduleHiddenReminder(reminder)
+        else
+            cancelHiddenReminders()
+        end
+    end)
 end
 
 local function announceHiddenOffer(message)
     cancelHiddenReminders()
     NS:Print(message)
 
-    local reminder = { offer = currentOffer, timers = {} }
+    -- Showing the offer cancels pending repeats without allowing another set.
+    if currentOffer.hiddenRemindersStarted then return end
+    currentOffer.hiddenRemindersStarted = true
+
+    local reminder = {
+        offer = currentOffer,
+        message = message,
+        remaining = HIDDEN_REMINDER_REPEATS,
+    }
     hiddenReminder = reminder
-    for index = 1, #HIDDEN_REMINDER_DELAYS do
-        local isLastReminder = index == #HIDDEN_REMINDER_DELAYS
-        reminder.timers[index] = C_Timer.NewTimer(
-            HIDDEN_REMINDER_DELAYS[index],
-            function()
-                if hiddenReminder ~= reminder then return end
-
-                -- A reminder belongs to one hide, not just a reusable spell ID.
-                -- Revalidate before printing; callbacks never alter visibility.
-                if
-                    not runtimeEnabled
-                    or currentOffer ~= reminder.offer
-                    or not currentOffer.hidden
-                    or currentOffer.rollState
-                    or not isRawOfferActive(currentOffer.raw)
-                    or frame:IsShown()
-                then
-                    cancelHiddenReminders()
-                    return
-                end
-
-                NS:Print(message)
-                if isLastReminder then cancelHiddenReminders() end
-            end
-        )
-    end
+    scheduleHiddenReminder(reminder)
 end
 
 local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
@@ -1238,6 +1251,7 @@ local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
 
     resolved = resolved or resolveOffer(currentOffer.raw)
     local sourceName = resolved and resolved.sourceName or "unknown source"
+    local alreadyHidden = currentOffer.hidden
     currentOffer.hidden = true
     -- Only automatic filtering may reopen an offer after its key data arrives.
     -- No and /bbr hide omit this opt-in and clear any pending recovery.
@@ -1251,13 +1265,15 @@ local function hideCurrentOffer(reason, resolved, allowChallengeRecovery)
         GroupLootContainer_RemoveFrame(GroupLootContainer, frame)
     end
 
-    announceHiddenOffer(
-        "Bonus roll hidden for "
-            .. sourceName
-            .. ": "
-            .. reason
-            .. ". Use |cffffff00/bbr show|r to view it again while the offer is active."
-    )
+    if not alreadyHidden then
+        announceHiddenOffer(
+            "Bonus roll hidden for "
+                .. sourceName
+                .. ": "
+                .. reason
+                .. ". Use |cffffff00/bbr show|r to view it again while the offer is active."
+        )
+    end
     return true
 end
 
@@ -1739,6 +1755,7 @@ function Controller:OnOfferStarted()
         local tooltipSpecCaptured = false
         local tooltipOriginalEndTime = raw.endTime
         local hidden = false
+        local hiddenRemindersStarted = false
         local hiddenForMissingChallenge = false
         local delveTier
         local now = getPublicTimestamp()
@@ -1768,6 +1785,7 @@ function Controller:OnOfferStarted()
                     <= OFFER_REISSUE_TIME_TOLERANCE
             then
                 hidden = currentOffer.hidden
+                hiddenRemindersStarted = currentOffer.hiddenRemindersStarted
                 hiddenForMissingChallenge =
                     currentOffer.hiddenForMissingChallenge
                 delveTier = currentOffer.delveTier
@@ -1827,6 +1845,7 @@ function Controller:OnOfferStarted()
             generation = generation,
             raw = raw,
             hidden = hidden,
+            hiddenRemindersStarted = hiddenRemindersStarted,
             hiddenForMissingChallenge = hiddenForMissingChallenge,
             expired = false,
             delveTier = delveTier,

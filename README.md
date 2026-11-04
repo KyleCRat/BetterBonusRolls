@@ -23,7 +23,7 @@ While BetterBonusRolls is enabled:
 - If you remain in the wrong loot specialization, the confirmation warns you before offering **Roll Anyway**.
 - A checklist beside the offer shows its bonus-rollable items and which ones you have obtained.
 - Clicking Blizzard's **No** button hides the offer without declining it. It stays hidden through Blizzard's periodic refreshes and zone redisplays.
-- Hidden-offer reminders print immediately, then after 5 and 10 seconds while the offer remains active and hidden. The `/bbr show` command is highlighted in yellow; use it to restore the offer and stop the remaining reminders.
+- Each bonus roll's first hide prints a reminder immediately, then repeats after about 10 and 20 seconds while the offer remains active and hidden. The `/bbr show` command is highlighted in yellow; use it to restore the offer and stop the remaining reminders. Hiding the same roll again prints only the immediate message.
 - When a bonus roll awards a tracked item, its matching entry is automatically marked **Obtained** for that source, difficulty, and loot specialization.
 - Once the server offer expires, it can no longer be restored.
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Hidden-offer reminders now wait ten seconds between messages, even after
+  client delays. Each roll gets only one pair of repeats; showing and hiding
+  it again prints only the immediate message.
+
 ## [12.1.5-7] - 2026-11-02
 
 ### Added
