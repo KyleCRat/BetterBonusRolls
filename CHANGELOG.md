@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [12.1.5-8] - 2026-11-04
+
 ### Fixed
 
 - Hidden-offer reminders now wait ten seconds between messages, even after
@@ -25,13 +27,3 @@
 - Raid and Lair settings pages now open every difficulty with an enabled boss.
   If none are enabled, only the top difficulty opens. Manual expansion and
   collapse remain available while viewing the page.
-
-## [12.1.5-6] - 2026-10-18
-
-### Fixed
-
-- Bonus-roll offers hidden by Pass, `/bbr hide`, or filtering now stay hidden
-  through Blizzard's periodic refresh and same-offer zone redisplays. Use
-  `/bbr show` to restore a hidden offer while it is still active.
-- Delve minimum-tier rules now recognize the tier shown in the active Delve
-  when Blizzard's tier API returns zero, retaining it through completion.

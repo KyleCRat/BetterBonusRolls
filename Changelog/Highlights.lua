@@ -1,6 +1,12 @@
 local _, NS = ...
 
 NS.ChangelogHighlights = {
+    ["12.1.5-8"] = {
+        {
+            title = "Hidden-offer reminders repeat less often",
+            body = "Reminders print immediately, then after about 10 and 20 seconds while the offer stays active and hidden. Each roll gets only one pair of repeats. Using /bbr show cancels pending repeats; hiding that roll again prints only the immediate message.",
+        },
+    },
     ["12.1.5-7"] = {
         {
             title = "Hidden-offer reminders are easier to see",
